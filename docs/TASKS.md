@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T1 已 Review 通过并合并 master；下一单待定，建议 T4 评测深化）
+> **当前持棒：Zcode**（T4 评测深化进行中；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -158,15 +158,21 @@
 
 ## P2 评测深化（简历第一亮点）
 
-### T4 评测指标深化：Recall@k + 忠实度
-- **目标**：`run_evals.py` 在现有关键词命中基础上，增加 Recall@k 和忠实度量化。
-- **允许改**：`evals/run_evals.py`、`evals/cases.json`（加标注字段）
+### T4 评测指标深化：Recall@k + 忠实度 + 重建基线　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：评测引擎从"关键词命中"升级为量化 RAG 质量（Recall@k / 忠实度 / 拒答准确率），并在 T1 的 75 篇语料上重建基线。这是 P2 简历第一亮点。
+- **允许改**：`evals/run_evals.py`、`evals/cases.json`、`evals/faithfulness.py`（新，可选）、`docs/EVAL_BASELINE.md`（新）、`reports/`（生成物）
+- **禁改**：`novaagent/**`、`corpus/**`。**关键前提**：`/api/chat` 已返回 `sources[]`，每条含 `ref/title/role_min/content`（见 `agent.py` chat_for）——**忠实度所需上下文已在响应里，无需改 novaagent**。若你发现确需改 novaagent，先在回执提出、勿擅动。
+- **前置必修（P0）**：`run_evals.py` 第 137–138 行 print `✅/❌`，在 GBK 控制台会 `UnicodeEncodeError` 崩溃（同 T2 bug）。修：开头加 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`（try 容错）+ `✅/❌`→`[PASS]/[FAIL]`。**必须 `chcp 936`/`PYTHONIOENCODING=gbk` 实测 exit 0**。
 - **完成标准**：
-  - [ ] 每条 qa 用例标注应命中的文档 / chunk，计算 Recall@k
-  - [ ] 忠实度：答案是否有据（规则或 LLM-as-judge），给 0~1 分
-  - [ ] 报告 summary 增加 `recall_at_k` / `faithfulness` 聚合指标
-  - [ ] 目标基线记录进 docs（忠实度 ≥0.85、拒答准确率 ≥90%）
-- **依赖**：建议在 T1 之后（语料越丰富，Recall@k 越有意义）
+  - [ ] **P0 GBK 修复**：`PYTHONIOENCODING=gbk python evals/run_evals.py` 不崩、exit 0
+  - [ ] **Recall@k**：`cases.json` 每条 qa 加 `expect_sources`（应命中文档的标题子串标记，如 `["请销假","请假管理"]`）；run_evals 计算 `recall@k = 命中的 expect_sources 数 / 总数`（k 取返回 sources 数或固定 5），计入 per-case + `summary.recall_at_k_avg`
+  - [ ] **忠实度**：LLM-as-judge——用 `answer` + 上下文（`sources[].content` 拼接）判"答案每个事实性陈述是否被上下文支持"，给 0~1；复用 agent 的 LLM 配置（`config.LLM_MODEL`/`llm.chat`）；LLM 不可用时用词面覆盖率 proxy 兜底并标 `method=proxy`；计入 `summary.faithfulness_avg`。refusal 用例忠实度记 N/A（正确拒答不扣分）
+  - [ ] **重建基线（75 篇语料）**：跑通全部用例，**旧 21 条不回归**（若回归，跑 `extract_badcases.py` 记录进 bad case 档案）
+  - [ ] **新增 ≥5 条真实校本语料用例**（总 ≥26 条）：如"本科生离校请假手续"(expect 请销假办法)、"国家助学贷款申请条件"(expect 助学贷款实施办法)、"宿舍矛盾怎么谈心"(affairs, counselor)、"研究生奖助学金评审"(expect 奖助学金办法族)，每条带 `expect_keywords` + `expect_sources`
+  - [ ] **summary 增三项指标**：`recall_at_k_avg` / `faithfulness_avg` / `refusal_accuracy`；基线实测值 + 目标（忠实度 ≥0.85、拒答 ≥90%、Recall@k ≥0.8 冲刺）写入 `docs/EVAL_BASELINE.md`
+  - [ ] 报告落 `reports/`；末尾跑 `python evals/extract_badcases.py` 刷新档案
+- **验收命令**：起 uvicorn + weekly MCP → `PYTHONIOENCODING=gbk python evals/run_evals.py`（确认不崩 + 三项指标出现在 summary）→ `python evals/extract_badcases.py`
+- **依赖**：T1（已完成，75 篇在库）
 
 ### T5 评测看板
 - **目标**：聚合 `reports/` 多次评测结果，产出可视化看板（优化前后对比）。
