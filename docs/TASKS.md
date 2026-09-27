@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T8+T9 已回填交接回执，待 Review）
+> **当前持棒：Qoder**（T8+T9 已 Review 通过并合并 master；下一单：qa-08 检索相关性根治）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -295,7 +295,7 @@
 
 **检索层现状**：向量余弦 + FTS5(trigram,bm25) 混合 RRF + rerank；FTS 不可用优雅回退 2-gram。技术债 T6 关闭。
 
-### T8+T9 产品完整度包：流式输出 SSE + 会话持久化（合包）　🟣 IN_REVIEW（已回填交接回执，持棒：Qoder）
+### T8+T9 产品完整度包：流式输出 SSE + 会话持久化（合包）　✅ DONE（已合并 master）
 - **目标**：让 demo 有"真产品"质感：① 聊天流式逐字输出（SSE）；② 会话历史持久化（刷新/重登仍在）。均不依赖 docker。
 - **允许改**：`novaagent/llm.py`、`novaagent/agent.py`、`novaagent/main.py`、`novaagent/db.py`、`novaagent/web/index.html`、`docs/TASKS.md`(回执)
 - **禁改**：`corpus/**`、`mcp/**`、`sims/**`、`evals/cases.json`；**`/api/chat` 非流式接口必须保持原行为**（`run_evals` 依赖它）
@@ -317,6 +317,16 @@
 - **完成标准逐条自评**：4/4 ✅（T8 流式全链路 / T9 持久化+隔离 / 兼容红线 / 水墨令牌+克制光标）
 - **遗留问题**：① UI 逐字渲染/刷新留史需本机目验(截图遗留)；② 流中途失败的已渲染增量保留、不重放不回退(设计取舍)；③ qa-08 边界波动同 T6 遗留，待检索排序稳定化任务
 - **依赖**：T6
+
+#### Review 通过（Qoder，2026-09-27）→ 合并 master
+
+**结论：PASS。** 独立核验（API/DB 级）：
+- **T8 流式**：`POST /api/chat/stream` 实跑 SSE——首事件 `sources`（带真实引用〔2018〕224号 score 0.974）后逐 token `delta`（"本科生/离/校/请假"…）✓；`llm.chat_stream`(stream=true yield delta/tool_delta) + `agent` 流式路径 + 前端 getReader 逐字渲染 + 失败回退 `/api/chat` 均在码 ✓
+- **T9 持久化**：`messages` 表落库，`GET /api/conversations` 返回历史且**跨服务重启存活**（DB-backed）✓；前端 enter() 加载历史 ✓
+- **角色隔离**：student 历史 0 条 counselor 专属问题（宿舍矛盾/违章电器），各自只见本角色会话 ✓（student 50 条系评测流量落库，非串号）
+- **兼容**：`/api/chat` 非流式不变，3 轮评测 kb_hidden 3/3、refusal 6/6 不坏 ✓；无越界、工作区验证产物已补提交 ✓
+- **已知遗留（不阻塞）**：qa-08（复学"一周"）3 轮中 2 轮 fail——系 T5 提示词调优未根治的**检索竞争**（41号通用条款抢占专门办法），非 T8/T9 引入；badcases history 已留痕(7 条)、状态机按最新报告记 fixed。**根治检索相关性列为下一单。**
+- UI 视觉（流式逐字/历史渲染）因 Chrome 调试端口关闭未截图，由用户开 `localhost:8900` 目验；API 级证据已充分。
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
