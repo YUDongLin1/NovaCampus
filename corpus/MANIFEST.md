@@ -67,9 +67,9 @@ corpus/clean/<库>/*      脱敏后入库版
 
 ## 五、执行分工
 
-- **用户**：定开放决策②③（见下）；已配合完成 CDP 校内登录（学工部 32 篇已抓）。
-- **Qoder（我）**：✅ 本 manifest 定稿；✅ 核实公开政策 URL；✅ **CDP 抓取学工部 32 篇正文（暂存 `_t1_tmp/policy/`）**；待办：评审 anonymize 规则、（可选）补抓 3 篇研究生 PDF。
-- **Zcode（T1 实现）**：把 `_t1_tmp/policy/` 暂存移入 `corpus/raw/policy/`；写 `corpus/split_cases.py`（萌哥案例/谈心谈话按编号切分）；跑 `anonymize.py`→clean；批量导入 KB；验证文档数 ≥50 且抽查问答命中新语料。（政策抓取已由 Qoder 完成，Zcode 不必再登录爬取。）
+- **用户**：✅ 决策全拍板（见第六节）；✅ 配合完成 CDP 校内登录（学工部 32 篇已抓）。
+- **Qoder（我）**：✅ manifest 定稿；✅ 核实公开政策 URL；✅ CDP 抓取学工部 32 篇正文；✅ **已提交 `corpus/clean/policy/`（32 篇 import-ready，带 frontmatter）+ 本 manifest + `.gitignore`（affairs 排除）**；待办：评审 anonymize 规则、Review T1。
+- **Zcode（T1 实现，持棒中）**：政策已备好在 `corpus/clean/policy/`（**无需再抓取/移动**）；写 `corpus/split_cases.py` 把 `corpus/raw/affairs/` 的 3 份 docx 切分到 `corpus/clean/affairs/`（gitignore，本地）；跑 `anonymize.py` 兜底脱敏；批量导入 KB 打 category 标签；建 `corpus/clean/ops/` 类目；验证文档数 ≥50 且抽查问答命中。详见 `docs/TASKS.md` 的 T1 完成标准。
 
 ## 六、决策（已全部拍板，2026-09-27）
 
