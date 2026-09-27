@@ -25,6 +25,11 @@ exports/
 # 语料脱敏前原始文件(只允许入库脱敏后的版本)
 raw_docs/
 
+# 学生事务库训练材料(第三方已发表内容「萌哥说案例」等 + 切分正文):
+# 只本地导入 KB 支撑 demo,不进 git,避免将来公开发布时的版权顾虑
+corpus/raw/affairs/
+corpus/clean/affairs/
+
 # 系统 / IDE
 .DS_Store
 Thumbs.db
