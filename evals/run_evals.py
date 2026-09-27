@@ -72,7 +72,12 @@ def seed_corpus_if_needed(c: httpx.Client, counselor_token: str) -> int:
 def judge_qa(case: dict, answer: str, sources: list) -> tuple[bool, str]:
     if not sources:
         return False, "无引用来源"
-    missing = [kw for kw in case["expect_keywords"] if kw not in answer]
+    # T6 ⑥a 措辞加固:条目为 str(必含)或 list(any-of,任一同义词命中即可)
+    missing = []
+    for kw in case["expect_keywords"]:
+        alts = kw if isinstance(kw, list) else [kw]
+        if not any(a in answer for a in alts):
+            missing.append("/".join(alts))
     if missing:
         return False, f"回答未命中关键词: {missing}(引用 {[s['title'] for s in sources]})"
     return True, f"命中 {case['expect_keywords']},引用 {len(sources)} 条"

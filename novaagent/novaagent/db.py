@@ -15,7 +15,8 @@ from . import config
 
 _lock = threading.Lock()
 _conn: sqlite3.Connection | None = None
-
+_fts_ok = False          # T6 ⑥b: FTS5 可用性(_migrate 探测,trigram→unicode61 降级)
+_fts_tokenizer = ''
 
 def connect() -> sqlite3.Connection:
     global _conn
@@ -83,6 +84,39 @@ def _migrate() -> None:
         for col in ("custom_model", "llm_base_url", "llm_api_key"):
             if col not in us_cols:
                 _conn.execute(f"ALTER TABLE user_settings ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
+        _conn.commit()
+
+    # T6 ⑥b: FTS5 外部内容全文索引(外部内容表;tokenizer 降级链 trigram → unicode61 → 不可用)
+    global _fts_ok, _fts_tokenizer
+    _fts_ok, _fts_tokenizer = False, ""
+    for tok in ("trigram", "unicode61"):
+        try:
+            _conn.execute(
+                "CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5("
+                f"content, content='chunks', content_rowid='id', tokenize='{tok}')"
+            )
+            _fts_ok, _fts_tokenizer = True, tok
+            break
+        except sqlite3.OperationalError:
+            continue
+    if _fts_ok:
+        _conn.executescript(
+            """
+            CREATE TRIGGER IF NOT EXISTS chunks_fts_ai AFTER INSERT ON chunks BEGIN
+                INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS chunks_fts_ad AFTER DELETE ON chunks BEGIN
+                INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+            END;
+            CREATE TRIGGER IF NOT EXISTS chunks_fts_au AFTER UPDATE ON chunks BEGIN
+                INSERT INTO chunks_fts(chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
+                INSERT INTO chunks_fts(rowid, content) VALUES (new.id, new.content);
+            END;
+            """
+        )
+        # T6 根因修复:外部内容表 count(chunks_fts) 直读内容表,计数门控永不触发,
+        # 索引恒空 → MATCH 恒 0。改为无条件幂等重建(485 行亚秒级),每次启动执行。
+        _conn.execute("INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild')")
         _conn.commit()
 
 
@@ -274,6 +308,41 @@ def all_chunks_for_search(min_rank: int) -> list[dict]:
         }
         for r in rows
     ]
+
+
+def fts_available() -> bool:
+    """T6 ⑥b: FTS5 全文索引是否可用(_migrate 探测)。"""
+    return _fts_ok
+
+
+def fts_search(query: str, role_mins: list[str], top_k: int) -> list[tuple[int, float]] | None:
+    """T6 ⑥b: FTS5 关键词检索(bm25 排序,限定角色可见集)。
+
+    匹配串为整句引号短语(短语在 trigram 分词下等价于其三连字的连续匹配,
+    实测与 trigram-OR 命中数一致而语义更精确);短语无 trigram(不足 3 字)时
+    返回 None,由调用方回退内存 2-gram 计次(行为不变)。
+    返回 [(chunk_id, bm25 分数)] 按 bm25 升序(越小越相关);
+    FTS5 不可用/异常/零命中返回 None(调用方回退,拒答阈值行为不变)。
+    """
+    if not _fts_ok or not query.strip():
+        return None
+    try:
+        q = '"' + query.replace('"', '""') + '"'
+        roles = ",".join("?" * len(role_mins))
+        rows = _conn.execute(
+            f"""SELECT c.id, bm25(chunks_fts) AS score
+                FROM chunks_fts f
+                JOIN chunks c ON c.id = f.rowid
+                JOIN documents d ON d.id = c.doc_id
+                WHERE chunks_fts MATCH ? AND d.role_min IN ({roles})
+                ORDER BY score LIMIT ?""",
+            [q, *role_mins, top_k],
+        ).fetchall()
+        if not rows:
+            return None
+        return [(r[0], r[1]) for r in rows]
+    except Exception:  # FTS5 异常(MATCH 语法/表缺失等)一律回退内存计数
+        return None
 
 
 def _now() -> str:
