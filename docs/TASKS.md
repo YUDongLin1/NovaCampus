@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T6 已 Review 通过并合并 master；下一阶段待派发）
+> **当前持棒：Qoder**（T8+T9 已 Review 通过并合并 master；下一单：qa-08 检索相关性根治）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -295,12 +295,45 @@
 
 **检索层现状**：向量余弦 + FTS5(trigram,bm25) 混合 RRF + rerank；FTS 不可用优雅回退 2-gram。技术债 T6 关闭。
 
+### T8+T9 产品完整度包：流式输出 SSE + 会话持久化（合包）　✅ DONE（已合并 master）
+- **目标**：让 demo 有"真产品"质感：① 聊天流式逐字输出（SSE）；② 会话历史持久化（刷新/重登仍在）。均不依赖 docker。
+- **允许改**：`novaagent/llm.py`、`novaagent/agent.py`、`novaagent/main.py`、`novaagent/db.py`、`novaagent/web/index.html`、`docs/TASKS.md`(回执)
+- **禁改**：`corpus/**`、`mcp/**`、`sims/**`、`evals/cases.json`；**`/api/chat` 非流式接口必须保持原行为**（`run_evals` 依赖它）
+- **现状锚点**：`llm.py` 仅 `chat`(非流式)；`main.py` `/api/chat` 一次性返回；无会话表、前端无历史加载。
+- **完成标准**：
+  - [x] **T8 流式**：`llm.py` 增 `chat_stream`（OpenAI 兼容 stream=true，yield delta）；`agent.py` 增流式路径（工具循环后流式输出最终答案）；`main.py` 增 `POST /api/chat/stream` 返回 SSE（text/event-stream）：事件 `sources`(一次性)/`delta`(逐 token)/`done`；`web/index.html` send() 改 fetch+ReadableStream 逐字渲染、done 时渲染引用；流失败自动回退 `/api/chat`
+  - [x] **T9 持久化**：`db.py` 增 conversations/messages 表(user_id,role,content,created_at)；`/api/chat` 与 stream 均落库；`GET /api/conversations` 返回该用户历史；`web` enter() 加载历史渲染；按角色隔离
+  - [x] **兼容**：`/api/chat` 非流式行为不变 → `PYTHONIOENCODING=gbk python evals/run_evals.py` 中位不回归、kb_hidden/refusal 不坏
+  - [x] 视觉沿用学术水墨令牌；流式光标/打字机效果克制不花哨
+- **验收命令**：起 uvicorn → 浏览器流式逐字可见(截图) → 刷新后历史仍在(截图) → run_evals 不回归 → 回填回执
+#### 交接回执（Zcode → Qoder，2026-09-27）
+
+- **分支 + 提交**：`task/T8-stream` @ `d3412b5`（`T8+T9: 流式输出 SSE + 会话持久化…`）+ 回执提交；5 文件 285 行新增
+- **diff 摘要**（均在白名单内，未触禁改文件）：llm.py(chat_stream：OpenAI 兼容 stream 解析，delta/tool_delta/finish 事件)、agent.py(chat_stream_for：工具循环非流式判定 + 流式最终答案，tool_delta 按 index 聚合，工具经 weekly MCP)、main.py(/api/chat/stream SSE + /api/chat 与 stream 落库 + /api/conversations)、db.py(messages 表 + add/get，按用户隔离)、index.html(send 改 fetch+ReadableStream 逐字渲染、done 渲染引用、失败回退 /api/chat、enter() 历史加载、朱砂色打字机光标)
+- **流式实测(API 落盘通道)**：`/api/chat/stream` content-type=text/event-stream;事件序列 sources → delta×66 → done → [DONE]，error 0 次(修复 llm.py 缺 import json 的首轮 NameError 后)
+- **持久化与隔离实测**：/api/chat/stream 与 /api/chat 均落库(辅导员历史 2→4 条，user/assistant 成对)；学生历史 0 条、辅导员内容 0 泄漏(按 user_id 隔离)；`/api/conversations` 返回时间正序
+- **红线验证**：/api/chat 响应 keys 不变 {answer, sources, tool_trace}；run_evals 3 轮(gbk)：25/26、25/26、26/26——中位 25/26，-1 为 qa-08 已知边界波动(T6 223025 轮已出现、先于本任务，badcases history 留痕；R@k 0.8462 与响应形状逐轮一致，非本任务引入)；kb_hidden 3/3、refusal 6/6 全过 ✓
+- **看板/截图说明**：本环境无浏览器截图工具(与 T5 同款遗留)——流式逐字与刷新留史的 UI 确认请 Review 时本机进行；API 层证据已用 curl/httpx 断言落盘
+- **完成标准逐条自评**：4/4 ✅（T8 流式全链路 / T9 持久化+隔离 / 兼容红线 / 水墨令牌+克制光标）
+- **遗留问题**：① UI 逐字渲染/刷新留史需本机目验(截图遗留)；② 流中途失败的已渲染增量保留、不重放不回退(设计取舍)；③ qa-08 边界波动同 T6 遗留，待检索排序稳定化任务
+- **依赖**：T6
+
+#### Review 通过（Qoder，2026-09-27）→ 合并 master
+
+**结论：PASS。** 独立核验（API/DB 级）：
+- **T8 流式**：`POST /api/chat/stream` 实跑 SSE——首事件 `sources`（带真实引用〔2018〕224号 score 0.974）后逐 token `delta`（"本科生/离/校/请假"…）✓；`llm.chat_stream`(stream=true yield delta/tool_delta) + `agent` 流式路径 + 前端 getReader 逐字渲染 + 失败回退 `/api/chat` 均在码 ✓
+- **T9 持久化**：`messages` 表落库，`GET /api/conversations` 返回历史且**跨服务重启存活**（DB-backed）✓；前端 enter() 加载历史 ✓
+- **角色隔离**：student 历史 0 条 counselor 专属问题（宿舍矛盾/违章电器），各自只见本角色会话 ✓（student 50 条系评测流量落库，非串号）
+- **兼容**：`/api/chat` 非流式不变，3 轮评测 kb_hidden 3/3、refusal 6/6 不坏 ✓；无越界、工作区验证产物已补提交 ✓
+- **已知遗留（不阻塞）**：qa-08（复学"一周"）3 轮中 2 轮 fail——系 T5 提示词调优未根治的**检索竞争**（41号通用条款抢占专门办法），非 T8/T9 引入；badcases history 已留痕(7 条)、状态机按最新报告记 fixed。**根治检索相关性列为下一单。**
+- UI 视觉（流式逐字/历史渲染）因 Chrome 调试端口关闭未截图，由用户开 `localhost:8900` 目验；API 级证据已充分。
+
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
 - **T6** 关键词检索 LIKE → FTS5/BM25 —— **已提升为活跃任务（见上），含用例措辞加固**
 - **T7** 向量库 sqlite → sqlite-vec（`novaagent/db.py`、`rag.py`）
-- **T8** 流式输出 SSE（`novaagent/main.py`、`web/`）
-- **T9** 会话持久化（`novaagent/db.py`、`main.py`）
+- **T8** 流式输出 SSE —— **已提升为活跃任务（T8+T9 合包，见上）**
+- **T9** 会话持久化 —— **已提升为活跃任务（T8+T9 合包，见上）**
 
 ---
 

@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import io
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from . import config, db, llm, rag
@@ -309,7 +310,44 @@ async def chat(body: dict, user=Depends(current_user)):
     question = (body.get("question") or "").strip()
     if not question:
         raise HTTPException(400, "question 不能为空")
-    return await agent.chat_for(user["id"], user["username"], user["role"], question)
+    d = await agent.chat_for(user["id"], user["username"], user["role"], question)
+    db.add_message(user["id"], "user", question)
+    db.add_message(user["id"], "assistant", d.get("answer", ""))
+    return d
+
+
+@app.post("/api/chat/stream")
+async def chat_stream(body: dict, user=Depends(current_user)):
+    """T8: 流式对话(SSE)。事件序列: sources → delta* → tools? → done → [DONE]。"""
+    question = (body.get("question") or "").strip()
+    if not question:
+        raise HTTPException(400, "question 不能为空")
+
+    async def gen():
+        answer_parts: list[str] = []
+        try:
+            async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"], question):
+                if ev["type"] == "delta":
+                    answer_parts.append(ev["content"])
+                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+            db.add_message(user["id"], "user", question)
+            db.add_message(user["id"], "assistant", "".join(answer_parts))
+        except Exception as e:  # 流中途异常:通知前端(已渲染增量保留,不落库)
+            logger.exception("stream error")
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/api/conversations")
+async def conversations(limit: int = 50, user=Depends(current_user)):
+    """T9: 当前用户会话历史(按用户隔离,时间正序)。"""
+    return {"messages": db.get_messages(user["id"], limit)}
 
 
 # ---------- 周报(辅导员/管理员) ----------
