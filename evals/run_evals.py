@@ -23,6 +23,13 @@ from pathlib import Path
 
 import httpx
 
+try:  # Windows GBK 控制台防 emoji 编码崩溃(T2 同款修复, 独立于 PYTHONIOENCODING)
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except (AttributeError, ValueError, OSError):
+    pass
+
+import faithfulness  # LLM-as-judge:复用 novaagent 模型配置(只读导入)
+
 BASE = "http://127.0.0.1:8900"
 HERE = Path(__file__).parent
 SEED_ROLES = {
@@ -86,6 +93,16 @@ def judge_kb_hidden(case: dict, answer: str, sources: list) -> tuple[bool, str]:
     return True, ("未泄露受限文档;" + ("正确拒答" if declined else "回答了但未引用受限内容"))
 
 
+def compute_recall(case: dict, sources: list) -> float | None:
+    """Recall@k:expect_sources(标题子串)在返回 sources 标题中的命中比例。"""
+    expect = case.get("expect_sources") or []
+    if not expect:
+        return None
+    titles = [s.get("title", "") for s in sources]
+    hit = sum(1 for sub in expect if any(sub in t for t in titles))
+    return round(hit / len(expect), 4)
+
+
 def run() -> int:
     global BASE
     ap = argparse.ArgumentParser()
@@ -132,10 +149,17 @@ def run() -> int:
                         ok, detail = judge_kb_hidden(case, answer, sources)
             except httpx.HTTPStatusError as e:
                 ok, detail = False, f"HTTP {e.response.status_code}: {e.response.text[:120]}"
+            recall = compute_recall(case, sources) if case["type"] == "qa" else None
+            faith, fmethod = (None, "na")
+            if case["type"] == "qa":
+                faith, fmethod = faithfulness.judge(case.get("question", ""), answer, sources)
             results.append({**case, "pass": ok, "detail": detail,
+                            "recall_at_k": recall,
+                            "faithfulness": faith, "faithfulness_method": fmethod,
                             "latency_ms": round((time.time() - t0) * 1000)})
-            mark = "✅" if ok else "❌"
-            print(f"{mark} {case['id']:10s} [{case['type']:14s}] {detail}")
+            mark = "[PASS]" if ok else "[FAIL]"
+            extra = f" | R@k={recall} 忠实度={faith}({fmethod})" if case["type"] == "qa" else ""
+            print(f"{mark} {case['id']:10s} [{case['type']:14s}] {detail}{extra}")
 
         by_type: dict[str, dict] = {}
         for r in results:
@@ -149,10 +173,23 @@ def run() -> int:
             print(f"  {t:16s} {s['pass']}/{s['total']}")
         print(f"  {'TOTAL':16s} {total_pass}/{total}({total_pass / total:.0%})")
 
+        recalls = [r["recall_at_k"] for r in results if r["type"] == "qa" and r.get("recall_at_k") is not None]
+        faiths = [(r["faithfulness"], r["faithfulness_method"]) for r in results
+                  if r["type"] == "qa" and r.get("faithfulness") is not None]
+        summary: dict = dict(by_type)
+        summary["recall_at_k_avg"] = round(sum(recalls) / len(recalls), 4) if recalls else None
+        summary["faithfulness_avg"] = round(sum(f for f, _ in faiths) / len(faiths), 4) if faiths else None
+        summary["faithfulness_method"] = ("llm" if faiths and all(m == "llm" for _, m in faiths)
+                                          else "proxy" if faiths else "na")
+        ref = by_type.get("refusal", {"pass": 0, "total": 0})
+        summary["refusal_accuracy"] = round(ref["pass"] / ref["total"], 4) if ref["total"] else None
+        print(f"  Recall@k 均值: {summary['recall_at_k_avg']} | 忠实度均值: {summary['faithfulness_avg']}"
+              f"({summary['faithfulness_method']}) | 拒答准确率: {summary['refusal_accuracy']}")
+
         out = HERE.parent / "reports" / f"eval_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps(
-            {"version": spec["version"], "base": BASE, "summary": by_type,
+            {"version": spec["version"], "base": BASE, "summary": summary,
              "total_pass": total_pass, "total": total, "results": results},
             ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n[report] {out}")
