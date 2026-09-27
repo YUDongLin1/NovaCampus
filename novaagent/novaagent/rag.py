@@ -84,10 +84,18 @@ def _vector_search(query_vec: np.ndarray, chunks: list[dict], top_k: int) -> lis
 
 
 def _keyword_search(query: str, chunks: list[dict], top_k: int) -> list[tuple[int, float]]:
-    """关键词计次打分(MVP:LIKE 逻辑);中文按 2-gram 兼顾分词。"""
+    """关键词检索:T6 ⑥b 优先 FTS5(bm25 排序,限定角色可见集);当 db.fts_search
+    返回 None(FTS5 不可用/异常/零命中/短查询)时回退内存 2-gram 计次
+    (原逻辑,拒答阈值行为不变)。中文按 2-gram 兼顾分词。"""
     q = query.strip()
     if not q:
         return []
+    roles = sorted({c["role_min"] for c in chunks})
+    fts = db.fts_search(q, roles, top_k) if roles else None
+    if fts is not None:
+        id_to_idx = {c["id"]: i for i, c in enumerate(chunks)}
+        return [(id_to_idx[cid], sc) for cid, sc in fts if cid in id_to_idx]
+    # 回退:内存 2-gram 计次(FTS5 不可用/异常/零命中;拒答阈值行为不变)
     terms = {q} if len(q) <= 4 else {q, *(q[i : i + 2] for i in range(0, len(q) - 1))}
     scores: list[tuple[int, float]] = []
     for i, c in enumerate(chunks):
