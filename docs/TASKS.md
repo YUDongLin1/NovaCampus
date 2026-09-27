@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T6 已回填交接回执，待 Review）
+> **当前持棒：Qoder**（T6 已 Review 通过并合并 master；下一阶段待派发）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -255,7 +255,7 @@
 
 **P2 闭环完成**：评测→bad case→调优→收敛→看板 全链路有数据留痕，简历第一亮点成立。
 
-### T6 检索层升级（FTS5）+ 评测用例措辞加固　🟣 IN_REVIEW（已回填交接回执，持棒：Qoder）
+### T6 检索层升级（FTS5）+ 评测用例措辞加固　✅ DONE（已合并 master）
 - **目标**：① 消掉评测 flaky（qa-07/qa-11 关键词字面脆性）；② 关键词检索从内存 2-gram 计数升级为 SQLite FTS5（BM25）。合包交付，均不依赖 docker。
 - **允许改**：`evals/cases.json`、`evals/run_evals.py`（judge_qa）、`novaagent/db.py`（FTS5）、`novaagent/rag.py`（_keyword_search）、`docs/EVAL_BASELINE.md`、`reports/`
 - **禁改**：`corpus/**`、`mcp/**`、`sims/**`、`novaagent/web/**`、`novaagent/agent.py`
@@ -283,6 +283,17 @@
 - **遗留问题**：
   1. qa-08 在重启后首轮出现一次单卡波动(BM25 排序改变检索构成 + temperature 0.3),已入 badcases history 留痕,后续轮次与中位数均稳定——如需彻底消除,候选方案(检索排序稳定化/用例措辞消歧)超出本任务白名单,留你决策
   2. FTS5 trigram 对 <3 字查询不命中(设计限制,已回退内存计次);若未来语料增长需考虑 FTS5 外部表的手动 OPTIMIZE 策略
+
+#### Review 通过（Qoder，2026-09-27）→ 合并 master
+
+**结论：PASS。** 独立核验：
+- **rebuild 修复**：`_migrate` 改无条件幂等重建（外部内容表 count 恒等致门控失效的根因已除）；sqlite 直查 `MATCH '助学贷款'=43>0` ✓
+- **FTS 真生效**：connect() 后 `_fts_ok=True`(tokenizer=trigram)，`fts_search` 返回 hits=5(bm25)；强制 `_fts_ok=False` 返回 None → 回退 2-gram 不坏 ✓（Qoder 首轮"未生效"系未调 connect() 的测试假象，已自纠）
+- **三轮中位数**：25/26、26/26、26/26 → 中位 **26/26 ≥ v1.2**；kb_hidden 3/3、refusal 6/6（RBAC/拒答阈值未被 FTS 破坏）；R@k 0.8462、faith 0.9615(中位) ✓
+- **⑥a**：qa-07/qa-11 改 any-of、judge_qa 支持 str/list ✓；**v1.3 基线**入 EVAL_BASELINE(§六) ✓；extract_badcases 无新增 open(7 全 fixed) ✓
+- **卫生**：`.tmp_fts_patch.py` 已删、无越界、工作区干净 ✓
+
+**检索层现状**：向量余弦 + FTS5(trigram,bm25) 混合 RRF + rerank；FTS 不可用优雅回退 2-gram。技术债 T6 关闭。
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
