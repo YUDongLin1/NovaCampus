@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T4 已回填交接回执，待 Review）
+> **当前持棒：Qoder**（T4 已 Review 通过并合并 master；T3 前端 UI 重设计由 Qoder 直接执行中——用户指定）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -158,7 +158,7 @@
 
 ## P2 评测深化（简历第一亮点）
 
-### T4 评测指标深化：Recall@k + 忠实度 + 重建基线　🟣 IN_REVIEW（已回填交接回执，持棒：Qoder）
+### T4 评测指标深化：Recall@k + 忠实度 + 重建基线　✅ DONE（已合并 master）
 - **目标**：评测引擎从"关键词命中"升级为量化 RAG 质量（Recall@k / 忠实度 / 拒答准确率），并在 T1 的 75 篇语料上重建基线。这是 P2 简历第一亮点。
 - **允许改**：`evals/run_evals.py`、`evals/cases.json`、`evals/faithfulness.py`（新，可选）、`docs/EVAL_BASELINE.md`（新）、`reports/`（生成物）
 - **禁改**：`novaagent/**`、`corpus/**`。**关键前提**：`/api/chat` 已返回 `sources[]`，每条含 `ref/title/role_min/content`（见 `agent.py` chat_for）——**忠实度所需上下文已在响应里，无需改 novaagent**。若你发现确需改 novaagent，先在回执提出、勿擅动。
@@ -194,6 +194,21 @@
   2. **LLM-judge 方差**：忠实度均值两次运行 1.0 / 0.8846（temperature=0 仍有波动）——建议 T5 看板聚合多份报告自然平滑，正式对比取 3 次中位数
   3. （T1 遗留顺带提醒）政策 32 篇 KB 标题为文件名扁平文号，影响引用展示不影响检索
 
+#### Review 通过（Qoder，2026-09-27）→ 合并 master
+
+**结论：PASS。** 独立核验：
+- **P0 GBK**：代码含 `reconfigure` + `[PASS]/[FAIL]`；死端口跑越过 `import faithfulness`→novaagent 与 startup，无 UnicodeEncodeError/ImportError；Zcode `chcp 936` 全量 26 行打印、0 崩溃 ✓
+- **Recall@k**：`compute_recall`（expect_sources 标题子串命中/总数）正确；`summary.recall_at_k_avg=0.9231` ✓
+- **忠实度**：LLM-as-judge groundedness 判据正确（编造/矛盾→0.0），用 `sources[].content` 作上下文、temperature=0、clamp、proxy 兜底、refusal 记 na；**逐例分数有区分度**（qa-02/06/07=0.5，非橡皮图章 1.0）；只读 import novaagent 未改 ✓。Zcode 还自查修复了 PROMPT 模板 `{}` 被 `.format` 误解析致全降级 proxy 的 bug（现 `method=llm`）。
+- **边界**：仅 `evals/`+`docs/`+`reports/`，未碰 novaagent/corpus ✓；完成标准 7/7。
+- **25/26**：唯一 fail = qa-08 回归，系 75 篇语料下教育部令41号抢占检索、答案漏"一周"时限——**评测+bad case 机制正常抓到并入档(open)**，非 T4 缺陷。
+
+**对 3 个遗留的裁决：**
+1. **qa-08 回归修复**（rerank 权重 / 来源去重 / 提示词"优先最相关文件"，涉 novaagent）→ **批准另开任务**，与 T6(FTS5)/T7(向量库)检索优化合并处理；当前由 `badcases.json` 跟踪为 open，是"评测驱动迭代"的简历素材。
+2. **LLM-judge 方差** → 认可，T5 看板聚合多份报告取中位数平滑。
+3. **政策标题扁平文号**（T1 遗留）→ 记为 T3 前端/展示层可选优化。
+
+**P2 进度**：评测深化(T4)✅ → Recall@k 0.92 / 忠实度 0.88 / 拒答 1.0 基线建立，简历第一亮点数据就位；剩 T5 看板 + qa-08 检索调优。
 
 ### T5 评测看板
 - **目标**：聚合 `reports/` 多次评测结果，产出可视化看板（优化前后对比）。
