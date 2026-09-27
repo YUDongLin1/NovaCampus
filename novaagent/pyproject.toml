@@ -1,0 +1,15 @@
+[project]
+name = "novaagent"
+version = "0.1.0"
+description = "NovaCampus 自研校园智能体:RAG 问答 + 三角色 RBAC + Agent 工具调用"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "httpx>=0.28",
+    "numpy>=2.0",
+    "pypdf>=5.0",
+    "python-docx>=1.1",
+    "mcp==2.2.0",
+    "python-multipart>=0.0.9",
+]

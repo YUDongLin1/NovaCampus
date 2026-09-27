@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智枢 Agent · NovaCampus</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --primary: #1d5fd6; --primary-dark: #174aa8; --bg: #f4f6fb;
+    --card: #ffffff; --text: #1c2333; --muted: #6b7280; --border: #e5e9f2;
+    --danger: #dc2626; --ok-bg: #ecfdf5; --ok-tx: #047857;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; }
+  header { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; padding: 10px 20px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header .badge { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: rgba(255,255,255,.2); }
+  header .spacer { flex: 1; }
+  header button { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 4px 12px; cursor: pointer; }
+  main { flex: 1; display: flex; min-height: 0; }
+  #chat-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  #messages { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 78%; padding: 10px 14px; border-radius: 12px; line-height: 1.65; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg.user { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.bot { align-self: flex-start; background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .msg.bot.error { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+  .sources { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border); font-size: 12px; color: var(--muted); }
+  .sources b { color: var(--primary); }
+  .hint { text-align: center; color: var(--muted); font-size: 13px; margin-top: 8px; }
+  #composer { padding: 14px 20px; background: var(--card); border-top: 1px solid var(--border); display: flex; gap: 10px; }
+  #q { flex: 1; border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14px; outline: none; }
+  #q:focus { border-color: var(--primary); }
+  #send { background: var(--primary); color: #fff; border: none; border-radius: 10px; padding: 10px 22px; font-size: 14px; cursor: pointer; }
+  #send:disabled { opacity: .5; cursor: default; }
+  #side { width: 400px; border-left: 1px solid var(--border); background: var(--card); display: flex; flex-direction: column; min-height: 0; }
+  #tabs { display: flex; border-bottom: 1px solid var(--border); }
+  #tabs button { flex: 1; padding: 11px 0; background: none; border: none; font-size: 13px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  #tabs button.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+  .tabpane { flex: 1; overflow-y: auto; padding: 14px; display: none; flex-direction: column; gap: 12px; }
+  .tabpane.active { display: flex; }
+  .panel { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+  .panel h2 { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+  .row { display: flex; gap: 8px; margin: 6px 0; align-items: center; flex-wrap: wrap; }
+  .row input, .row select { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; font-size: 13px; min-width: 0; }
+  .row textarea { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 13px; min-height: 84px; resize: vertical; font-family: inherit; line-height: 1.6; }
+  .btn { background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .btn.ghost { background: #eef2fb; color: var(--primary); }
+  .btn.danger-ghost { background: #fef2f2; color: var(--danger); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 7px 6px; border-bottom: 1px solid #f0f3fa; vertical-align: top; }
+  td.t-title { font-weight: 500; word-break: break-all; }
+  td.t-content { word-break: break-all; line-height: 1.5; }
+  .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 999px; background: #eef2fb; color: var(--primary); white-space: nowrap; }
+  .tag.admin { background: #fef3c7; color: #b45309; }
+  .tag.counselor { background: #eef2fb; color: var(--primary); }
+  .tag.student { background: var(--ok-bg); color: var(--ok-tx); }
+  .tag.cat { background: #f0f3fa; color: var(--text); }
+  .link { background: none; border: none; color: var(--primary); cursor: pointer; font-size: 12px; padding: 2px 4px; }
+  .link.del { color: var(--danger); }
+  .stats { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin: 4px 0; }
+  .stats span { background: #f0f3fa; padding: 2px 8px; border-radius: 999px; }
+  #weekly-out { font-size: 12px; white-space: pre-wrap; background: #f8fafc; border-radius: 8px; padding: 10px; max-height: 240px; overflow-y: auto; font-family: Consolas, monospace; display: none; }
+  #archived { font-size: 12.5px; }
+  #archived li { margin: 6px 0 0 0; display: flex; gap: 6px; align-items: center; }
+  #account-card { position: fixed; right: 18px; bottom: 18px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 16px rgba(23,42,84,.12); z-index: 20; }
+  #account-card .avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 600; }
+  #account-card .acct-info { min-width: 0; }
+  #account-card .name { font-size: 13px; font-weight: 600; }
+  #account-card .role { font-size: 11px; color: var(--muted); }
+  #account-card .gear { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: #f6f8fd; color: var(--muted); font-size: 15px; cursor: pointer; }
+  #account-card .gear:hover { color: var(--primary); border-color: var(--primary); }
+  .radio-line { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 6px 0; }
+  .cust-box { border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px; margin-top: 10px; }
+  .cust-box .detail-label { margin-top: 0; }
+  #modal { position: fixed; inset: 0; background: rgba(15,23,42,.5); display: none; align-items: center; justify-content: center; z-index: 25; }
+  #modal-box { background: var(--card); border-radius: 14px; width: min(680px, 92vw); max-height: 84vh; display: flex; flex-direction: column; }
+  #modal-head { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  #modal-title { font-size: 15px; font-weight: 600; flex: 1; word-break: break-all; }
+  #modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--muted); }
+  #modal-body { padding: 16px 18px; overflow-y: auto; font-size: 13px; line-height: 1.7; }
+  .chunk { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .chunk .cid { color: var(--primary); font-size: 11px; margin-bottom: 4px; }
+  .md-pre { white-space: pre-wrap; font-family: Consolas, monospace; font-size: 12px; background: #f8fafc; border-radius: 8px; padding: 12px; }
+  .detail-label { color: var(--muted); font-size: 12px; margin: 8px 0 2px; }
+  .meta-grid { display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; font-size: 13px; margin-bottom: 10px; }
+  .meta-grid .k { color: var(--muted); }
+  #settings-tip { color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .avatar { width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 600; }
+  .acct { display: flex; gap: 12px; align-items: center; padding: 6px 0 12px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .acct .name { font-size: 15px; font-weight: 600; }
+  .acct .role { font-size: 12px; color: var(--muted); }
+  #toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #111827; color: #fff; font-size: 13px; padding: 8px 16px; border-radius: 8px; display: none; z-index: 40; }
+  .empty { color: var(--muted); font-size: 12.5px; text-align: center; padding: 14px 0; }
+</style>
+</head>
+<body>
+
+<div id="mask">
+  <div id="login-box">
+    <h2>智枢 Agent</h2>
+    <p>NovaCampus 校园智能体 · 自研 v0.3</p>
+    <div id="login-err"></div>
+    <input id="u" placeholder="用户名" value="counselor">
+    <input id="p" type="password" placeholder="密码" value="">
+    <button class="btn" style="width:100%;padding:10px" onclick="login()">登 录</button>
+    <p class="demo-cred">演示账号:admin / counselor / student(密码均为 xxx123)</p>
+  </div>
+</div>
+
+<header>
+  <h1>智枢 Agent</h1><span class="badge">NovaCampus · 自研</span>
+  <span class="badge" id="role-badge"></span>
+  <div class="spacer"></div>
+  <button onclick="logout()">退出</button>
+</header>
+
+<main>
+  <div id="chat-pane">
+    <div id="messages">
+      <div class="hint">知识库问答自动检索并标注引用 [n];「记一条碎片…」「生成本周周报」会触发周报工具;右下角可切换模型与账户设置。</div>
+    </div>
+    <div id="composer">
+      <input id="q" placeholder="输入问题,例如:休学需要哪些材料?" onkeydown="if(event.key==='Enter')send()">
+      <button id="send" onclick="send()">发送</button>
+    </div>
+  </div>
+
+  <div id="side">
+    <div id="tabs">
+      <button class="active" data-tab="kb" onclick="switchTab('kb')">知识库</button>
+      <button data-tab="records" id="tab-records" onclick="switchTab('records')">工作记录</button>
+      <button data-tab="weekly" id="tab-weekly" onclick="switchTab('weekly')">周报</button>
+    </div>
+
+    <div class="tabpane active" id="pane-kb">
+      <div class="row" id="upload-row" style="display:none">
+        <input type="file" id="f">
+        <select id="vis">
+          <option value="student">全体可见</option>
+          <option value="counselor">辅导员+</option>
+          <option value="admin">仅管理员</option>
+        </select>
+        <select id="up-cat">
+          <option>政策文件</option><option>学生事务</option><option>奖助学金</option>
+          <option>工作制度</option><option>运维手册</option><option selected>其他</option>
+        </select>
+        <button class="btn" onclick="upload()">上传解析</button>
+      </div>
+      <div class="row" id="import-row" style="display:none">
+        <input id="page-url" placeholder="粘贴网页链接,如 https://xxx.swjtu.edu.cn/xx.htm">
+        <button class="btn ghost" onclick="importUrl()">导入网页</button>
+      </div>
+      <div class="row">
+        <select id="kb-cat-filter" onchange="loadDocs()">
+          <option value="">全部分类</option>
+        </select>
+      </div>
+      <table>
+        <thead><tr><th>文档</th><th>可见</th><th>分块</th><th>操作</th></tr></thead>
+        <tbody id="docs"><tr><td colspan="4" class="empty">加载中…</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="tabpane" id="pane-records">
+      <div class="panel">
+        <h2>筛选</h2>
+        <div class="row">
+          <select id="rec-cat">
+            <option value="">全部分类</option>
+            <option>谈心谈话</option><option>事务办理</option><option>活动组织</option>
+            <option>异常突发</option><option>其他</option>
+          </select>
+          <input id="rec-start" type="date" title="开始日期">
+          <input id="rec-end" type="date" title="结束日期">
+          <button class="btn ghost" onclick="loadRecords()">查询</button>
+        </div>
+        <div class="stats" id="rec-stats"></div>
+      </div>
+      <table>
+        <thead><tr><th style="width:64px">日期</th><th style="width:70px">分类</th><th>内容</th><th>操作</th></tr></thead>
+        <tbody id="recs"><tr><td colspan="4" class="empty">—</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="tabpane" id="pane-weekly">
+      <div class="panel">
+        <h2>记录碎片(可先 AI 扩充再保存)</h2>
+        <div class="row">
+          <select id="w-cat"><option>谈心谈话</option><option>事务办理</option><option>活动组织</option><option>异常突发</option><option>其他</option></select>
+          <input id="w-date" type="date" title="发生日期,默认今天">
+        </div>
+        <div class="row"><textarea id="w-content" placeholder="简短记录即可,如:和小王谈了补考压力,已转介心理中心。点「AI 扩充」生成规范纪要,核对修改后保存。"></textarea></div>
+        <div class="row">
+          <button class="btn ghost" id="expand-btn" onclick="expandFragment()">✨ AI 扩充</button>
+          <button class="btn" onclick="addFragment()">保存记录</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>生成与归档</h2>
+        <div class="row">
+          <input id="w-start" type="date" title="周起始日期">
+          <button class="btn ghost" onclick="renderReport()">生成周报</button>
+        </div>
+        <div class="row"><button class="btn ghost" id="archive-btn" onclick="archiveReport()" disabled>归档上方周报</button></div>
+        <div id="weekly-out"></div>
+      </div>
+      <div class="panel">
+        <h2>已归档周报</h2>
+        <ul id="archived" style="list-style:none"><li class="empty">—</li></ul>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="account-card">
+  <div class="avatar" id="acct-avatar">?</div>
+  <div class="acct-info">
+    <div class="name" id="acct-name">未登录</div>
+    <div class="role" id="acct-role">—</div>
+  </div>
+  <button class="gear" title="设置" onclick="openSettings()">⚙</button>
+</div>
+
+<div id="modal">
+  <div id="modal-box">
+    <div id="modal-head">
+      <span id="modal-title"></span>
+      <button id="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let TOKEN = localStorage.getItem('nova_token') || '';
+let ME = null, lastReport = null;
+const ROLE_ZH = { student: '学生', counselor: '辅导员', admin: '校管理员' };
+
+function toast(t) { const e = $('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 2600); }
+function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({}, opts.headers, TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {});
+  if (opts.json) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
+  const resp = await fetch(path, opts);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(typeof data.detail === 'string' ? data.detail : ('HTTP ' + resp.status));
+  return data;
+}
+
+async function login() {
+  try {
+    const d = await api('/api/login', { method: 'POST', json: { username: $('u').value.trim(), password: $('p').value } });
+    TOKEN = d.token; localStorage.setItem('nova_token', TOKEN); ME = d; enter();
+  } catch (e) { $('login-err').textContent = e.message; }
+}
+function logout() { TOKEN = ''; localStorage.removeItem('nova_token'); location.reload(); }
+
+const isStaff = () => ME && ['counselor', 'admin'].includes(ME.role);
+
+async function enter() {
+  $('mask').style.display = 'none';
+  $('role-badge').textContent = ME.username + ' · ' + ROLE_ZH[ME.role];
+  if (!isStaff()) {
+    $('tab-records').style.display = 'none'; $('tab-weekly').style.display = 'none';
+  } else {
+    $('upload-row').style.display = 'flex';
+    $('import-row').style.display = 'flex';
+  }
+  $('acct-name').textContent = ME.username;
+  $('acct-role').textContent = ROLE_ZH[ME.role];
+  $('acct-avatar').textContent = (ME.username || '?')[0].toUpperCase();
+  switchTab('kb');
+  addMsg('bot', '你好,' + ME.username + '(' + ROLE_ZH[ME.role] + ')。可以问学校政策流程,也可以让我记工作碎片、写周报。');
+}
+
+function switchTab(name) {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
+  if (name === 'kb') loadDocs();
+  if (name === 'records') loadRecords();
+  if (name === 'weekly') loadArchived();
+}
+
+async function loadDocs() {
+  try {
+    const cat = $('kb-cat-filter').value;
+    const d = await api('/api/kb/documents' + (cat ? '?category=' + encodeURIComponent(cat) : ''));
+    const cats = [...new Set([...(d.categories || []), '其他'])];
+    const cur = $('kb-cat-filter').value;
+    $('kb-cat-filter').innerHTML = '<option value="">全部分类</option>' + cats.map(c => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+    $('docs').innerHTML = d.documents.length ? d.documents.map(x => `
+      <tr>
+        <td class="t-title">${esc(x.title)}<br>
+          <span class="tag cat">${esc(x.category || '其他')}</span>
+          <span style="color:var(--muted);font-size:11px">${esc(x.uploaded_by)} · ${(x.created_at || '').slice(0, 10)}</span></td>
+        <td><span class="tag ${x.role_min}">${{student:'全体',counselor:'辅导员+',admin:'仅管理'}[x.role_min]}</span></td>
+        <td>${x.chunk_count}</td>
+        <td style="white-space:nowrap">
+          <button class="link" onclick="viewDoc(${x.id})">查看</button>
+          ${isStaff() ? `<button class="link del" onclick="delDoc(${x.id},'${esc(x.title)}')">删除</button>` : ''}
+        </td>
+      </tr>`).join('') : '<tr><td colspan="4" class="empty">暂无文档</td></tr>';
+  } catch (e) { toast(e.message); }
+}
+
+async function viewDoc(id) {
+  try {
+    const d = await api(`/api/kb/documents/${id}/chunks`);
+    openModal(`《${d.document.title}》`,
+      `<div class="meta-grid">
+         <span class="k">分类</span><span><span class="tag cat">${esc(d.document.category || '其他')}</span></span>
+         <span class="k">可见级别</span><span>${ROLE_ZH[d.document.role_min] || d.document.role_min}及以上</span>
+         <span class="k">上传</span><span>${esc(d.document.uploaded_by)} · ${(d.document.created_at || '').slice(0, 10)}</span>
+         <span class="k">分块数</span><span>${d.chunks.length}</span>
+       </div>` +
+      (d.document.summary ? `<div class="detail-label">AI 摘要</div><div class="chunk" style="background:#f0f7ff;border-color:#cfe0fb">${esc(d.document.summary)}</div>` : '') +
+      d.chunks.map(c => `<div class="chunk"><div class="cid">分块 #${c.idx + 1}</div>${esc(c.content)}</div>`).join(''));
+  } catch (e) { toast(e.message); }
+}
+
+async function delDoc(id, title) {
+  if (!confirm(`确认删除文档《${title}》及其全部分块?`)) return;
+  try { await api(`/api/kb/documents/${id}`, { method: 'DELETE' }); toast('已删除'); loadDocs(); }
+  catch (e) { toast(e.message); }
+}
+
+async function loadRecords() {
+  try {
+    const qs = new URLSearchParams({ category: $('rec-cat').value, start_date: $('rec-start').value, end_date: $('rec-end').value });
+    const d = await api('/api/weekly/fragments?' + qs);
+    $('rec-stats').innerHTML = Object.entries(d.stats).map(([k, v]) => `<span>${k} ${v}</span>`).join('') || '<span>无记录</span>';
+    $('recs').innerHTML = d.fragments.length ? d.fragments.map(x => `
+      <tr>
+        <td>${x.occurred_at}</td>
+        <td><span class="tag">${x.category}</span></td>
+        <td class="t-content">${esc(x.content.length > 60 ? x.content.slice(0, 60) + '…' : x.content)}</td>
+        <td style="white-space:nowrap">
+          <button class="link" onclick="viewFrag(${x.id},'${x.occurred_at}','${x.category}')">详情</button>
+          <button class="link del" onclick="delFrag(${x.id})">删除</button>
+        </td>
+      </tr>`).join('') : '<tr><td colspan="4" class="empty">该范围内没有记录</td></tr>';
+    window._frags = Object.fromEntries(d.fragments.map(f => [f.id, f]));
+  } catch (e) { toast(e.message); }
+}
+
+function viewFrag(id, date, cat) {
+  const f = (window._frags || {})[id];
+  if (!f) return;
+  openModal(`工作记录详情 · ${date}`,
+    `<div class="meta-grid">
+       <span class="k">分类</span><span><span class="tag">${esc(f.category)}</span></span>
+       <span class="k">发生日期</span><span>${esc(f.occurred_at)}</span>
+       <span class="k">记录编号</span><span>#${f.id}</span>
+     </div>
+     <div class="detail-label">记录内容</div>
+     <div class="md-pre">${esc(f.content)}</div>
+     <p style="color:var(--muted);font-size:11px;margin-top:10px">提示:保存到知识库的周报会包含本条内容;删除前请确认周报是否已归档。</p>`);
+}
+
+async function delFrag(id) {
+  if (!confirm('确认删除这条记录?')) return;
+  try { await api(`/api/weekly/fragments/${id}`, { method: 'DELETE' }); toast('已删除'); loadRecords(); }
+  catch (e) { toast(e.message); }
+}
+
+async function loadArchived() {
+  try {
+    const d = await api('/api/weekly/reports');
+    $('archived').innerHTML = d.count ? d.reports.map(x => `
+      <li>📄 ${esc(x.title)} <span style="color:var(--muted);font-size:11px">${x.start_date}~${x.end_date}</span>
+        <button class="link" onclick="viewReport(${x.id})">查看</button></li>`).join('')
+      : '<li class="empty">暂无归档周报</li>';
+  } catch (e) { toast(e.message); }
+}
+
+async function viewReport(id) {
+  try {
+    const d = await api(`/api/weekly/reports/${id}`);
+    openModal(`${d.title}(${d.start_date} ~ ${d.end_date})`, `<div class="md-pre">${esc(d.content_md)}</div><p style="color:var(--muted);font-size:11px;margin-top:8px">归档于 ${(d.archived_at || '').slice(0, 16).replace('T', ' ')} · 文件:${esc(d.file_path)}</p>`);
+  } catch (e) { toast(e.message); }
+}
+
+function openModal(title, html) { $('modal-title').textContent = title; $('modal-body').innerHTML = html; $('modal').style.display = 'flex'; }
+function closeModal() { $('modal').style.display = 'none'; }
+$('modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+async function openSettings() {
+  try {
+    const s = await api('/api/me/settings');
+    window._settings = s;
+    openModal('设置', `
+      <div class="detail-label">对话模型</div>
+      ${s.candidates.map(m => `
+        <label class="radio-line">
+          <input type="radio" name="m" value="${m.id}" ${!s.custom.enabled && m.id === s.model ? 'checked' : ''}>
+          ${m.label}
+        </label>`).join('')}
+      <div class="cust-box">
+        <label class="radio-line" style="font-weight:600">
+          <input type="radio" name="m" id="m-custom" ${s.custom.enabled ? 'checked' : ''}>
+          使用自定义 API(OpenAI 兼容)
+        </label>
+        <div class="detail-label">模型名称</div>
+        <div class="row"><input id="cust-model" placeholder="如 deepseek-chat / gpt-4o / glm-4" value="${esc(s.custom.model || '')}"></div>
+        <div class="detail-label">Base URL</div>
+        <div class="row"><input id="cust-url" placeholder="如 https://api.deepseek.com/v1" value="${esc(s.custom.base_url || '')}"></div>
+        <div class="detail-label">API Key ${s.custom.api_key_set ? '(已保存,留空则沿用)' : ''}</div>
+        <div class="row"><input id="cust-key" type="password" placeholder="${s.custom.api_key_set ? '••••••••(已保存)' : 'sk-...'}"></div>
+        <div class="row">
+          <button class="btn ghost" onclick="testModel()">测试连接</button>
+          <span id="test-result" style="font-size:12px;color:var(--muted)"></span>
+        </div>
+      </div>
+      <p id="settings-tip">保存后对新对话即刻生效。自定义 API 优先于上方候选;生成内容请在保存前人工核对。</p>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" onclick="saveModel()">保存设置</button>
+        <button class="btn danger-ghost" onclick="logout()">退出登录</button>
+      </div>`);
+  } catch (e) { toast(e.message); }
+}
+
+function pickedModel() {
+  const checked = document.querySelector('input[name=m]:checked');
+  if (!checked) return { model: '' };
+  if (checked.id === 'm-custom') {
+    return { custom: { model: $('cust-model').value.trim(), base_url: $('cust-url').value.trim(), api_key: $('cust-key').value.trim() } };
+  }
+  return { model: checked.value };
+}
+
+async function testModel() {
+  const p = pickedModel();
+  $('test-result').textContent = '测试中…';
+  try {
+    const d = await api('/api/me/settings/test', { method: 'POST', json: p });
+    $('test-result').textContent = d.ok ? `✅ 连接成功(${d.reply})` : `❌ ${d.error || '失败'}`;
+    $('test-result').style.color = d.ok ? 'var(--ok-tx)' : 'var(--danger)';
+  } catch (e) { $('test-result').textContent = '❌ ' + e.message; $('test-result').style.color = 'var(--danger)'; }
+}
+
+async function saveModel() {
+  try {
+    const p = pickedModel();
+    const d = await api('/api/me/settings', { method: 'PUT', json: p });
+    toast('已保存,当前模型:' + d.effective_model);
+    closeModal();
+  } catch (e) { toast(e.message); }
+}
+
+function addMsg(kind, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + kind; div.textContent = text;
+  $('messages').appendChild(div); $('messages').scrollTop = $('messages').scrollHeight;
+  return div;
+}
+
+async function send() {
+  const q = $('q').value.trim(); if (!q) return;
+  $('q').value = ''; addMsg('user', q);
+  const btn = $('send'); btn.disabled = true;
+  const bot = addMsg('bot', '思考中…');
+  try {
+    const d = await api('/api/chat', { method: 'POST', json: { question: q } });
+    bot.textContent = d.answer || '(空回复)';
+    bot.className = 'msg bot' + (d.answer ? '' : ' error');
+    if (d.sources && d.sources.length) {
+      const s = document.createElement('div'); s.className = 'sources';
+      s.innerHTML = '<b>引用来源</b><br>' + d.sources.map(x => `[${x.ref}] 《${esc(x.title)}》 · 相关度 ${x.score}`).join('<br>');
+      bot.appendChild(s);
+    }
+    if (d.tool_trace && d.tool_trace.length) {
+      const t = document.createElement('div'); t.className = 'sources';
+      t.innerHTML = '<b>已调用工具</b> ' + d.tool_trace.map(x => x.tool).join('、');
+      bot.appendChild(t);
+    }
+  } catch (e) { bot.textContent = '出错了:' + e.message; bot.className = 'msg bot error'; }
+  btn.disabled = false; $('messages').scrollTop = $('messages').scrollHeight;
+}
+
+async function upload() {
+  const f = $('f').files[0]; if (!f) return toast('请选择文件');
+  const fd = new FormData(); fd.append('file', f); fd.append('role_min', $('vis').value); fd.append('category', $('up-cat').value);
+  try { const d = await api('/api/kb/upload', { method: 'POST', body: fd }); toast(`已解析 ${d.chunks} 个分块,摘要已生成`); loadDocs(); }
+  catch (e) { toast('上传失败:' + e.message); }
+}
+
+async function importUrl() {
+  const url = $('page-url').value.trim(); if (!url) return toast('请输入网页链接');
+  const btn = event.target; btn.disabled = true; btn.textContent = '抓取中…';
+  try {
+    const d = await api('/api/kb/import_url', { method: 'POST', json: { url, role_min: $('vis').value, category: $('up-cat').value } });
+    toast(`已导入《${d.title}》:${d.chunks} 个分块,摘要已生成`);
+    $('page-url').value = ''; loadDocs();
+  } catch (e) { toast('导入失败:' + e.message); }
+  btn.disabled = false; btn.textContent = '导入网页';
+}
+
+async function expandFragment() {
+  const c = $('w-content').value.trim(); if (!c) return toast('请先写几句简短笔记');
+  const btn = $('expand-btn'); btn.disabled = true; btn.textContent = '扩充中…';
+  try {
+    const d = await api('/api/weekly/expand', { method: 'POST', json: { content: c, category: $('w-cat').value } });
+    $('w-content').value = d.expanded;
+    toast('已生成草稿,请核对修改后保存(AI 仅按你的纪要风格润色,不会虚构学生反馈)');
+  } catch (e) { toast(e.message); }
+  btn.disabled = false; btn.textContent = '✨ AI 扩充';
+}
+
+async function addFragment() {
+  const c = $('w-content').value.trim(); if (!c) return toast('请输入内容');
+  try {
+    const d = await api('/api/weekly/fragments', { method: 'POST', json: { content: c, category: $('w-cat').value, occurred_at: $('w-date').value } });
+    toast(d.ok ? `已记录(分类:${d.category})` : d.error); $('w-content').value = '';
+  } catch (e) { toast(e.message); }
+}
+
+async function renderReport() {
+  const s = $('w-start').value; if (!s) return toast('请选择周起始日期');
+  try {
+    const d = await api('/api/weekly/report', { method: 'POST', json: { start_date: s } });
+    if (!d.ok) return toast(d.error);
+    lastReport = d; $('weekly-out').style.display = 'block'; $('weekly-out').textContent = d.report_markdown;
+    $('archive-btn').disabled = false;
+  } catch (e) { toast(e.message); }
+}
+
+async function archiveReport() {
+  if (!lastReport) return;
+  try {
+    const d = await api('/api/weekly/archive', { method: 'POST', json: { title: '辅导员工作周报', start_date: lastReport.start_date, end_date: lastReport.end_date, content_md: lastReport.report_markdown } });
+    toast(d.ok ? '已归档:' + d.file : d.error); $('archive-btn').disabled = true; loadArchived();
+  } catch (e) { toast(e.message); }
+}
+
+(async function boot() {
+  if (!TOKEN) return;
+  try { ME = await api('/api/me'); enter(); } catch (e) { TOKEN = ''; localStorage.removeItem('nova_token'); }
+})();
+</script>
+</body>
+</html>

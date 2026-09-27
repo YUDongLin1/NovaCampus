@@ -1,0 +1,36 @@
+# 上游开源底座(独立 git 仓库,锁定 tag v0.8.2;校园化定制在 weknora/ 内自建分支)
+/weknora/
+
+# 密钥与环境配置
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+
+# Node
+node_modules/
+dist/
+
+# 本地数据 / 日志 / 导出
+data/
+logs/
+*.log
+exports/
+
+# 语料脱敏前原始文件(只允许入库脱敏后的版本)
+raw_docs/
+
+# 系统 / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# NovaAgent 本地产物
+novaagent/.tmp-*
+novaagent/.venv/

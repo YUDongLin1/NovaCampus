@@ -1,0 +1,19 @@
+# NovaCampus 自研 MCP 服务栈(与 WeKnora 同网络部署)
+# 用法:docker compose -f docker-compose.weekly.yml up -d --build
+# WeKnora 内注册:MCP 服务 URL = http://weekly-mcp:8000/mcp(容器互通)
+#                宿主机调试入口 = http://localhost:18080/mcp
+services:
+  weekly-mcp:
+    build: ./mcp/weekly
+    container_name: NovaCampus-weekly-mcp
+    ports:
+      - "18080:8000"          # 宿主机调试用;WeKnora 走内网 weekly-mcp:8000
+    volumes:
+      - ./data/weekly:/data   # SQLite + 归档周报,持久化
+    restart: unless-stopped
+    networks: [weknora]
+
+networks:
+  weknora:
+    external: true
+    name: weknora_WeKnora-network
