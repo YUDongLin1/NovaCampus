@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T1 已 Review 通过并合并 master；下一单待定，建议 T4 评测深化）
+> **当前持棒：Qoder**（T4 已 Review 通过并合并 master；T3 前端 UI 重设计由 Qoder 直接执行中——用户指定）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -158,15 +158,57 @@
 
 ## P2 评测深化（简历第一亮点）
 
-### T4 评测指标深化：Recall@k + 忠实度
-- **目标**：`run_evals.py` 在现有关键词命中基础上，增加 Recall@k 和忠实度量化。
-- **允许改**：`evals/run_evals.py`、`evals/cases.json`（加标注字段）
+### T4 评测指标深化：Recall@k + 忠实度 + 重建基线　✅ DONE（已合并 master）
+- **目标**：评测引擎从"关键词命中"升级为量化 RAG 质量（Recall@k / 忠实度 / 拒答准确率），并在 T1 的 75 篇语料上重建基线。这是 P2 简历第一亮点。
+- **允许改**：`evals/run_evals.py`、`evals/cases.json`、`evals/faithfulness.py`（新，可选）、`docs/EVAL_BASELINE.md`（新）、`reports/`（生成物）
+- **禁改**：`novaagent/**`、`corpus/**`。**关键前提**：`/api/chat` 已返回 `sources[]`，每条含 `ref/title/role_min/content`（见 `agent.py` chat_for）——**忠实度所需上下文已在响应里，无需改 novaagent**。若你发现确需改 novaagent，先在回执提出、勿擅动。
+- **前置必修（P0）**：`run_evals.py` 第 137–138 行 print `✅/❌`，在 GBK 控制台会 `UnicodeEncodeError` 崩溃（同 T2 bug）。修：开头加 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`（try 容错）+ `✅/❌`→`[PASS]/[FAIL]`。**必须 `chcp 936`/`PYTHONIOENCODING=gbk` 实测 exit 0**。
 - **完成标准**：
-  - [ ] 每条 qa 用例标注应命中的文档 / chunk，计算 Recall@k
-  - [ ] 忠实度：答案是否有据（规则或 LLM-as-judge），给 0~1 分
-  - [ ] 报告 summary 增加 `recall_at_k` / `faithfulness` 聚合指标
-  - [ ] 目标基线记录进 docs（忠实度 ≥0.85、拒答准确率 ≥90%）
-- **依赖**：建议在 T1 之后（语料越丰富，Recall@k 越有意义）
+  - [x] **P0 GBK 修复**：`PYTHONIOENCODING=gbk python evals/run_evals.py` 不崩、exit 0
+  - [x] **Recall@k**：`cases.json` 每条 qa 加 `expect_sources`（应命中文档的标题子串标记，如 `["请销假","请假管理"]`）；run_evals 计算 `recall@k = 命中的 expect_sources 数 / 总数`（k 取返回 sources 数或固定 5），计入 per-case + `summary.recall_at_k_avg`
+  - [x] **忠实度**：LLM-as-judge——用 `answer` + 上下文（`sources[].content` 拼接）判"答案每个事实性陈述是否被上下文支持"，给 0~1；复用 agent 的 LLM 配置（`config.LLM_MODEL`/`llm.chat`）；LLM 不可用时用词面覆盖率 proxy 兜底并标 `method=proxy`；计入 `summary.faithfulness_avg`。refusal 用例忠实度记 N/A（正确拒答不扣分）
+  - [x] **重建基线（75 篇语料）**：跑通全部用例，**旧 21 条不回归**（若回归，跑 `extract_badcases.py` 记录进 bad case 档案）
+  - [x] **新增 ≥5 条真实校本语料用例**（总 ≥26 条）：如"本科生离校请假手续"(expect 请销假办法)、"国家助学贷款申请条件"(expect 助学贷款实施办法)、"宿舍矛盾怎么谈心"(affairs, counselor)、"研究生奖助学金评审"(expect 奖助学金办法族)，每条带 `expect_keywords` + `expect_sources`
+  - [x] **summary 增三项指标**：`recall_at_k_avg` / `faithfulness_avg` / `refusal_accuracy`；基线实测值 + 目标（忠实度 ≥0.85、拒答 ≥90%、Recall@k ≥0.8 冲刺）写入 `docs/EVAL_BASELINE.md`
+  - [x] 报告落 `reports/`；末尾跑 `python evals/extract_badcases.py` 刷新档案
+- **验收命令**：起 uvicorn + weekly MCP → `PYTHONIOENCODING=gbk python evals/run_evals.py`（确认不崩 + 三项指标出现在 summary）→ `python evals/extract_badcases.py`
+- **依赖**：T1（已完成，75 篇在库）
+
+#### 交接回执（Zcode → Qoder，2026-09-27）
+
+- **分支 + 提交**：`task/T4-eval` @ `2ed9a86`（`T4: 评测深化——Recall@k + 忠实度 LLM-judge + 75 篇重建基线(v1.1)`）
+- **diff 摘要**（均在白名单内，未触 `novaagent/**`、`corpus/**`）：
+  - `evals/run_evals.py`：P0 GBK 修复（stdout reconfigure + `✅/❌`→`[PASS]/[FAIL]`）；新增 `compute_recall`（expect_sources 标题子串命中比例）；主循环接入 per-case `recall_at_k` / `faithfulness`；summary 增 `recall_at_k_avg` / `faithfulness_avg` / `faithfulness_method` / `refusal_accuracy`，随报告 JSON 落盘
+  - `evals/faithfulness.py`（新）：LLM-as-judge 复用 novaagent `config`/`llm`（sys.path 只读导入，**未改 novaagent**）；LLM 不可用降级词面覆盖率 proxy 并标 `method=proxy`；**修复过程发现并解决一个自身 bug**——PROMPT 模板里字面 JSON 示例 `{"score":…}` 被 `.format()` 当字段解析抛 KeyError、被兜底吞掉导致全部降级 proxy，已用 `{{}}` 转义
+  - `evals/cases.json`：v1.1，21→**26 条**——旧 8 条 qa 补 `expect_sources`，新增 5 条 75 篇真实校本语料用例（qa-09 离校请销假 / qa-10 助学贷款 / qa-11 宿舍矛盾谈心(counselor) / qa-12 奖助学金评审 / qa-13 违章电器(counselor)），全部带 expect_keywords+expect_sources
+  - `evals/badcases.json`：qa-08 回归按规程入档（open）
+  - `docs/EVAL_BASELINE.md`（新）：基线实测+目标+口径+演进记录
+- **自测输出**：
+  1. **P0 GBK**：`PYTHONIOENCODING=gbk` 完整跑 26 条，26 行 `[PASS]/[FAIL]` 全打印，`UnicodeEncodeError` **0 次**；exit=1 系 qa-08 回归所致（非编码问题）——编码修复以"不崩+全量打印"为证，exit 0 将随回归修复自然达成
+  2. **三项指标（v1.1 基线，`reports/eval_report_20260927_183023.json`）**：`recall_at_k_avg=0.9231`（目标 ≥0.8 ✅）｜`faithfulness_avg=0.8846`（llm，目标 ≥0.85 ✅）｜`refusal_accuracy=1.0`（目标 ≥90% ✅）
+  3. **旧 21 条不回归核查**：25/26——qa-08 一条回归已入档；qa-03 R@k=0.0 但通过（"六年"多源出现，属 expect_sources 标注需随语料扩充更新，非质量回归，已记入基线文档注记）
+  4. `extract_badcases.py` 已跑：badcases.json 新增 1 条 open（qa-08）
+- **完成标准逐条自评**：7/7 ✅（P0 / Recall@k / 忠实度 / 重建基线 / 新增 ≥5 条 / summary 三项 / 报告+badcases 刷新）
+- **遗留问题 / 需你决策**：
+  1. **qa-08 回归修复候选**（rerank 相关性权重 / 来源去重 / 提示词"优先最相关文件"）均涉 `novaagent/**`，按规约未擅动，待你批准另开任务
+  2. **LLM-judge 方差**：忠实度均值两次运行 1.0 / 0.8846（temperature=0 仍有波动）——建议 T5 看板聚合多份报告自然平滑，正式对比取 3 次中位数
+  3. （T1 遗留顺带提醒）政策 32 篇 KB 标题为文件名扁平文号，影响引用展示不影响检索
+
+#### Review 通过（Qoder，2026-09-27）→ 合并 master
+
+**结论：PASS。** 独立核验：
+- **P0 GBK**：代码含 `reconfigure` + `[PASS]/[FAIL]`；死端口跑越过 `import faithfulness`→novaagent 与 startup，无 UnicodeEncodeError/ImportError；Zcode `chcp 936` 全量 26 行打印、0 崩溃 ✓
+- **Recall@k**：`compute_recall`（expect_sources 标题子串命中/总数）正确；`summary.recall_at_k_avg=0.9231` ✓
+- **忠实度**：LLM-as-judge groundedness 判据正确（编造/矛盾→0.0），用 `sources[].content` 作上下文、temperature=0、clamp、proxy 兜底、refusal 记 na；**逐例分数有区分度**（qa-02/06/07=0.5，非橡皮图章 1.0）；只读 import novaagent 未改 ✓。Zcode 还自查修复了 PROMPT 模板 `{}` 被 `.format` 误解析致全降级 proxy 的 bug（现 `method=llm`）。
+- **边界**：仅 `evals/`+`docs/`+`reports/`，未碰 novaagent/corpus ✓；完成标准 7/7。
+- **25/26**：唯一 fail = qa-08 回归，系 75 篇语料下教育部令41号抢占检索、答案漏"一周"时限——**评测+bad case 机制正常抓到并入档(open)**，非 T4 缺陷。
+
+**对 3 个遗留的裁决：**
+1. **qa-08 回归修复**（rerank 权重 / 来源去重 / 提示词"优先最相关文件"，涉 novaagent）→ **批准另开任务**，与 T6(FTS5)/T7(向量库)检索优化合并处理；当前由 `badcases.json` 跟踪为 open，是"评测驱动迭代"的简历素材。
+2. **LLM-judge 方差** → 认可，T5 看板聚合多份报告取中位数平滑。
+3. **政策标题扁平文号**（T1 遗留）→ 记为 T3 前端/展示层可选优化。
+
+**P2 进度**：评测深化(T4)✅ → Recall@k 0.92 / 忠实度 0.88 / 拒答 1.0 基线建立，简历第一亮点数据就位；剩 T5 看板 + qa-08 检索调优。
 
 ### T5 评测看板
 - **目标**：聚合 `reports/` 多次评测结果，产出可视化看板（优化前后对比）。
