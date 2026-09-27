@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（T1 语料建设进行中；Qoder 已 prep 32 篇政策语料 + manifest 并交棒）
+> **当前持棒：Qoder**（T1 已回填交接回执，待 Review）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -15,7 +15,7 @@
 
 ## P1 收口（让"简历可用版本"名副其实）
 
-### T1 语料库建设：≥50 篇 + 三分库 + 导入 KB　🔵 IN_PROGRESS（持棒：Zcode）
+### T1 语料库建设：≥50 篇 + 三分库 + 导入 KB　🟣 IN_REVIEW（已回填交接回执，持棒：Qoder）
 - **目标**：把 Qoder 已备好的语料切分/脱敏/导入 NovaAgent KB，达成 ≥50 篇、三分库（政策/学生事务/运维）、抽查问答命中。
 - **允许改**：`corpus/**`（注：`corpus/raw/affairs/`、`corpus/clean/affairs/` 已 gitignore，只本地生成不提交）
 - **禁改**：`novaagent/**`、`evals/**`（如需加"语料命中"验证用例，先在回执提出）
@@ -23,14 +23,34 @@
   - `corpus/clean/policy/*.md`：**32 篇**西南交大真实校本政策 + 教育部令，带 frontmatter（title/source_url/doc_date/category/tier），**import-ready、无需再脱敏**
   - `corpus/raw/affairs/*.docx`：3 份训练材料（萌哥案例两季 + 谈心谈话15题，gitignore 不提交）
 - **完成标准**：
-  - [ ] 写 `corpus/split_cases.py`：萌哥案例按「【萌哥说案例】NO.x」每案切一篇（情景/本质/做法/启示）、谈心谈话按「问题x+答题要点」每题一篇 → `corpus/clean/affairs/*.md`，带 frontmatter（category=affairs, sensitivity=low）
-  - [ ] 跑 `corpus/anonymize.py` 对 clean/affairs 兜底脱敏，抽查无残留真实姓名/学号/联系方式
-  - [ ] 批量导入 KB：政策 32 + 学生事务（择优 ≥18）→ 文档数 **≥50**，打 category 标签（policy/affairs）
-  - [ ] 建 `corpus/clean/ops/` 运维分库类目 + 1~2 篇自建占位（完整运维手册留 P3）
-  - [ ] 抽查问答命中新语料且带 [n] 引用（如"研究生专项奖助学金""离校请假流程""宿舍矛盾怎么谈心"）
+  - [x] 写 `corpus/split_cases.py`：萌哥案例按「【萌哥说案例】NO.x」每案切一篇（情景/本质/做法/启示）、谈心谈话按「问题x+答题要点」每题一篇 → `corpus/clean/affairs/*.md`，带 frontmatter（category=affairs, sensitivity=low）
+  - [x] 跑 `corpus/anonymize.py` 对 clean/affairs 兜底脱敏，抽查无残留真实姓名/学号/联系方式
+  - [x] 批量导入 KB：政策 32 + 学生事务（择优 ≥18）→ 文档数 **≥50**，打 category 标签（policy/affairs）
+  - [x] 建 `corpus/clean/ops/` 运维分库类目 + 1~2 篇自建占位（完整运维手册留 P3）
+  - [x] 抽查问答命中新语料且带 [n] 引用（如"研究生专项奖助学金""离校请假流程""宿舍矛盾怎么谈心"）
 - **验收命令**：`python corpus/split_cases.py` → `python corpus/anonymize.py` → 导入后查 `/api/kb/documents` 计数 ≥50
 - **合规红线**：只用 Tier A（训练材料）+ 公开政策；**严禁**引入 `E:\<internal-affairs-dir>\` 的 Tier B 真实运营数据（帮扶台账/含真名申报书）。
 - **依赖**：无（政策语料已由 Qoder 备好）
+
+#### 交接回执（Zcode → Qoder，2026-09-27）
+
+- **分支 + 提交**：`task/T1-corpus` @ `0024521`（`T1: 训练语料切分脚本 + 运维分库占位…`）
+- **diff 摘要**（白名单内；`corpus/clean/affairs/` 按 gitignore 只本地生成不提交）：
+  - `corpus/split_cases.py`（新）：萌哥案例两季按「【萌哥说案例】NO.x」切分——全角 `ＮＯ`/变体标题归一化，四段小节归并（案例情景描述/问题本质/解决思路/实施办法/经验启示 → 情景/本质/做法/启示，剥离"一、二、"编号），可识别小节 <2 时整篇"原文"兜底；谈心谈话按「问题N：」切分；frontmatter 对齐 policy 惯例（category=affairs / tier=Tier A 训练材料(化名) / sensitivity=low / origin_file / split_date）
+  - `corpus/clean/ops/`（新，2 篇占位）：NovaCampus 服务运维手册 v0.1（基于本仓库真实部署的运维要点）+ 模拟系统运维手册（P3 AIOps 对齐框架：告警分级 / 连接池耗尽 / CPU 飙高预案骨架，Agent 诊断报告可引用）
+- **自测输出**：
+  1. **切分**：94 篇 = S1→50 案（992 段）+ S2→30 案（594 段）+ 谈心谈话→14 题。**注意：谈心谈话源文件名写"问题1-15"，docx 实际仅 14 题（已核实段落标记），非切分遗漏**
+  2. **兜底脱敏**：`anonymize.py corpus/clean/affairs --check` → 94 文件命中 **0**（与 MANIFEST「Tier A 化名，扫描 phone/idcard/学号 均为 0」复核一致）；人名为材料自带化名（张毅/小静/小刚等出自公开培训材料）
+  3. **批量导入（运行时动作，代码不入 repo）**：KB 21 → **75 篇**（+54，零失败）= 政策 32（category=政策文件，role_min=student，临时副本去掉"NN-"序号前缀作标题）+ 学生事务 20（案例按字数 Top14 + 谈心谈话 6 题择优 Q01/02/04/08/11/12，role_min=counselor）+ 运维手册 2（role_min=admin）；导入后分类分布：政策文件 32 / 学生事务 20 / 运维手册 5（含此前冒烟测试 3）/ 其他 18
+  4. **抽查问答（3/3 命中新语料，带 [n] 引用）**：
+     - "研究生专项奖助学金的申请条件"（student）→ 命中奖助学金评审办法族（相关度 0.857/0.839/0.565/0.491），回答如实说明具体条件以各专项办法为准
+     - "离校请假流程是怎么规定的"（student）→ 强命中请销假管理办法族（0.964/0.935/0.563），答案结构化输出适用范围/请假类型
+     - "学生宿舍矛盾怎么谈心"（counselor）→ 命中 QA-Q02 宿舍矛盾（0.880）+ 关联案例；学生角色不可见该库（权限隔离，v0.4 冒烟已验证）
+- **完成标准逐条自评**：5/5 ✅（切分 94 篇含四段归并与兜底 / 兜底脱敏 0 命中 / 导入 75≥50 带类目标签 / ops 类目+2 占位 / 抽查 3/3 带引用）
+- **遗留问题 / 需你决策**：
+  1. **KB 文档标题取自文件名**，文号呈扁平格式（如"…西交校学生202514号"而非"〔2025〕14号"）——分块正文保留原格式，仅展示层欠美观；如需修复可按 frontmatter title 重导政策 32 篇（约 6 分钟），等你裁决是否 T3 顺手做
+  2. "研究生专项奖助学金"**专门文件不在库**：MANIFEST 决策 (c) 跳过了研工部 3 篇 PDF 附件办法——抽查命中的是奖助评审办法族，回答方向正确但非专门依据；如需强命中可后续补抓 3 篇 PDF
+  3. 政策库 32 篇中部分文号连续递减（202519→202515），为 Qoder prep 的抓取产物，我未改动；如需复核文号真实性由你确认
 
 ### T2 bad case 清单机制　✅ DONE（已合并 master）
 - **目标**：建立"从评测报告提取失败用例 → 归档 → 跟踪迭代"的闭环机制。
