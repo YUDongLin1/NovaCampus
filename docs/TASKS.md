@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T8+T9 已 Review 通过并合并 master；下一单：qa-08 检索相关性根治）
+> **当前持棒：Zcode**（T10 检索相关性根治进行中；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -327,6 +327,18 @@
 - **兼容**：`/api/chat` 非流式不变，3 轮评测 kb_hidden 3/3、refusal 6/6 不坏 ✓；无越界、工作区验证产物已补提交 ✓
 - **已知遗留（不阻塞）**：qa-08（复学"一周"）3 轮中 2 轮 fail——系 T5 提示词调优未根治的**检索竞争**（41号通用条款抢占专门办法），非 T8/T9 引入；badcases history 已留痕(7 条)、状态机按最新报告记 fixed。**根治检索相关性列为下一单。**
 - UI 视觉（流式逐字/历史渲染）因 Chrome 调试端口关闭未截图，由用户开 `localhost:8900` 目验；API 级证据已充分。
+
+### T10 检索相关性根治：qa-08 稳定性（来源多样性/重排融合）　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：根治 qa-08（"休学期满怎么申请复学"）间歇失败——教育部令41号通用条款抢占专门办法《研究生学籍管理规定》致答案漏"休学期满前一周"。要求**连续 ≥3 轮 qa-08 稳定 pass** 且无新回归。
+- **允许改**：`novaagent/novaagent/rag.py`、`docs/EVAL_BASELINE.md`、`reports/`(生成物)
+- **禁改**：`novaagent/agent.py`(prompt 已含规则7/8,不再加)、`novaagent/main.py`、`novaagent/db.py`、`evals/cases.json`、`corpus/**`、`novaagent/web/**`
+- **杠杆候选**(rag.py,选 1~2 并记录理由)：① `MAX_PER_DOC` 2→1(强制来源多样性,专门办法拿到席位)；② `FINAL_TOP_K` 5→6/7(容纳通用+专门两类来源)；③ rerank 分数与 RRF 秩 blend(防单文档霸榜)。**保持** `RERANK_MIN_SCORE`(拒答阈值)与 RBAC 过滤不变。
+- **完成标准**：
+  - [ ] 选定杠杆并实现；连跑 ≥3 轮 `run_evals`：**每轮 qa-08 pass**、kb_hidden 3/3、refusal 6/6、无新回归
+  - [ ] recall/faithfulness 中位 ≥ v1.3(0.8462/0.9615)；`EVAL_BASELINE.md` 记 v1.4 行 + 杠杆说明 + qa-08 连续通过证据
+  - [ ] `extract_badcases.py` 后 qa-08 history 追加连续"回归通过"、status=fixed
+- **验收命令**：重启 uvicorn → 连跑 3 轮 `PYTHONIOENCODING=gbk python evals/run_evals.py`(逐轮记录 qa-08) → `extract_badcases.py` → 回执
+- **依赖**：T8+T9
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
