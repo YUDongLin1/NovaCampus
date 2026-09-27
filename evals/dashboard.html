@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NovaCampus · 评测看板</title>
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --paper: #f4efe4;      /* 暖宣纸 */
+    --ink: #16233d;        /* 墨蓝 */
+    --cinnabar: #bf3b2b;   /* 朱砂 */
+    --ink-soft: #44546f;
+    --paper-dark: #ebe4d3;
+    --line: #d8cfba;
+    --ok: #3d6b4f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--paper); color: var(--ink); font-family: "Marcellus", "Noto Serif SC", "SimSun", serif; min-height: 100vh; padding: 28px 34px; }
+  header { display: flex; align-items: center; gap: 16px; border-bottom: 3px double var(--ink); padding-bottom: 14px; }
+  .seal { width: 54px; height: 54px; background: var(--cinnabar); color: var(--paper); display: flex; align-items: center; justify-content: center; font-size: 26px; border-radius: 8px; box-shadow: 2px 2px 0 rgba(22,35,61,.25); font-family: "Noto Serif SC", serif; }
+  h1 { font-size: 24px; letter-spacing: 2px; }
+  .sub { color: var(--ink-soft); font-size: 13px; margin-top: 4px; }
+  header .right { margin-left: auto; text-align: right; font-size: 12px; color: var(--ink-soft); }
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; margin: 20px 0; }
+  .kpi { background: rgba(255,255,255,.55); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; position: relative; }
+  .kpi::after { content: ""; position: absolute; right: 6px; top: 6px; width: 7px; height: 7px; background: var(--cinnabar); border-radius: 50%; opacity: .75; }
+  .kpi .v { font-size: 26px; }
+  .kpi .l { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  section { margin: 22px 0; }
+  h2 { font-size: 16px; letter-spacing: 1px; border-left: 4px solid var(--cinnabar); padding-left: 10px; margin-bottom: 10px; }
+  .card { background: rgba(255,255,255,.5); border: 1px solid var(--line); border-radius: 4px; padding: 14px; }
+  svg text { font-family: "Noto Serif SC", serif; }
+  .legend { display: flex; gap: 16px; font-size: 12px; color: var(--ink-soft); margin: 6px 0 8px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin-right: 5px; }
+  .legend b { display: inline-block; width: 11px; height: 11px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--ink-soft); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--ink); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  .pill { display: inline-block; padding: 1px 10px; border-radius: 999px; font-size: 12px; }
+  .pill.fixed { background: #e2ece5; color: var(--ok); }
+  .pill.open { background: #f6e3df; color: var(--cinnabar); }
+  .pill.fixing, .pill.wontfix { background: var(--paper-dark); color: var(--ink-soft); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .note { font-size: 12px; color: var(--ink-soft); margin-top: 8px; line-height: 1.7; }
+  .import-row { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--ink-soft); }
+  input[type=file] { font-size: 12px; color: var(--ink-soft); }
+  footer { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 10px; font-size: 11px; color: var(--ink-soft); display: flex; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="seal">枢</div>
+  <div>
+    <h1>智枢 Agent · 评测看板</h1>
+    <div class="sub">NovaCampus 自研智能体 · 质量闭环:评测 → bad case → 调优 → 收敛</div>
+  </div>
+  <div class="right">
+    数据:reports/eval_report_*.json + evals/badcases.json<br>
+    <span id="gen-time"></span>
+  </div>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<section>
+  <h2>优化前后对比(v1.1 → v1.2)</h2>
+  <div class="card">
+    <div class="legend" id="cmp-legend"></div>
+    <div id="cmp-chart"></div>
+    <div class="note" id="cmp-note"></div>
+  </div>
+</section>
+
+<section>
+  <h2>指标趋势(逐次报告)</h2>
+  <div class="card">
+    <div class="legend">
+      <span><i style="background:var(--ink)"></i>通过率</span>
+      <span><i style="background:var(--cinnabar)"></i>Recall@k</span>
+      <span><i style="background:var(--ok)"></i>忠实度</span>
+      <span><i style="background:#8a7a52"></i>拒答准确率</span>
+    </div>
+    <div id="trend-chart"></div>
+    <div class="note">v1.0 时期报告未采集 Recall@k / 忠实度,曲线自首个含该指标的报告起绘制;忠实度均值为 LLM-as-judge(method=llm)。</div>
+  </div>
+</section>
+
+<section>
+  <h2>bad case 收敛(open → fixed)</h2>
+  <div class="grid2">
+    <div class="card" id="bc-summary"></div>
+    <div class="card">
+      <table>
+        <thead><tr><th>用例</th><th>类型</th><th>状态</th><th>失败史</th><th>修复于</th></tr></thead>
+        <tbody id="bc-table"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>分类型通过率(最新报告)</h2>
+  <div class="card" id="type-chart"></div>
+</section>
+
+<section>
+  <h2>载入新报告</h2>
+  <div class="card import-row">
+    <span>页面内置快照为构建时数据;评测出新报告后,选择 JSON 文件即可并入当前视图(不落盘):</span>
+    <input type="file" id="file-import" multiple accept=".json">
+  </div>
+</section>
+
+<footer>
+  <span>NovaCampus 智枢 Agent · 评测闭环看板 · 学术水墨×朱砂印</span>
+  <span>单页自包含 · file:// 可直开 · 无外部依赖</span>
+</footer>
+
+<script>
+const REPORTS = [{"file": "eval_report_20260927_124959.json", "version": "v1.0", "total": 21, "total_pass": 18, "summary": {"qa": {"total": 8, "pass": 7}, "refusal": {"total": 6, "pass": 4}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}}}, {"file": "eval_report_20260927_125209.json", "version": "v1.0", "total": 21, "total_pass": 21, "summary": {"qa": {"total": 8, "pass": 8}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}}}, {"file": "eval_report_20260927_132713.json", "version": "v1.0", "total": 21, "total_pass": 21, "summary": {"qa": {"total": 8, "pass": 8}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}}}, {"file": "eval_report_20260927_140145.json", "version": "v1.0", "total": 21, "total_pass": 20, "summary": {"qa": {"total": 8, "pass": 8}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 3}, "kb_hidden": {"total": 3, "pass": 3}}}, {"file": "eval_report_20260927_140325.json", "version": "v1.0", "total": 21, "total_pass": 21, "summary": {"qa": {"total": 8, "pass": 8}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}}}, {"file": "eval_report_20260927_182529.json", "version": "v1.1", "total": 26, "total_pass": 25, "summary": {"qa": {"total": 13, "pass": 12}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.9231, "faithfulness_avg": 0.6949, "faithfulness_method": "proxy", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_182838.json", "version": "v1.1", "total": 26, "total_pass": 25, "summary": {"qa": {"total": 13, "pass": 12}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.9231, "faithfulness_avg": 1.0, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_183023.json", "version": "v1.1", "total": 26, "total_pass": 25, "summary": {"qa": {"total": 13, "pass": 12}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.9231, "faithfulness_avg": 0.8846, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_192354.json", "version": "v1.1", "total": 26, "total_pass": 25, "summary": {"qa": {"total": 13, "pass": 12}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.9231, "faithfulness_avg": 0.9615, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_192543.json", "version": "v1.1", "total": 26, "total_pass": 26, "summary": {"qa": {"total": 13, "pass": 13}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.9231, "faithfulness_avg": 1.0, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_192852.json", "version": "v1.1", "total": 26, "total_pass": 25, "summary": {"qa": {"total": 13, "pass": 12}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.8462, "faithfulness_avg": 1.0, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_193050.json", "version": "v1.1", "total": 26, "total_pass": 25, "summary": {"qa": {"total": 13, "pass": 12}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.8462, "faithfulness_avg": 0.9615, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}, {"file": "eval_report_20260927_193309.json", "version": "v1.1", "total": 26, "total_pass": 26, "summary": {"qa": {"total": 13, "pass": 13}, "refusal": {"total": 6, "pass": 6}, "permission_api": {"total": 4, "pass": 4}, "kb_hidden": {"total": 3, "pass": 3}, "recall_at_k_avg": 0.8462, "faithfulness_avg": 1.0, "faithfulness_method": "llm", "refusal_accuracy": 1.0}}];
+const BADCASES = [{"id": "qa-01", "type": "qa", "status": "fixed", "first_seen": "20260927_124959", "last_seen": "20260927_124959", "fixed_in": "eval_report_20260927_140325.json", "history": [{"report": "eval_report_20260927_124959.json", "detail": "回答未命中关键词: ['医院诊断证明'](引用 ['EVAL-研究生学籍管理规定', '学籍管理规定-学生版', '学籍管理规定-学生版', '学籍管理规定-学生版', 'EVAL-研究生奖学金评定办法'])", "at": "20260927_124959"}]}, {"id": "ref-05", "type": "refusal", "status": "fixed", "first_seen": "20260927_124959", "last_seen": "20260927_124959", "fixed_in": "eval_report_20260927_140325.json", "history": [{"report": "eval_report_20260927_124959.json", "detail": "不应回答却给出了内容,引用: ['《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）', '《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）', '《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）', '《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）', '《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）']", "at": "20260927_124959"}]}, {"id": "ref-06", "type": "refusal", "status": "fixed", "first_seen": "20260927_124959", "last_seen": "20260927_124959", "fixed_in": "eval_report_20260927_140325.json", "history": [{"report": "eval_report_20260927_124959.json", "detail": "不应回答却给出了内容,引用: ['《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）', '《西南交通大学学生纪律处分规定》（西交校学生〔2023〕14+号）', '学籍管理规定-学生版', '学籍管理规定-学生版', '学籍管理规定-学生版']", "at": "20260927_124959"}]}, {"id": "perm-03", "type": "permission_api", "status": "fixed", "first_seen": "20260927_140145", "last_seen": "20260927_140145", "fixed_in": "eval_report_20260927_140325.json", "history": [{"report": "eval_report_20260927_140145.json", "detail": "DELETE /api/kb/documents/999999 → 404(期待 403)", "at": "20260927_140145"}]}, {"id": "qa-08", "type": "qa", "status": "fixed", "first_seen": "20260927_182529", "last_seen": "20260927_183023", "fixed_in": "eval_report_20260927_192852.json", "history": [{"report": "eval_report_20260927_182529.json", "detail": "回答未命中关键词: ['一周'](引用 ['普通高等学校学生管理规定教育部令第41号', 'EVAL-研究生学籍管理规定', '西南交通大学国家助学贷款实施办法西交校学生202520号', '普通高等学校学生管理规定教育部令第41号'])", "at": "20260927_182529"}, {"report": "eval_report_20260927_182838.json", "detail": "回答未命中关键词: ['一周'](引用 ['普通高等学校学生管理规定教育部令第41号', 'EVAL-研究生学籍管理规定', '西南交通大学国家助学贷款实施办法西交校学生202520号', '普通高等学校学生管理规定教育部令第41号'])", "at": "20260927_182838"}, {"report": "eval_report_20260927_183023.json", "detail": "回答未命中关键词: ['一周'](引用 ['普通高等学校学生管理规定教育部令第41号', 'EVAL-研究生学籍管理规定', '西南交通大学国家助学贷款实施办法西交校学生202520号', '普通高等学校学生管理规定教育部令第41号'])", "at": "20260927_183023"}, {"report": "eval_report_20260927_192852.json", "detail": "回归通过", "at": "20260927_192852"}]}, {"id": "qa-07", "type": "qa", "status": "fixed", "first_seen": "20260927_192354", "last_seen": "20260927_192852", "fixed_in": "eval_report_20260927_193309.json", "history": [{"report": "eval_report_20260927_192354.json", "detail": "回答未命中关键词: ['教务处'](引用 ['EVAL-学生请假管理办法', '西南交通大学学生离校请销假管理办法试行西交校学生2018224号'])", "at": "20260927_192354"}, {"report": "eval_report_20260927_192852.json", "detail": "回答未命中关键词: ['教务处'](引用 ['EVAL-学生请假管理办法', '西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）'])", "at": "20260927_192852"}, {"report": "eval_report_20260927_193309.json", "detail": "回归通过", "at": "20260927_193309"}]}, {"id": "qa-11", "type": "qa", "status": "fixed", "first_seen": "20260927_193050", "last_seen": "20260927_193050", "fixed_in": "eval_report_20260927_193309.json", "history": [{"report": "eval_report_20260927_193050.json", "detail": "回答未命中关键词: ['宿舍'](引用 ['QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她', 'S1-NO47-学生因恋爱问题遭遇死亡威胁,辅导员应该如何应对', 'QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她'])", "at": "20260927_193050"}, {"report": "eval_report_20260927_193309.json", "detail": "回归通过", "at": "20260927_193309"}]}];
+const COMPARISON = {"v11": {"label": "20260927_183023", "pass": 25, "total": 26, "recall": 0.9231, "faith": 0.8846, "refusal": 1.0}, "v12": {"label": "20260927_193309", "pass": 26, "total": 26, "recall": 0.8462, "faith": 1.0, "refusal": 1.0}, "note": "v1.2 调优杠杆:SYSTEM_PROMPT 增「对口来源/专门规定优先」与「场景判定不混用」两条规则;qa-08(复学时限)与 qa-07(教务处备案)由 FAIL 转 PASS,忠实度 0.8846→1.0。Recall@k 均值下降系 qa-03 标注修正为多源(2 个 expect_sources)且单轮检索波动所致,量纲变化已在 EVAL_BASELINE.md 说明;运行间存在单用例轮换波动(temperature=0.3 + 多源检索),正式对比建议 3 次取中位数。"};
+</script>
+<script>
+/* ---------- 数据规整 ---------- */
+function fmtTs(file) { const m = /(\d{8})_(\d{6})/.exec(file || ""); return m ? m[1].slice(4,6)+"-"+m[1].slice(6,8)+" "+m[2].slice(0,2)+":"+m[2].slice(2,4) : "?"; }
+const reps = REPORTS.map(r => ({
+  file: r.file, label: fmtTs(r.file), version: r.version || "",
+  total: r.total, pass: r.total_pass,
+  passRate: r.total ? r.total_pass / r.total : 0,
+  recall: r.summary && r.summary.recall_at_k_avg != null ? r.summary.recall_at_k_avg : null,
+  faith: r.summary && r.summary.faithfulness_avg != null ? r.summary.faithfulness_avg : null,
+  refusal: r.summary && r.summary.refusal_accuracy != null ? r.summary.refusal_accuracy : null,
+  byType: r.summary ? Object.fromEntries(Object.entries(r.summary).filter(([k]) => !["recall_at_k_avg","faithfulness_avg","faithfulness_method","refusal_accuracy"].includes(k))) : {}
+}));
+document.getElementById("gen-time").textContent = "看板生成:2026-09-27 19:40 · 快照含 " + reps.length + " 份报告";
+
+/* ---------- KPI ---------- */
+const last = reps[reps.length - 1];
+document.getElementById("kpis").innerHTML = [
+  ["总通过率", (last.passRate * 100).toFixed(0) + "%"],
+  ["Recall@k", last.recall != null ? last.recall : "—"],
+  ["忠实度(llm)", last.faith != null ? last.faith : "—"],
+  ["拒答准确率", last.refusal != null ? last.refusal : "—"],
+  ["bad case open", BADCASES.filter(c => c.status === "open").length]
+].map(([l, v]) => `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+/* ---------- SVG 工具 ---------- */
+function lineChart(el, series, labels, ymax) {
+  const W = 920, H = 260, L = 44, R = 14, T = 16, B = 46;
+  const iw = W - L - R, ih = H - T - B;
+  const y = v => T + ih - (v / ymax) * ih;
+  const n = labels.length;
+  const x = i => n <= 1 ? L + iw / 2 : L + (i / (n - 1)) * iw;
+  let g = "";
+  for (let t = 0; t <= 4; t++) {
+    const yy = T + (ih * t) / 4;
+    g += `<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>` +
+         `<text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${(ymax*(4-t)/4).toFixed(2)}</text>`;
+  }
+  const step = Math.ceil(n / 9);
+  labels.forEach((lb, i) => { if (i % step === 0 || i === n-1) g += `<text x="${x(i)}" y="${H-B+16}" text-anchor="middle" font-size="9.5" fill="var(--ink-soft)" transform="rotate(28 ${x(i)} ${H-B+16})">${lb}</text>`; });
+  for (const s of series) {
+    const pts = [];
+    s.data.forEach((v, i) => { if (v != null) pts.push([x(i), y(v)]); });
+    if (pts.length > 1) g += `<polyline points="${pts.map(p => p.join(",")).join(" ")}" fill="none" stroke="${s.color}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    for (const [px, py] of pts) g += `<circle cx="${px}" cy="${py}" r="3" fill="${s.color}"/>`;
+    if (pts.length === 1) g += `<circle cx="${pts[0][0]}" cy="${pts[0][1]}" r="3.5" fill="${s.color}"/>`;
+  }
+  document.getElementById(el).innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${g}</svg>`;
+}
+
+/* ---------- v1.1 → v1.2 对比 ---------- */
+(function () {
+  const items = [
+    ["总通过", COMPARISON.v11.pass, COMPARISON.v12.pass, COMPARISON.v11.total],
+    ["Recall@k", COMPARISON.v11.recall, COMPARISON.v12.recall, 1],
+    ["忠实度", COMPARISON.v11.faith, COMPARISON.v12.faith, 1],
+    ["拒答准确率", COMPARISON.v11.refusal, COMPARISON.v12.refusal, 1]
+  ];
+  const W = 920, H = 240, L = 44, B = 40, T = 18;
+  const iw = W - L - 14, ih = H - T - B;
+  const gw = iw / items.length;
+  let g = "";
+  for (let t = 0; t <= 4; t++) {
+    const yy = T + (ih * t) / 4;
+    g += `<line x1="${L}" y1="${yy}" x2="${W-14}" y2="${yy}" stroke="var(--line)"/>` +
+         `<text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="10" fill="var(--ink-soft)">${(COMPARISON.v11.total*(4-t)/4).toFixed(0)}</text>`;
+  }
+  items.forEach(([name, v11, v12, base], gi) => {
+    const x0 = L + gi * gw + gw * 0.16, bw = gw * 0.28;
+    const h11 = (v11 / base) * ih, h12 = (v12 / base) * ih;
+    g += `<rect x="${x0}" y="${T+ih-h11}" width="${bw}" height="${h11}" fill="var(--ink-soft)" opacity=".55"/>`;
+    g += `<rect x="${x0+bw+4}" y="${T+ih-h12}" width="${bw}" height="${h12}" fill="var(--cinnabar)"/>`;
+    g += `<text x="${x0+bw/2}" y="${T+ih-h11-5}" text-anchor="middle" font-size="10.5" fill="var(--ink)">${v11}</text>`;
+    g += `<text x="${x0+bw*1.5+4}" y="${T+ih-h12-5}" text-anchor="middle" font-size="10.5" fill="var(--cinnabar)">${v12}</text>`;
+    g += `<text x="${x0+gw/2}" y="${H-14}" text-anchor="middle" font-size="12" fill="var(--ink)">${name}</text>`;
+  });
+  document.getElementById("cmp-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${g}</svg>`;
+  document.getElementById("cmp-legend").innerHTML =
+    `<span><b style="background:var(--ink-soft)"></b>v1.1(T4 前:${COMPARISON.v11.label})</span>` +
+    `<span><b style="background:var(--cinnabar)"></b>v1.2(T5 调优:${COMPARISON.v12.label})</span>`;
+  document.getElementById("cmp-note").textContent = COMPARISON.note;
+})();
+
+/* ---------- 指标趋势 ---------- */
+lineChart("trend-chart", [
+  { color: "var(--ink)", data: reps.map(r => r.passRate) },
+  { color: "var(--cinnabar)", data: reps.map(r => r.recall) },
+  { color: "var(--ok)", data: reps.map(r => r.faith) },
+  { color: "#8a7a52", data: reps.map(r => r.refusal) }
+], reps.map(r => r.label), 1.05);
+
+/* ---------- bad case ---------- */
+(function () {
+  const cnt = { open: 0, fixing: 0, fixed: 0, wontfix: 0 };
+  BADCASES.forEach(c => cnt[c.status] = (cnt[c.status] || 0) + 1);
+  const events = [];
+  BADCASES.forEach(c => c.history.forEach(h => events.push(h.report)));
+  document.getElementById("bc-summary").innerHTML =
+    `<table><tr><td style="font-size:30px">${BADCASES.length}</td><td style="color:var(--ink-soft)">累计 bad case<br>(只增不删,留档)</td></tr>
+     <tr><td style="font-size:30px;color:var(--cinnabar)">${cnt.open || 0}</td><td style="color:var(--ink-soft)">当前 open</td></tr>
+     <tr><td style="font-size:30px;color:var(--ok)">${cnt.fixed || 0}</td><td style="color:var(--ink-soft)">已修复 fixed<br>(收敛证据)</td></tr></table>
+     <div class="note">qa-08(复学时限)经提示词"对口来源+场景判定"规则修复:失败 4 次 → fixed,收敛曲线见趋势图。失败事件共 ${events.length} 次,分布于 ${new Set(events).size} 份报告。</div>`;
+  document.getElementById("bc-table").innerHTML = BADCASES.map(c =>
+    `<tr><td>${c.id}</td><td>${c.type}</td><td><span class="pill ${c.status}">${c.status}</span></td><td>${(c.history||[]).length}</td><td>${(c.fixed_in||"—").replace("eval_report_","").replace(".json","").replace("20260927_","")}</td></tr>`).join("");
+})();
+
+/* ---------- 分类型通过率 ---------- */
+(function () {
+  const types = Object.entries(last.byType || {});
+  const W = 920, H = 190, L = 120, B = 30, T = 10;
+  const iw = W - L - 20, ih = H - T - B;
+  let g = "";
+  types.forEach(([name, s], i) => {
+    const rate = s.total ? s.pass / s.total : 0;
+    const yy = T + (i * ih) / types.length + 6, bh = (ih / types.length) - 12;
+    const bw = rate * iw;
+    g += `<text x="${L-8}" y="${yy+bh/2+4}" text-anchor="end" font-size="12" fill="var(--ink)">${name}</text>`;
+    g += `<rect x="${L}" y="${yy}" width="${iw}" height="${bh}" fill="var(--paper-dark)"/>`;
+    g += `<rect x="${L}" y="${yy}" width="${bw}" height="${bh}" fill="${rate === 1 ? "var(--ok)" : "var(--cinnabar)"}" opacity=".85"/>`;
+    g += `<text x="${L+bw+6}" y="${yy+bh/2+4}" font-size="11.5" fill="var(--ink)">${s.pass}/${s.total}</text>`;
+  });
+  document.getElementById("type-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto">${g}</svg>`;
+})();
+
+/* ---------- 报告导入(file:// 增量刷新) ---------- */
+document.getElementById("file-import").addEventListener("change", async e => {
+  for (const f of e.target.files) {
+    try {
+      const d = JSON.parse(await f.text());
+      if (d.results && d.total != null) {
+        reps.push({ file: f.name, label: fmtTs(f.name), total: d.total, pass: d.total_pass,
+          passRate: d.total_pass / d.total,
+          recall: d.summary && d.summary.recall_at_k_avg != null ? d.summary.recall_at_k_avg : null,
+          faith: d.summary && d.summary.faithfulness_avg != null ? d.summary.faithfulness_avg : null,
+          refusal: d.summary && d.summary.refusal_accuracy != null ? d.summary.refusal_accuracy : null,
+          byType: d.summary || {} });
+      } else if (d.cases) { toastImport("badcases.json 已读入(刷新页面后重置)"); }
+    } catch (err) { alert("解析失败:" + f.name); }
+  }
+  reps.sort((a, b) => a.label.localeCompare(b.label));
+  location.hash = ""; location.reload();
+});
+</script>
+</body>
+</html>

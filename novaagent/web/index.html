@@ -540,6 +540,7 @@ async function enter() {
   } else {
     $('upload-row').style.display = 'flex';
     $('import-row').style.display = 'flex';
+    $('tab-records').style.display = ''; $('tab-weekly').style.display = '';
   }
   $('acct-name').textContent = ME.username;
   $('acct-role').textContent = ROLE_ZH[ME.role];
