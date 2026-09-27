@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（T2 进行中；Zcode 回填交接回执后改回 `Qoder`）
+> **当前持棒：Qoder**（T2 已回填交接回执，待 Review）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -29,17 +29,39 @@
 - ⚠️ **需用户决策**：语料来源（真实高校公开政策 URL 清单 / 用户自有工作记录 / 混合）
 - **依赖**：无
 
-### T2 bad case 清单机制　🔵 IN_PROGRESS（持棒：Zcode）
+### T2 bad case 清单机制　🟣 IN_REVIEW（待 Qoder Review）
 - **目标**：建立"从评测报告提取失败用例 → 归档 → 跟踪迭代"的闭环机制。
 - **允许改**：`evals/extract_badcases.py`（新）、`evals/badcases.json`（新）、`docs/BADCASES.md`（新）
 - **禁改**：`evals/run_evals.py`、`evals/cases.json`、`novaagent/**`
 - **完成标准**：
-  - [ ] `extract_badcases.py` 能读 `reports/eval_report_*.json`，抽出 `pass=false` 用例写入 `badcases.json`（含 id / type / 问题 / 期望 / 实际 / 状态）
-  - [ ] `badcases.json` 结构清晰，支持标记「已修复 / 待迭代」
-  - [ ] `docs/BADCASES.md` 写清维护流程（何时提取、如何跟踪、修复后如何回归）
-  - [ ] 对现有 5 份报告跑一遍，产出当前 bad case 快照（现全过则应为空，需说明原因）
+  - [x] `extract_badcases.py` 能读 `reports/eval_report_*.json`，抽出 `pass=false` 用例写入 `badcases.json`（含 id / type / 问题 / 期望 / 实际 / 状态）
+  - [x] `badcases.json` 结构清晰，支持标记「已修复 / 待迭代」
+  - [x] `docs/BADCASES.md` 写清维护流程（何时提取、如何跟踪、修复后如何回归）
+  - [x] 对现有 5 份报告跑一遍，产出当前 bad case 快照（现全过则应为空，需说明原因）
 - **验收命令**：`python evals/extract_badcases.py`
 - **依赖**：无（纯增量、低风险，适合先跑通交接流程）
+
+#### 交接回执（Zcode → Qoder，2026-09-27）
+
+- **分支 + 提交**：`task/T2-badcase` @ `a64d372`（`T2: 新增 bad case 提取脚本与累积档案…`）
+- **diff 摘要**（3 个新文件，白名单内，未动任何禁改文件）：
+  - `evals/extract_badcases.py`（~170 行）：按时间戳旧→新扫描 `reports/eval_report_*.json`，抽取 `pass=false` 用例按 id 合并进 `badcases.json`；状态机 open / fixing / fixed / wontfix——最新报告通过时 `open` 自动置 `fixed`（记录 `fixed_in`），已 fixed 再次失败自动重开（回归告警），人工字段 `note` / `fixing` / `wontfix` 永不覆盖
+  - `evals/badcases.json`：累积档案（只增不删），当前 4 条历史 case，全部 `fixed`
+  - `docs/BADCASES.md`：何时提取 / 字段说明 / 状态机图 / 修复回归五步流程 / 与 T4·T5·Review 闸门的衔接
+- **自测输出**（`python evals/extract_badcases.py`，实扫 5 份报告）：
+  ```
+  新增 bad case: 4 | 仍失败(open): 0 | 回归确认自动置 fixed: 4 | 已修复又失败自动重开: 0
+  ✅ 当前无 open 状态的 bad case
+  ```
+  4 条历史 case 均为真实数据：qa-01（评测关键词过严）、ref-05 / ref-06（拒答阈值缺失）、perm-03（权限规则 v0.4 变更），与 v0.4 迭代过程一一对应，`fixed_in` 均指向最新报告 140325
+- **完成标准逐条自评**：
+  - ✅ 提取 pass=false 写入 badcases.json（含 id / type / question / expect / actual / status 六要素）
+  - ✅ 支持标记：状态机含 fixed / open（待迭代），另有 fixing / wontfix 人工态
+  - ✅ BADCASES.md 覆盖"何时提取 / 如何跟踪 / 修复后如何回归"
+  - ✅ 5 份报告实扫通过。**说明**：任务描述预期"现全过则应为空"——`open` 视角确认为空（✅ 无待迭代项）；但按"累积档案只增不删"设计，文件保留 4 条已 `fixed` 的历史条目作为迭代证据链。若你希望文件只保留 open 项，回执打回后我调整为归档模式
+- **遗留问题 / 需你决策**：
+  1. 上条所述：badcases.json 是否保留已 fixed 的历史条目（当前保留，利于 T5 看板画"收敛曲线"）；
+  2. `fixing` 状态下最新报告通过时，提取器只回填 `fixed_in` 不改状态（由人工确认后置 fixed）——是否符合你对"人工确认"粒度的预期。
 
 ### T3 前端校园化核对与补齐
 - **目标**：确认 / 补齐主题、Logo、模拟统一认证登录页，三角色视角 UI 正确。
