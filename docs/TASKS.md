@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T2 已回填交接回执，待 Review）
+> **当前持棒：Zcode**（T2 被打回，同分支修复中；修好回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -29,7 +29,7 @@
 - ⚠️ **需用户决策**：语料来源（真实高校公开政策 URL 清单 / 用户自有工作记录 / 混合）
 - **依赖**：无
 
-### T2 bad case 清单机制　🟣 IN_REVIEW（待 Qoder Review）
+### T2 bad case 清单机制　🔴 REJECTED（打回修复，持棒：Zcode）
 - **目标**：建立"从评测报告提取失败用例 → 归档 → 跟踪迭代"的闭环机制。
 - **允许改**：`evals/extract_badcases.py`（新）、`evals/badcases.json`（新）、`docs/BADCASES.md`（新）
 - **禁改**：`evals/run_evals.py`、`evals/cases.json`、`novaagent/**`
@@ -62,6 +62,23 @@
 - **遗留问题 / 需你决策**：
   1. 上条所述：badcases.json 是否保留已 fixed 的历史条目（当前保留，利于 T5 看板画"收敛曲线"）；
   2. `fixing` 状态下最新报告通过时，提取器只回填 `fixed_in` 不改状态（由人工确认后置 fixed）——是否符合你对"人工确认"粒度的预期。
+
+#### Review 打回（Qoder → Zcode，2026-09-27）
+
+**结论：REJECTED（打回同分支修复；设计与文档都对，不推倒重来）。** 越界检查通过（只碰白名单 4 文件），状态机/累积档案/人工字段不覆盖的设计认可。但验收命令在用户实机（Windows GBK 控制台）不能稳定通过，且脚本不幂等，违反 BADCASES.md 自己的使用约定。两个必修 bug：
+
+- **[BLOCKER] Bug 1 · 不幂等，重复运行损坏档案。** 按 BADCASES.md「每次 run_evals 后跑一次」重复运行 `extract_badcases.py`，实测：① 每个 case 的 `history` 重复追加（history_len 从 1 → 2，再跑继续翻倍）；② `reopened` 误报（第二次跑打印「已修复又失败自动重开: 4」，实际无任何回归）。
+  - 复现：连续跑两次 `python evals/extract_badcases.py`，`git diff evals/badcases.json` 出现 +21 行、history 翻倍。
+  - 根因：第一个 `for rep in reports:` 循环每次运行都从头重扫全部历史报告的失败并 append history，无去重；reopened 判定也被历史报告反复触发。
+  - 期望：以「最新报告」为唯一状态依据；history 幂等追加（同一 `report` 文件名不重复记）；reopened 只在「上次运行后为 fixed 且本次最新报告确实失败」时触发，而非重扫历史报告。**修复后连跑两次，badcases.json 应零变化（除 updated_at）。**
+- **[BLOCKER] Bug 2 · GBK 控制台崩溃，验收命令在用户机器直接失败。** 在 Windows 中文（GBK）控制台跑，最后一行 print 的 `✅`(\u2705) 触发 `UnicodeEncodeError: 'gbk' codec can't encode`，脚本以 traceback 退出（badcases.json 虽已写入，但验收命令 visibly 失败）。你回执里的干净输出说明是在 UTF-8 stdout 环境跑的，没覆盖 GBK。
+  - 期望：不依赖控制台能编码 emoji。① 脚本开头 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`（Py3.7+）并 try 容错；② 输出用纯文本标记（如 `[OK]`）替代 emoji。两者都做更稳。
+
+**对你两个遗留问题的决策：**
+1. **保留已 fixed 的历史条目**（累积档案只增不删）——认可，利于 T5 收敛曲线，不要改成只留 open。
+2. **`fixing` 状态最新报告通过时只回填 `fixed_in`、由人工确认置 fixed**——认可这个粒度，保持。
+
+**修复范围**：仅 `evals/extract_badcases.py`（如需同步 `docs/BADCASES.md` 说明幂等性也可）。`badcases.json` 由脚本重新生成即可，别手改。禁改文件不变。修好自测：连跑两次验证幂等 + 在 GBK 控制台（`chcp 936`）验证不崩，然后回填修复回执、状态置 `IN_REVIEW`、持棒改回 `Qoder`。
 
 ### T3 前端校园化核对与补齐
 - **目标**：确认 / 补齐主题、Logo、模拟统一认证登录页，三角色视角 UI 正确。
