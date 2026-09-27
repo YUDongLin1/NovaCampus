@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（T2 被打回，同分支修复中；修好回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
+> **当前持棒：Qoder**（T2 修复已回填，待 Review）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -29,7 +29,7 @@
 - ⚠️ **需用户决策**：语料来源（真实高校公开政策 URL 清单 / 用户自有工作记录 / 混合）
 - **依赖**：无
 
-### T2 bad case 清单机制　🔴 REJECTED（打回修复，持棒：Zcode）
+### T2 bad case 清单机制　🟣 IN_REVIEW（修复已回填，持棒：Qoder）
 - **目标**：建立"从评测报告提取失败用例 → 归档 → 跟踪迭代"的闭环机制。
 - **允许改**：`evals/extract_badcases.py`（新）、`evals/badcases.json`（新）、`docs/BADCASES.md`（新）
 - **禁改**：`evals/run_evals.py`、`evals/cases.json`、`novaagent/**`
@@ -79,6 +79,20 @@
 2. **`fixing` 状态最新报告通过时只回填 `fixed_in`、由人工确认置 fixed**——认可这个粒度，保持。
 
 **修复范围**：仅 `evals/extract_badcases.py`（如需同步 `docs/BADCASES.md` 说明幂等性也可）。`badcases.json` 由脚本重新生成即可，别手改。禁改文件不变。修好自测：连跑两次验证幂等 + 在 GBK 控制台（`chcp 936`）验证不崩，然后回填修复回执、状态置 `IN_REVIEW`、持棒改回 `Qoder`。
+
+#### 修复回执（Zcode → Qoder，2026-09-27）
+
+- **修复提交**：`task/T2-badcase` @ `0779e81`（`T2: 修复幂等与 GBK 控制台兼容(Review 打回)`）
+- **diff 摘要**（3 文件，均在修复范围内）：
+  - `evals/extract_badcases.py`：重构为两阶段——①幂等建档（重扫全部报告只为失败用例建档/补 history，`append_history()` 按 report 文件名去重，`actual`/`last_seen` 迭代收敛到最近一次失败，重跑结果一致）；②状态流转**只以最新报告为唯一依据**，`reopened` 仅在「上次状态为 fixed 且本次最新报告确实失败」时触发（新增：已 fixed 的用例在最新报告中失败 → 自动重开为 open）；开头加 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`（try 容错 AttributeError/ValueError/OSError），`✅` 全部替换为 `[OK]` 纯文本
+  - `evals/badcases.json`：由脚本重新生成（未手改），与已提交版本仅 `updated_at` 一行之差（git diff 确认）
+  - `docs/BADCASES.md`：补「幂等保证」说明（history 去重 / 状态只由最新报告流转 / reopened 触发条件）
+- **自测输出**：
+  1. **幂等（实机连跑 3 次）**：run2 vs run3 除 `updated_at` 外零变化 `[OK]`；`history` 长度稳定 `{qa-01: 1, ref-05: 1, ref-06: 1, perm-03: 1}`（不再翻倍）；`git diff evals/badcases.json` 仅 updated_at 一行
+  2. **reopen 路径（合成报告验证，未触碰真实 reports/）**：失败→`fixed`→最新报告再失败→自动重开 `open`（reopened=1），重跑一次不再误报（reopened=0）；history 恰好 3 条（失败/回归通过/回归失败）无翻倍
+  3. **GBK 控制台**：`cmd /c "chcp 936 & python evals\extract_badcases.py"` 退出码 **0**，无 `UnicodeEncodeError`
+- **BLOCKER 逐条**：BLOCKER-1（幂等）✅ 已修并三重验证；BLOCKER-2（GBK）✅ 已修并实测
+- **遗留问题**：无。你批复的两个决策已落实：fixed 历史条目保留；fixing 通过只回填 `fixed_in` 由人工确认
 
 ### T3 前端校园化核对与补齐
 - **目标**：确认 / 补齐主题、Logo、模拟统一认证登录页，三角色视角 UI 正确。
