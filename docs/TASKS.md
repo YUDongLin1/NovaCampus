@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T5 已 Review 通过并合并 master，P2 闭环完成；下一单待定：用例措辞加固 / 技术债 / P3）
+> **当前持棒：Zcode**（T6 检索层升级+用例加固进行中；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -255,9 +255,22 @@
 
 **P2 闭环完成**：评测→bad case→调优→收敛→看板 全链路有数据留痕，简历第一亮点成立。
 
+### T6 检索层升级（FTS5）+ 评测用例措辞加固　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：① 消掉评测 flaky（qa-07/qa-11 关键词字面脆性）；② 关键词检索从内存 2-gram 计数升级为 SQLite FTS5（BM25）。合包交付，均不依赖 docker。
+- **允许改**：`evals/cases.json`、`evals/run_evals.py`（judge_qa）、`novaagent/db.py`（FTS5）、`novaagent/rag.py`（_keyword_search）、`docs/EVAL_BASELINE.md`、`reports/`
+- **禁改**：`corpus/**`、`mcp/**`、`sims/**`、`novaagent/web/**`、`novaagent/agent.py`
+- **现状锚点**：`db.py` chunks 表(id,doc_id,idx,content,embedding)、`insert_chunks`、`all_chunks_for_search`(全量入内存)、`_migrate()` 钩子；`rag.py` `_keyword_search` 为内存 2-gram 计数、经 `_rrf_fuse` 与向量融合。
+- **完成标准**：
+  - [ ] **⑥a 措辞加固**：`judge_qa` 支持 expect_keywords 条目为 str(必含) 或 list(any-of 命中其一)；qa-07 改 any-of `["教务处","备案","报备"]`、qa-11 改 any-of `["宿舍","寝室","室友","矛盾"]`；连跑 3 轮 qa-07/qa-11 稳定 pass（不再轮换 fail）
+  - [ ] **⑥b FTS5**：`db.py` 建外部内容 FTS5 表 `chunks_fts(content, content='chunks', content_rowid='id')`，tokenize 优先 `trigram`(中文子串匹配)、不可用降级 `unicode61`；AFTER INSERT/DELETE 触发器同步；`_migrate()` 对存量执行 `INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild')`
+  - [ ] **⑥b'**：`rag.py` `_keyword_search` 改查 `chunks_fts` 按 `bm25()` 排序、限定角色可见 chunk 集；FTS5 不可用/查询异常时**回退**现内存计数（拒答阈值行为不变）
+  - [ ] **⑥c 基线**：重跑评测 ≥3 轮取中位数，无回归（≥ v1.2 水平）；`EVAL_BASELINE.md` 记 v1.3 行 + FTS5 说明；`extract_badcases.py` 无新增 open
+- **验收命令**：起 uvicorn → 连跑 3 次 `PYTHONIOENCODING=gbk python evals/run_evals.py` → 中位数对比 v1.2 → `python evals/extract_badcases.py`
+- **依赖**：T5
+
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
-- **T6** 关键词检索 LIKE → FTS5/BM25（`novaagent/rag.py`、`db.py`）
+- **T6** 关键词检索 LIKE → FTS5/BM25 —— **已提升为活跃任务（见上），含用例措辞加固**
 - **T7** 向量库 sqlite → sqlite-vec（`novaagent/db.py`、`rag.py`）
 - **T8** 流式输出 SSE（`novaagent/main.py`、`web/`）
 - **T9** 会话持久化（`novaagent/db.py`、`main.py`）
