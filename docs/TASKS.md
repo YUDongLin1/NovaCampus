@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T6 已 Review 通过并合并 master；下一阶段待派发）
+> **当前持棒：Zcode**（T8+T9 产品完整度包进行中；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -295,12 +295,25 @@
 
 **检索层现状**：向量余弦 + FTS5(trigram,bm25) 混合 RRF + rerank；FTS 不可用优雅回退 2-gram。技术债 T6 关闭。
 
+### T8+T9 产品完整度包：流式输出 SSE + 会话持久化（合包）　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：让 demo 有"真产品"质感：① 聊天流式逐字输出（SSE）；② 会话历史持久化（刷新/重登仍在）。均不依赖 docker。
+- **允许改**：`novaagent/llm.py`、`novaagent/agent.py`、`novaagent/main.py`、`novaagent/db.py`、`novaagent/web/index.html`、`docs/TASKS.md`(回执)
+- **禁改**：`corpus/**`、`mcp/**`、`sims/**`、`evals/cases.json`；**`/api/chat` 非流式接口必须保持原行为**（`run_evals` 依赖它）
+- **现状锚点**：`llm.py` 仅 `chat`(非流式)；`main.py` `/api/chat` 一次性返回；无会话表、前端无历史加载。
+- **完成标准**：
+  - [ ] **T8 流式**：`llm.py` 增 `chat_stream`（OpenAI 兼容 stream=true，yield delta）；`agent.py` 增流式路径（工具循环后流式输出最终答案）；`main.py` 增 `POST /api/chat/stream` 返回 SSE（text/event-stream）：事件 `sources`(一次性)/`delta`(逐 token)/`done`；`web/index.html` send() 改 fetch+ReadableStream 逐字渲染、done 时渲染引用；流失败自动回退 `/api/chat`
+  - [ ] **T9 持久化**：`db.py` 增 conversations/messages 表(user_id,role,content,created_at)；`/api/chat` 与 stream 均落库；`GET /api/conversations` 返回该用户历史；`web` enter() 加载历史渲染；按角色隔离
+  - [ ] **兼容**：`/api/chat` 非流式行为不变 → `PYTHONIOENCODING=gbk python evals/run_evals.py` 中位不回归、kb_hidden/refusal 不坏
+  - [ ] 视觉沿用学术水墨令牌；流式光标/打字机效果克制不花哨
+- **验收命令**：起 uvicorn → 浏览器流式逐字可见(截图) → 刷新后历史仍在(截图) → run_evals 不回归 → 回填回执
+- **依赖**：T6
+
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
 - **T6** 关键词检索 LIKE → FTS5/BM25 —— **已提升为活跃任务（见上），含用例措辞加固**
 - **T7** 向量库 sqlite → sqlite-vec（`novaagent/db.py`、`rag.py`）
-- **T8** 流式输出 SSE（`novaagent/main.py`、`web/`）
-- **T9** 会话持久化（`novaagent/db.py`、`main.py`）
+- **T8** 流式输出 SSE —— **已提升为活跃任务（T8+T9 合包，见上）**
+- **T9** 会话持久化 —— **已提升为活跃任务（T8+T9 合包，见上）**
 
 ---
 
