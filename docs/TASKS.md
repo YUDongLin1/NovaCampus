@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T2 已 Review 通过并合并 master；正在开启 T1 语料建设）
+> **当前持棒：Zcode**（T1 语料建设进行中；Qoder 已 prep 32 篇政策语料 + manifest 并交棒）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -15,19 +15,22 @@
 
 ## P1 收口（让"简历可用版本"名副其实）
 
-### T1 语料库建设：≥50 篇真实政策文档 + 脱敏 + 分库　⏳ READY（待用户定来源）
-- **目标**：`corpus/` 从 0 → ≥50 篇真实高校政策文档，分 3 库（政策 / 学生事务 / 运维手册），全部脱敏，记录来源。
-- **允许改**：`corpus/**`
-- **禁改**：`novaagent/**`、`evals/**`
+### T1 语料库建设：≥50 篇 + 三分库 + 导入 KB　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：把 Qoder 已备好的语料切分/脱敏/导入 NovaAgent KB，达成 ≥50 篇、三分库（政策/学生事务/运维）、抽查问答命中。
+- **允许改**：`corpus/**`（注：`corpus/raw/affairs/`、`corpus/clean/affairs/` 已 gitignore，只本地生成不提交）
+- **禁改**：`novaagent/**`、`evals/**`（如需加"语料命中"验证用例，先在回执提出）
+- **Qoder 已 prep（本分支已提交，先读 `corpus/MANIFEST.md`）**：
+  - `corpus/clean/policy/*.md`：**32 篇**西南交大真实校本政策 + 教育部令，带 frontmatter（title/source_url/doc_date/category/tier），**import-ready、无需再脱敏**
+  - `corpus/raw/affairs/*.docx`：3 份训练材料（萌哥案例两季 + 谈心谈话15题，gitignore 不提交）
 - **完成标准**：
-  - [ ] `corpus/raw/` ≥50 篇原始文档
-  - [ ] `corpus/clean/` 对应脱敏版
-  - [ ] 每篇有来源元数据（URL + 抓取时间 + 分类）
-  - [ ] `anonymize.py` 跑通无报错
-  - [ ] 导入 KB 后文档数 ≥50，抽查问答能命中新语料
-- **验收命令**：`python corpus/anonymize.py` → 导入后查 `/api/kb/documents` 计数
-- ⚠️ **需用户决策**：语料来源（真实高校公开政策 URL 清单 / 用户自有工作记录 / 混合）
-- **依赖**：无
+  - [ ] 写 `corpus/split_cases.py`：萌哥案例按「【萌哥说案例】NO.x」每案切一篇（情景/本质/做法/启示）、谈心谈话按「问题x+答题要点」每题一篇 → `corpus/clean/affairs/*.md`，带 frontmatter（category=affairs, sensitivity=low）
+  - [ ] 跑 `corpus/anonymize.py` 对 clean/affairs 兜底脱敏，抽查无残留真实姓名/学号/联系方式
+  - [ ] 批量导入 KB：政策 32 + 学生事务（择优 ≥18）→ 文档数 **≥50**，打 category 标签（policy/affairs）
+  - [ ] 建 `corpus/clean/ops/` 运维分库类目 + 1~2 篇自建占位（完整运维手册留 P3）
+  - [ ] 抽查问答命中新语料且带 [n] 引用（如"研究生专项奖助学金""离校请假流程""宿舍矛盾怎么谈心"）
+- **验收命令**：`python corpus/split_cases.py` → `python corpus/anonymize.py` → 导入后查 `/api/kb/documents` 计数 ≥50
+- **合规红线**：只用 Tier A（训练材料）+ 公开政策；**严禁**引入 `E:\<internal-affairs-dir>\` 的 Tier B 真实运营数据（帮扶台账/含真名申报书）。
+- **依赖**：无（政策语料已由 Qoder 备好）
 
 ### T2 bad case 清单机制　✅ DONE（已合并 master）
 - **目标**：建立"从评测报告提取失败用例 → 归档 → 跟踪迭代"的闭环机制。
