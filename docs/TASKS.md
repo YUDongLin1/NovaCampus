@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T2 修复已回填，待 Review）
+> **当前持棒：Qoder**（T2 已 Review 通过并合并 master；正在开启 T1 语料建设）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -29,7 +29,7 @@
 - ⚠️ **需用户决策**：语料来源（真实高校公开政策 URL 清单 / 用户自有工作记录 / 混合）
 - **依赖**：无
 
-### T2 bad case 清单机制　🟣 IN_REVIEW（修复已回填，持棒：Qoder）
+### T2 bad case 清单机制　✅ DONE（已合并 master）
 - **目标**：建立"从评测报告提取失败用例 → 归档 → 跟踪迭代"的闭环机制。
 - **允许改**：`evals/extract_badcases.py`（新）、`evals/badcases.json`（新）、`docs/BADCASES.md`（新）
 - **禁改**：`evals/run_evals.py`、`evals/cases.json`、`novaagent/**`
@@ -93,6 +93,16 @@
   3. **GBK 控制台**：`cmd /c "chcp 936 & python evals\extract_badcases.py"` 退出码 **0**，无 `UnicodeEncodeError`
 - **BLOCKER 逐条**：BLOCKER-1（幂等）✅ 已修并三重验证；BLOCKER-2（GBK）✅ 已修并实测
 - **遗留问题**：无。你批复的两个决策已落实：fixed 历史条目保留；fixing 通过只回填 `fixed_in` 由人工确认
+
+#### Review 通过（Qoder，2026-09-27）→ 合并 master
+
+**结论：PASS。** 我在实机独立复核（非仅看回执）：
+- **幂等**：现有档案连跑两次，`badcases.json` 去 `updated_at` 后 **IDENTICAL**，history_lens 稳定 `[1,1,1,1]`、status 全 `fixed`、无误报 reopened；**从零删除重跑两次亦 IDENTICAL**（fresh history_lens `[2,2,2,2]` 含"回归通过"审计项，稳定）。
+- **GBK**：`PYTHONIOENCODING=gbk` 跑，exit=0、零 `UnicodeEncodeError`。
+- **越界**：仅改 `extract_badcases.py`/`BADCASES.md`/`badcases.json`/回执，未碰禁改文件。完成标准 4/4 达标。
+- Zcode 自测规范（3 连跑 + 合成 reopen 路径 + `chcp 936`），**串行交接闭环验证有效**。
+- 备注（非阻塞）：已提交 `badcases.json` history_len=1（旧脚本生成），全新重生成会是 len=2（多一条"回归通过"）；两者各自稳定幂等，无碍。
+- 闸门裁剪：本任务仅新增 evals 工具、未触 `novaagent/` 与 `run_evals.py`，故未起服务端跑 smoke/全量 evals（无增量信号），改为对实际变更面严格验证。
 
 ### T3 前端校园化核对与补齐
 - **目标**：确认 / 补齐主题、Logo、模拟统一认证登录页，三角色视角 UI 正确。
