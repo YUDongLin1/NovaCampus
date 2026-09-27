@@ -13,6 +13,8 @@ python evals/extract_badcases.py
 
 时机包括:① 每轮 RAG/提示词迭代前后;② 修复某个已知问题后重跑评测;③ Review 合并前(确认没有新增 open)。
 
+**幂等保证**:脚本可安全重复执行——连跑多次 `badcases.json` 除 `updated_at` 外零变化。实现约定:① `history` 按 report 文件名去重,同一报告永不重复记录;② 状态流转**只以最新一份报告为唯一依据**,重扫历史报告不触发任何状态变化;③ `reopened`(自动重开)仅在"上次为 fixed 且本次最新报告确实失败"时触发。
+
 ## 2. badcases.json 结构
 
 ```json
