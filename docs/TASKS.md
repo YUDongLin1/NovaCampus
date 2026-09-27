@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T3 已合并 + live 验证通过；下一单待定：T5 看板 或 qa-08 检索调优）
+> **当前持棒：Zcode**（T5 评测闭环整包进行中：检索调优+前后对比+看板+收尾 polish；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -211,13 +211,19 @@
 
 **P2 进度**：评测深化(T4)✅ → Recall@k 0.92 / 忠实度 0.88 / 拒答 1.0 基线建立，简历第一亮点数据就位；剩 T5 看板 + qa-08 检索调优。
 
-### T5 评测看板
-- **目标**：聚合 `reports/` 多次评测结果，产出可视化看板（优化前后对比）。
-- **允许改**：`evals/dashboard*`（新）、`reports/`
+### T5 评测闭环整包：qa-08 检索调优 + 优化前后对比 + 评测看板 + 收尾 polish　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：完成 PLAN P2 的完整叙事——**评测发现回归 → 检索/提示调优修复 → 留存优化前后对比 → 看板可视化收敛**。一次交付四块，比单点看板更完整。
+- **允许改**：`novaagent/rag.py`、`novaagent/agent.py`（SYSTEM_PROMPT）、`novaagent/web/index.html`（仅 enter() 加固）、`evals/run_evals.py`（如需）、`evals/dashboard.html`（新）、`evals/cases.json`（**仅** expect_sources 标注修正，需说明理由）、`docs/EVAL_BASELINE.md`、`reports/`（生成物）
+- **禁改**：`corpus/**`、`mcp/**`、`sims/**`
+- **检索链路现状**（`rag.py`，调优杠杆在此）：`RRF_K=60` 融合 → `FUSION_TOP_K=8` → `bge-reranker` 重排 → `RERANK_MIN_SCORE=0.3` 拒答阈值 → `MAX_PER_DOC=2` 同文档限流 → `FINAL_TOP_K=5`；另有 `agent.py` SYSTEM_PROMPT 可加"以相关度最高/最对口来源为准"。
 - **完成标准**：
-  - [ ] 读取多份 `eval_report_*.json` 展示指标趋势
-  - [ ] 单页 HTML 可直接打开
-- **依赖**：T4
+  - [ ] **① qa-08 检索调优**：让"休学期满怎么申请复学"通过（现因教育部令41号抢占、答案漏"休学期满前一周"）。在上述杠杆中选 1~2 个（如 MAX_PER_DOC/融合 blend/SYSTEM_PROMPT 优先最对口来源），**记录所选杠杆与理由**；重跑全 26 条：qa-08 转 pass 且**不引入新回归**（若出现新回归，入 badcases 并继续迭代，≤2 轮）
+  - [ ] **② v1.2 基线 + 前后对比**：`EVAL_BASELINE.md` 演进记录加 v1.2 行；写"优化前后对比"表（v1.1：25/26、R@k .9231、忠实 .8846 → v1.2 实测），量化调优收益
+  - [ ] **③ bad case 收敛**：跑 `extract_badcases.py`，qa-08 由 open→fixed；记录收敛证据供看板使用
+  - [ ] **④ 评测看板** `evals/dashboard.html`：单页、**自包含**（内联 CSS/JS、无外部 CDN、可 file:// 直开）；读 `reports/eval_report_*.json` + `evals/badcases.json` 展示：指标趋势（pass-rate / recall_at_k / faithfulness / refusal 随各次报告）、**v1.1→v1.2 前后对比**、bad case open/fixed 收敛计数、分类型通过率；**视觉沿用 T3「学术水墨×朱砂印」设计令牌**（暖宣纸/墨蓝/朱砂/宋体标题），与主 UI 统一
+  - [ ] **⑤ 收尾 polish**：(a) `enter()` 员工分支恢复 `tab-records`/`tab-weekly` 可见性（同页切角色加固，1~2 行）；(b) KB 政策 32 篇按 frontmatter `title` 重导（显示 〔2025〕14号 而非扁平文件名），改善引用展示
+- **验收命令**：起 uvicorn → `PYTHONIOENCODING=gbk python evals/run_evals.py`（qa-08 pass + 26/26 + 无新回归）→ `python evals/extract_badcases.py`（qa-08 fixed）→ 打开 `evals/dashboard.html` 截图 → 回填回执
+- **依赖**：T4（基线 v1.1 已建立）
 
 ---
 
