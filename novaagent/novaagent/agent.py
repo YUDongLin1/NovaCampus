@@ -181,6 +181,69 @@ class AgentService:
             answer = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
         return {"answer": answer, "sources": sources, "tool_trace": tool_trace}
 
+    async def chat_stream_for(self, user_id: int, username: str, role: str, question: str):
+        """T8: 流式对话路径——工具循环(非流式判定工具调用)后流式输出最终答案。
+        异步生成器逐段 yield 事件:
+          {"type": "sources", "sources": [...]}          检索来源(一次性,最先)
+          {"type": "delta", "content": str}              正文增量(逐 token)
+          {"type": "tools", "trace": [...]}              工具执行记录
+          {"type": "done", "answer": str, "sources": [...], "tool_trace": [...]}
+        """
+        eff = self.effective_llm(user_id)
+        min_rank = db.config.ROLE_RANK[role]
+        sources = await rag.search(question, min_rank)
+        yield {"type": "sources", "sources": sources}
+        context = "\n\n".join(
+            f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
+        ) or "(本角色可见范围内未检索到相关资料)"
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT.format(context=context)},
+            {"role": "user", "content": question},
+        ]
+        tool_trace: list[dict] = []
+        answer_parts: list[str] = []
+        for _ in range(4):  # 工具轮 + 最终流式轮
+            round_text: list[str] = []
+            calls: dict[int, dict] = {}
+            async for ev in llm.chat_stream(messages, tools=WEEKLY_TOOLS,
+                                            model=eff["model"], base_url=eff["base_url"],
+                                            api_key=eff["api_key"]):
+                if ev["type"] == "delta":
+                    yield {"type": "delta", "content": ev["content"]}
+                    round_text.append(ev["content"])
+                    answer_parts.append(ev["content"])
+                elif ev["type"] == "tool_delta":
+                    slot = calls.setdefault(ev["index"], {"id": "", "name": "", "args": ""})
+                    if ev["id"]:
+                        slot["id"] = ev["id"]
+                    if ev["name"]:
+                        slot["name"] = ev["name"]
+                    slot["args"] += ev["args"]
+            if not calls:  # 无工具调用 → 本次流式即最终答案
+                break
+            ordered = [calls[i] for i in sorted(calls)]
+            messages.append({
+                "role": "assistant",
+                "content": "".join(round_text) or None,
+                "tool_calls": [
+                    {"id": c["id"], "type": "function",
+                     "function": {"name": c["name"], "arguments": c["args"]}}
+                    for c in ordered
+                ],
+            })
+            for c in ordered:
+                logger.info("tool call: %s(%s) by %s", c["name"], c["args"][:80], username)
+                result = await self.weekly.call(c["name"], json.loads(c["args"] or "{}"))
+                tool_trace.append({"tool": c["name"], "args": json.loads(c["args"] or "{}"), "result": result})
+                yield {"type": "tools", "trace": tool_trace}
+                messages.append({"role": "tool", "tool_call_id": c["id"],
+                                 "content": json.dumps(result, ensure_ascii=False)})
+        else:
+            timeout_msg = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
+            answer_parts.append(timeout_msg)
+            yield {"type": "delta", "content": timeout_msg}
+        yield {"type": "done", "answer": "".join(answer_parts), "sources": sources, "tool_trace": tool_trace}
+
     # 周报 REST 直调(供前端周报页与评测脚本确定性使用,不依赖 LLM 决策)
     async def weekly_add(self, content: str, category: str, occurred_at: str) -> dict:
         return await self.weekly.call("add_fragment", {

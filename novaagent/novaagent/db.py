@@ -119,6 +119,19 @@ def _migrate() -> None:
         _conn.execute("INSERT INTO chunks_fts(chunks_fts) VALUES('rebuild')")
         _conn.commit()
 
+    # T9: 会话持久化(按用户隔离)
+    _conn.execute(
+        """CREATE TABLE IF NOT EXISTS messages (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+               role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+               content TEXT NOT NULL,
+               created_at TEXT NOT NULL
+           )"""
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, id)")
+    _conn.commit()
+
 
 def get_user_settings(user_id: int) -> dict:
     row = _conn.execute("SELECT * FROM user_settings WHERE user_id=?", (user_id,)).fetchone()
@@ -343,6 +356,28 @@ def fts_search(query: str, role_mins: list[str], top_k: int) -> list[tuple[int, 
         return [(r[0], r[1]) for r in rows]
     except Exception:  # FTS5 异常(MATCH 语法/表缺失等)一律回退内存计数
         return None
+
+
+def add_message(user_id: int, role: str, content: str) -> None:
+    """T9: 追加一条会话消息(role: user/assistant)。"""
+    with _lock:
+        _conn.execute(
+            "INSERT INTO messages (user_id, role, content, created_at) VALUES (?,?,?,?)",
+            (user_id, role, content, _now()),
+        )
+        _conn.commit()
+
+
+def get_messages(user_id: int, limit: int = 50) -> list[dict]:
+    """T9: 该用户最近 limit 条消息,时间正序返回(按 user_id 隔离)。"""
+    rows = _conn.execute(
+        "SELECT role, content, created_at FROM ("
+        "  SELECT id, role, content, created_at FROM messages"
+        "  WHERE user_id=? ORDER BY id DESC LIMIT ?"
+        ") ORDER BY id ASC",
+        (user_id, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def _now() -> str:
