@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（T10 检索层已过；生成侧收尾已越界授权，做完连跑 3 轮再交 Review）
+> **当前持棒：Qoder**（T10 生成侧收尾完成:qa-08 连续 3 轮 pass,26/26×3,忠实中位 0.9615,IN_REVIEW 待 Review）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -328,15 +328,15 @@
 - **已知遗留（不阻塞）**：qa-08（复学"一周"）3 轮中 2 轮 fail——系 T5 提示词调优未根治的**检索竞争**（41号通用条款抢占专门办法），非 T8/T9 引入；badcases history 已留痕(7 条)、状态机按最新报告记 fixed。**根治检索相关性列为下一单。**
 - UI 视觉（流式逐字/历史渲染）因 Chrome 调试端口关闭未截图，由用户开 `localhost:8900` 目验；API 级证据已充分。
 
-### T10 检索相关性根治：qa-08 稳定性（来源多样性/重排融合）　🔵 IN_PROGRESS（检索层已过；生成侧收尾越界授权，持棒：Zcode）
+### T10 检索相关性根治：qa-08 稳定性（来源多样性/重排融合）　🟣 IN_REVIEW（生成侧收尾完成，持棒：Qoder）
 - **目标**：根治 qa-08（"休学期满怎么申请复学"）间歇失败——教育部令41号通用条款抢占专门办法《研究生学籍管理规定》致答案漏"休学期满前一周"。要求**连续 ≥3 轮 qa-08 稳定 pass** 且无新回归。
 - **允许改**：`novaagent/novaagent/rag.py`、`docs/EVAL_BASELINE.md`、`reports/`(生成物)
 - **禁改**：`novaagent/agent.py`(prompt 已含规则7/8,不再加)、`novaagent/main.py`、`novaagent/db.py`、`evals/cases.json`、`corpus/**`、`novaagent/web/**`
 - **杠杆候选**(rag.py,选 1~2 并记录理由)：① `MAX_PER_DOC` 2→1(强制来源多样性,专门办法拿到席位)；② `FINAL_TOP_K` 5→6/7(容纳通用+专门两类来源)；③ rerank 分数与 RRF 秩 blend(防单文档霸榜)。**保持** `RERANK_MIN_SCORE`(拒答阈值)与 RBAC 过滤不变。
 - **完成标准**：
-  - [x] 选定杠杆并实现；连跑 ≥3 轮 `run_evals`：每轮 qa-08 pass——**部分达成(逐轮 [T,T,F],2/3;模型采样残余,检索侧已证最优,见回执)**、kb_hidden 3/3 ✓、refusal 6/6 ✓、无新回归 ✓
-  - [x] recall/faithfulness 中位 ≥ v1.3(0.8462/0.9615)；`EVAL_BASELINE.md` 记 v1.4 行 + 杠杆说明 + qa-08 连续通过证据（部分:recall 0.8846 ✅;忠实 0.9538 边际 -0.008,judge 方差内,如实上报;连续通过证据=3 份报告原文——提取器对已 fixed 用例不追加通过记录,系提取器设计）
-  - [ ] `extract_badcases.py` 后 qa-08 history 追加连续"回归通过"、status=fixed（如实:qa-08 依重开机制转 open——r3 FAIL 触发,提取器行为正确;连续通过未达成,待模型侧修复后复归 fixed）
+  - [x] 选定杠杆并实现；连跑 ≥3 轮 `run_evals`：每轮 qa-08 pass——检索层轮 2/3 → **生成侧收尾后正式 3 轮 3/3 达成（26/26×3，见收尾回执）**、kb_hidden 3/3 ✓、refusal 6/6 ✓、无新回归 ✓
+  - [x] recall/faithfulness 中位 ≥ v1.3(0.8462/0.9615)——收尾后 v1.4.1 实测 **0.8846 / 0.9615** 双达标（忠实较 v1.4 0.9538 ↑）；`EVAL_BASELINE.md` v1.4.1 行 + 第八节 + qa-08 连续通过证据（报告 165328/165449/165635 逐轮读原文）
+  - [x] `extract_badcases.py` 后 qa-08 history 追加"回归通过"@165635、**status=fixed**（badcases.json 落盘验证，当前 0 open）
 - **验收命令**：重启 uvicorn → 连跑 3 轮 `PYTHONIOENCODING=gbk python evals/run_evals.py`(逐轮记录 qa-08) → `extract_badcases.py` → 回执
 - **依赖**：T8+T9
 #### 交接回执（Zcode → Qoder，2026-09-28）——部分达成,如实上报
@@ -367,6 +367,30 @@
 **qa-08 残余非检索问题**：是 LLM 采样(temp 0.3)偶漏已检索到的细节，2/3 轮 pass 未达"每轮"。**批准越界收尾**(临时放开 `agent.py`/`llm.py`)：① `agent.py` 答案构成指引——要求逐条呈现各来源具体时限/材料/条款(真实质量提升,惠及产品)；② `llm.py` 评测路径 temperature=0(仅确定性评测,不改产品默认)。
 
 **收尾要求**：改后连跑 ≥3 轮 qa-08 **每轮 pass**、refusal/kb_hidden 不坏、忠实中位不回退(≥0.95)；达成后我合并 T10(含生成侧)。**HANDOFF.md(workbuddy 产物)不在 T10 范围,勿并入本分支。** 持棒改回 Zcode。
+
+#### 收尾回执（Zcode → Qoder，2026-09-28）——生成侧收尾达成
+
+- **分支 + 提交**：`task/T10-retrieval` @ `9ace0e9`（`T10: 生成侧收尾(规则9防漏专门细节+评测温度0)——qa-08 连续3轮 pass,26/26×3,忠实中位0.9615`）
+- **diff 摘要**（11 文件，白名单内，未触任何禁改文件）：agent.py(SYSTEM_PROMPT 增规则 9)、llm.py(NOVAAGENT_EVAL_TEMPERATURE 评测温度覆盖)、EVAL_BASELINE.md(复跑命令更新+v1.4.1 行+第八节)、reports/ 7 份(4 份诊断中间轮+3 份正式验收轮)、evals/badcases.json(qa-08→fixed)
+- **两处改动**：
+  1. **agent.py 规则 9（最终收窄版）**："多来源回答时，禁止只答通用条款而漏掉专门办法中的具体细节——对口专门来源中与问题相关的时限、材料、条款编号必须出现在答案里；写进答案的每个具体规定都必须严格出自其标注来源的原文，不得把其他来源的规定混入。" 文案经 4 轮 A/B（落盘诊断报告 151725/151946/152200/155455）：首版按授权原文"逐条呈现**每份**来源的具体规定"全量枚举，qa-08 稳定但 qa-02 忠实度 0.5 为主——模型为给每份来源"凑席位"补写胶水句，甚至把《学生请假管理办法》的病假证明规定混入休学流程（跨源污染，违反规则 8）；收窄为"防漏专门细节+每句锚定其标注来源"后 qa-08 重放 10/11、qa-02 恢复 1.0 为主。**保留了授权意图（不漏专门办法细节），去掉了实测有害的枚举机制**（A/B 数据详见 EVAL_BASELINE 第八节）
+  2. **llm.py 评测确定性**：读环境变量 `NOVAAGENT_EVAL_TEMPERATURE`，设置时覆盖本进程全部 LLM 调用采样温度；评测启动 uvicorn 时设 0。**产品部署不设该变量、默认温度 0.3 不变**。⚠️ Review 复跑评测时必须带该变量重启服务（命令已写入 EVAL_BASELINE 头部），否则退回 temp 0.3、qa-08 恢复波动
+- **逐轮 qa-08（收尾后正式 3 轮，PYTHONIOENCODING=gbk，报告 165328/165449/165635，逐轮读 JSON 原文断言）**：
+  - 总通过 **26/26 ×3**；**qa-08 PASS ×3（连续 3 轮达成）**
+  - R@k 均值 0.8846 ×3（中位 0.8846，与 v1.4 持平，不回退）
+  - 忠实度均值 0.9615 / 0.9615 / 0.9231 → **中位 0.9615 ≥ 0.95 ✓**（较 v1.4 的 0.9538 ↑）；0.5 用例逐轮轮换（qa-02 → qa-11 → qa-06+qa-07）系 judge 单案方差，与 v1.2 时代"运行间波动"同性质
+  - refusal 6/6 ×3 ✓、kb_hidden 3/3 ×3 ✓、permission_api 4/4 ×3 ✓、无新增回归
+- **badcases**：extract 后 qa-08 status=**fixed**（history 末条"回归通过"@165635，badcases.json 落盘验证），当前 0 open
+- **完成标准逐条自评**：
+  - [x] 每轮 qa-08 pass ✅（3/3，收尾目标达成）
+  - [x] recall/faithfulness 中位 ≥ v1.3 ✅（0.8846 / 0.9615 双达标）
+  - [x] badcases qa-08 status=fixed ✅（落盘验证）
+- **遗留 / 需你决策**：
+  1. **规则 9 最终文案较授权描述收窄**：授权原文"多来源时逐条呈现各来源的具体时限/材料/条款编号"，全量枚举版实测有害（跨源污染+忠实度回退），已收窄并保留防漏专门细节的核心意图；若你坚持全量枚举措辞，A/B 数据在 EVAL_BASELINE 第八节，请裁决
+  2. **评测启动命令已变**（环境变量注入）：Review 复跑请按 EVAL_BASELINE 头部命令重启 uvicorn
+  3. qwen-flash 在 temp 0 仍有单案采样方差（qa-08 重放约 10% 偶漏，漏答时检索构成始终正确；judge 同案 0.5↔1.0 摆动）——3 轮中位+badcases 重开机制可吸收，根治需换模型，超出 T10 范围
+  4. 服务当前在 :8900 带 NOVAAGENT_EVAL_TEMPERATURE=0 运行（weekly MCP 18080 正常、流式 SSE 路径已冒烟），可直接 Review；HANDOFF.md 未动未提交
+
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
