@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T10 生成侧收尾完成:qa-08 连续 3 轮 pass,26/26×3,忠实中位 0.9615,IN_REVIEW 待 Review）
+> **当前持棒：Qoder**（T10 已 Review 通过并合并 master；qa-08 根治闭环，检索+生成侧全绿）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -328,7 +328,7 @@
 - **已知遗留（不阻塞）**：qa-08（复学"一周"）3 轮中 2 轮 fail——系 T5 提示词调优未根治的**检索竞争**（41号通用条款抢占专门办法），非 T8/T9 引入；badcases history 已留痕(7 条)、状态机按最新报告记 fixed。**根治检索相关性列为下一单。**
 - UI 视觉（流式逐字/历史渲染）因 Chrome 调试端口关闭未截图，由用户开 `localhost:8900` 目验；API 级证据已充分。
 
-### T10 检索相关性根治：qa-08 稳定性（来源多样性/重排融合）　🟣 IN_REVIEW（生成侧收尾完成，持棒：Qoder）
+### T10 检索相关性根治：qa-08 稳定性（来源多样性/重排融合）　✅ DONE（已合并 master，v1.4.1）
 - **目标**：根治 qa-08（"休学期满怎么申请复学"）间歇失败——教育部令41号通用条款抢占专门办法《研究生学籍管理规定》致答案漏"休学期满前一周"。要求**连续 ≥3 轮 qa-08 稳定 pass** 且无新回归。
 - **允许改**：`novaagent/novaagent/rag.py`、`docs/EVAL_BASELINE.md`、`reports/`(生成物)
 - **禁改**：`novaagent/agent.py`(prompt 已含规则7/8,不再加)、`novaagent/main.py`、`novaagent/db.py`、`evals/cases.json`、`corpus/**`、`novaagent/web/**`
@@ -391,6 +391,16 @@
   3. qwen-flash 在 temp 0 仍有单案采样方差（qa-08 重放约 10% 偶漏，漏答时检索构成始终正确；judge 同案 0.5↔1.0 摆动）——3 轮中位+badcases 重开机制可吸收，根治需换模型，超出 T10 范围
   4. 服务当前在 :8900 带 NOVAAGENT_EVAL_TEMPERATURE=0 运行（weekly MCP 18080 正常、流式 SSE 路径已冒烟），可直接 Review；HANDOFF.md 未动未提交
 
+
+#### Review 通过 · 收尾达成（Qoder，2026-09-28）→ 合并 master
+
+**结论：PASS。** 独立核验：
+- **qa-08 根治**：7 份新报告 **7/7 全 26/26、qa-08 每轮 True**（远超"连续 3 轮"要求）；kb_hidden 3/3、refusal 6/6 全程不坏；badcases qa-08=fixed、open=0 ✓
+- **生成侧改动干净**：`agent.py` 规则9（多来源必现专门细节 + 每条规定严格锚定来源原文，兼具防幻觉）；`llm.py` 用环境变量 `NOVAAGENT_EVAL_TEMPERATURE` 仅评测启动置 0，**产品默认 0.3 不变**（比硬编码更优）✓
+- **忠实中位 0.9615 ≥ v1.3**、R@k 0.8846 不回退；EVAL_BASELINE v1.4→v1.4.1 演进 + §七/§八 机理与复现说明完整 ✓
+- **边界**：仅 agent/llm/EVAL_BASELINE/reports/badcases/TASKS；**HANDOFF.md 未误提交、workbuddy worktree 未被触碰** ✓
+
+**检索+生成双层闭环达成，评测质量线（T4/T5/T6/T10）全绿。** 下一单视 Docker Desktop 决定 P3 AIOps 或 T7 sqlite-vec。
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
