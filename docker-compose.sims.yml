@@ -1,0 +1,62 @@
+# P3a 模拟校园系统 + 监控栈(jiaowu / ykt / prometheus / grafana)
+# 用法:docker compose -f docker-compose.sims.yml up -d --build
+# 镜像拉取失败 → 配 daemon.json registry-mirrors(本机已配 docker.m.daocloud.io)或在文档注记
+name: nova-sims
+
+services:
+  jiaowu:
+    build:
+      context: ./sims
+      dockerfile: Dockerfile
+      args:
+        SERVICE: jiaowu
+    environment:
+      SIM_SERVICE: jiaowu
+      POOL_SIZE: "8"
+      POOL_WAIT_SECONDS: "2.0"
+      SIM_PORT: "8000"
+    ports:
+      - "9101:8000"
+    restart: unless-stopped
+
+  ykt:
+    build:
+      context: ./sims
+      dockerfile: Dockerfile
+      args:
+        SERVICE: ykt
+    environment:
+      SIM_SERVICE: ykt
+      POOL_SIZE: "10"
+      POOL_WAIT_SECONDS: "2.0"
+      SIM_PORT: "8000"
+    ports:
+      - "9102:8000"
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./sims/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    depends_on:
+      - jiaowu
+      - ykt
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: simsadmin123
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./sims/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./sims/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus

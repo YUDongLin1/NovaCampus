@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: jiaowu
+    static_configs:
+      - targets: ["jiaowu:8000"]
+  - job_name: ykt
+    static_configs:
+      - targets: ["ykt:8000"]

@@ -1,0 +1,14 @@
+PROMQL: app_db_pool_in_use{job="ykt"}
+   ykt 10
+PROMQL: app_db_pool_in_use{job="ykt"} / app_db_pool_size{job="ykt"}
+   ykt 1
+PROMQL: app_db_pool_waiting{job="ykt"}
+   ykt 0
+PROMQL: sum(rate(http_requests_total{job="ykt",status=~"5.."}[30s]))
+    0.204495
+PROMQL: histogram_quantile(0.95, sum by(le)(rate(app_db_pool_wait_seconds_bucket{job="ykt"}[30s])))
+    4.85
+PROMQL: sum(rate(app_db_pool_wait_seconds_sum{job="ykt"}[30s]))
+    0.5602589171200271
+PROMQL: fault_active{job="ykt",type="pool_exhaust"}
+   ykt 1

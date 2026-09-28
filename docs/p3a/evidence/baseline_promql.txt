@@ -1,0 +1,16 @@
+PROMQL: up{job=~"ykt|jiaowu"}
+   jiaowu 1
+   ykt 1
+PROMQL: app_db_pool_in_use{job=~"ykt|jiaowu"}
+   jiaowu 0
+   ykt 0
+PROMQL: sum by(job)(rate(http_requests_total[30s]))
+   jiaowu 0.48001920076803073
+   ykt 0.4400176007040282
+PROMQL: sum by(job)(rate(http_requests_total{status=~"5.."}[30s]))
+PROMQL: process_cpu_percent{job=~"ykt|jiaowu"}
+   jiaowu 0.5
+   ykt 0.5
+PROMQL: sum by(job)(rate(app_db_pool_wait_seconds_sum[30s]))
+   jiaowu 0.000025314932593127833
+   ykt 0.000021824745967894338
