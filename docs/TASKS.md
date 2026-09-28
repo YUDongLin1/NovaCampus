@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T10 已 Review 通过并合并 master；qa-08 根治闭环，检索+生成侧全绿）
+> **当前持棒：Zcode**（P3a 模拟系统+故障注入+监控栈进行中；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -401,6 +401,33 @@
 - **边界**：仅 agent/llm/EVAL_BASELINE/reports/badcases/TASKS；**HANDOFF.md 未误提交、workbuddy worktree 未被触碰** ✓
 
 **检索+生成双层闭环达成，评测质量线（T4/T5/T6/T10）全绿。** 下一单视 Docker Desktop 决定 P3 AIOps 或 T7 sqlite-vec。
+
+## P3 AIOps 智能诊断（第 14~19 周里程碑）
+
+> 拆解：P3a 地基(模拟系统+故障注入+监控栈) → P3b AIOps MCP Server → P3c NovaAgent 诊断链 → P3d 验收+录屏。串行下发，每块独立可验收。
+
+### P3a 模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈　🔵 IN_PROGRESS（持棒：Zcode）
+- **目标**：搭可观测地基——2 个模拟校园系统(教务/一卡通)暴露 Prometheus 指标 + 故障注入脚本 + Prometheus 抓取 + Grafana 总览大屏。一卡通是故障叙事主角。**纯 sims/ 内，不碰 novaagent/**。
+- **允许改**：`sims/**`（新建）、`docker-compose.sims.yml`（新，仓库根）、`docs/`（P3 说明）
+- **禁改**：`novaagent/**`、`corpus/**`、`mcp/**`、`evals/**`、`weknora/**`
+- **完成标准**：
+  - [ ] `sims/jiaowu/`（教务系统，FastAPI）：`GET /health`、`GET /metrics`(Prometheus 文本)——至少含 `http_requests_total{path,status}`、`http_request_duration_seconds`、`app_db_pool_in_use`/`app_db_pool_size`、`process_cpu_percent`；模拟请求处理+DB 连接池计数
+  - [ ] `sims/ykt/`（一卡通系统，故障主角）：同上指标 + 一个**有界连接池**(如 size=10)，`/api/card/pay` 占池；池耗尽时后续请求排队→`pool_wait_seconds`↑、超时/错误率↑
+  - [ ] `sims/fault_inject.py`：CLI `--target ykt|jiaowu --mode pool_exhaust|cpu_spike --duration N`——并发占满池 / busy-loop 抬 CPU，到点自动恢复
+  - [ ] `docker-compose.sims.yml`：jiaowu + ykt + prometheus(挂 `prometheus.yml` 抓两服务 /metrics) + grafana(预置数据源 + 1 张总览盘:CPU/池利用率/错误率/延迟)；暴露 prom :9090、grafana :3000。**国内镜像风险**:镜像拉取失败则配 registry mirror 或在文档注明
+  - [ ] **验收(落盘/HTTP 交叉)**：`docker compose -f docker-compose.sims.yml up -d` → `curl :9090/api/v1/targets` 两服务 up → 跑 `fault_inject --target ykt --mode pool_exhaust --duration 60` → promql 查 `app_db_pool_in_use` 饱和 + 错误率↑ → Grafana 盘可见尖峰 → 到点恢复。截图/存 promql 输出
+- **依赖**：无（地基）
+
+### P3b AIOps MCP Server（mcp/aiops）　📋 READY（待 P3a）
+- 仿 `mcp/weekly`：Python MCP，工具 `query_metrics(promql)`/`query_logs(service,keyword)`/`query_changes()`/`get_service_status()`/`list_alerts()`/`run_playbook(name)`，读 Prometheus HTTP API + docker logs。禁改 novaagent。
+
+### P3c NovaAgent 接入 AIOps + 诊断链　📋 READY（待 P3b）
+- 仿 `weekly_client`：admin 角色注册 AIOps MCP；ReAct 循环「告警→取证(查指标/日志/变更)→根因→中文诊断报告」。仅 admin 可见。
+
+### P3d 验收 + 录屏　📋 READY（待 P3c）
+- 注入"一卡通连接池耗尽"→ Agent 自动定位并产出中文诊断报告；录屏存档 `reports/`。
+
+---
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
