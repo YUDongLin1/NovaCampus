@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（P3a 模拟系统+故障注入+监控栈进行中；回填后置 `IN_REVIEW`、持棒改回 `Qoder`）
+> **当前持棒：Qoder**（P3a 模拟系统+故障注入+监控栈完成待 Review;验收全过、证据在 docs/p3a/evidence/）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -406,17 +406,35 @@
 
 > 拆解：P3a 地基(模拟系统+故障注入+监控栈) → P3b AIOps MCP Server → P3c NovaAgent 诊断链 → P3d 验收+录屏。串行下发，每块独立可验收。
 
-### P3a 模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈　🔵 IN_PROGRESS（持棒：Zcode）
+### P3a 模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈　🟣 IN_REVIEW（持棒：Qoder）
 - **目标**：搭可观测地基——2 个模拟校园系统(教务/一卡通)暴露 Prometheus 指标 + 故障注入脚本 + Prometheus 抓取 + Grafana 总览大屏。一卡通是故障叙事主角。**纯 sims/ 内，不碰 novaagent/**。
 - **允许改**：`sims/**`（新建）、`docker-compose.sims.yml`（新，仓库根）、`docs/`（P3 说明）
 - **禁改**：`novaagent/**`、`corpus/**`、`mcp/**`、`evals/**`、`weknora/**`
 - **完成标准**：
-  - [ ] `sims/jiaowu/`（教务系统，FastAPI）：`GET /health`、`GET /metrics`(Prometheus 文本)——至少含 `http_requests_total{path,status}`、`http_request_duration_seconds`、`app_db_pool_in_use`/`app_db_pool_size`、`process_cpu_percent`；模拟请求处理+DB 连接池计数
-  - [ ] `sims/ykt/`（一卡通系统，故障主角）：同上指标 + 一个**有界连接池**(如 size=10)，`/api/card/pay` 占池；池耗尽时后续请求排队→`pool_wait_seconds`↑、超时/错误率↑
-  - [ ] `sims/fault_inject.py`：CLI `--target ykt|jiaowu --mode pool_exhaust|cpu_spike --duration N`——并发占满池 / busy-loop 抬 CPU，到点自动恢复
-  - [ ] `docker-compose.sims.yml`：jiaowu + ykt + prometheus(挂 `prometheus.yml` 抓两服务 /metrics) + grafana(预置数据源 + 1 张总览盘:CPU/池利用率/错误率/延迟)；暴露 prom :9090、grafana :3000。**国内镜像风险**:镜像拉取失败则配 registry mirror 或在文档注明
-  - [ ] **验收(落盘/HTTP 交叉)**：`docker compose -f docker-compose.sims.yml up -d` → `curl :9090/api/v1/targets` 两服务 up → 跑 `fault_inject --target ykt --mode pool_exhaust --duration 60` → promql 查 `app_db_pool_in_use` 饱和 + 错误率↑ → Grafana 盘可见尖峰 → 到点恢复。截图/存 promql 输出
+  - [x] `sims/jiaowu/`（教务系统，FastAPI）：`GET /health`、`GET /metrics`(Prometheus 文本)——`http_requests_total{path,status}`、`http_request_duration_seconds`、`app_db_pool_in_use`/`app_db_pool_size`、`process_cpu_percent` 齐全；内置自压测+池计数
+  - [x] `sims/ykt/`（一卡通，故障主角）：同款指标 + **有界连接池 size=10**，`/api/card/pay` 持连接 0.3~0.6s；池耗尽→排队、`app_db_pool_wait_seconds`↑、等待超时→**503** 错误率↑
+  - [x] `sims/fault_inject.py`：CLI `--target ykt|jiaowu --mode pool_exhaust|cpu_spike --duration N`(纯标准库)——触发服务内注入并轮询到自动恢复
+  - [x] `docker-compose.sims.yml`：jiaowu + ykt + prometheus(抓两服务 /metrics,5s) + grafana(预置数据源 prom-sims + 总览盘 uid sims-overview:CPU/池利用率/错误率/延迟/池等待/排队+注入窗口);暴露 9090/3000(另 9101/9102 供 CLI 直连);镜像经本机 registry mirror 拉取成功,PyPI 走清华源(注记见 docs/P3A.md §四)
+  - [x] **验收(落盘/HTTP 交叉)**：targets 双 up → `pool_exhaust 60s`:in_use 恒 10(利用率 100%)、5xx 速率 0→0.204/s、等待速率 0.56 s/s,t+60s 自动恢复(5xx 回 0)→ `cpu_spike 30s`:CPU 0.5%→1650.5%→1% → Grafana 6 面板尖峰+注入窗口齐全(jiaowu 对照平坦)。截图与 promql/CLI 留痕在 `docs/p3a/evidence/`
 - **依赖**：无（地基）
+
+#### 交接回执（Zcode → Qoder，2026-09-28）——P3a 达成
+
+- **分支 + 提交**：`task/P3a-sims` @ `45276eb`（代码+证据）+ 本回执提交
+- **diff 摘要**（20 文件，白名单内,未触任何禁改文件）：sims/common.py(共用层:指标埋点中间件/SimPool 有界池/FaultManager/psutil CPU 轮询/自压测)、sims/jiaowu/app.py+__init__、sims/ykt/app.py+__init__、sims/Dockerfile(ARG SERVICE 双服务共用镜像)、requirements.txt、sims/fault_inject.py(CLI)、sims/prometheus/prometheus.yml、sims/grafana/provisioning/(数据源+大盘 provider)、sims/grafana/dashboards/sims_overview.json(6 面板)、docker-compose.sims.yml、docs/P3A.md(架构/指标/注入/运行/验收记录/镜像注记/实现纪要)、docs/p3a/evidence/(8 份证据)
+- **指标清单**：`http_requests_total{method,path,status}`(path=路由模板防基数爆炸)、`http_request_duration_seconds{path}`、`app_db_pool_size/in_use/waiting{service}`、`app_db_pool_wait_seconds{service}`(Histogram)、`process_cpu_percent`(psutil 2s 轮询)、`fault_active{type}`(注入窗口标记);`/metrics` 自身不计入
+- **故障注入 promql 证据**（ykt pool_exhaust 60s，`:9090` HTTP API 逐项查询落盘）：
+  - 注入前基线:in_use=0、总速率 ~0.45/s、5xx 速率空、CPU ~0.5%、等待 ~0（baseline_promql.txt）
+  - 注入中(t+25s):`app_db_pool_in_use=10`(**利用率 100%**)、5xx 速率 **0.204/s**、等待速率 **0.56 s/s**、等待 P95 4.85s、`fault_active=1`（fault_pool_exhaust_promql.txt）
+  - 到点恢复:CLI 逐 5s 轮询 in_use 恒 10,t+60s active=False/in_use=0;恢复后 5xx 速率=**0**、fault_active=0（recovery_promql.txt + CLI 留痕）
+  - cpu_spike 30s:`process_cpu_percent{ykt}` 0.5%→**1650.5%**→1%(jiaowu 0.5% 对照),fault_active 窗口同步（cpu_spike_recovery_promql.txt + CLI 留痕）
+  - Grafana 总览盘截图:两次 100% 池饱和平台、5xx 尖峰、P95 跳 ~2.4s、等待 ~5s、CPU ~1700%、注入窗口标记,jiaowu 对照平坦（grafana_overview_fault_spikes.png）
+- **完成标准逐条自评**：5/5 ✅（逐条见上方勾选;详细验收表 docs/P3A.md 第五节）
+- **遗留 / 说明**：
+  1. **注入实现为服务内 `/debug/fault/*` chaos API + 宿主 CLI 触发**:池耗尽必须在被观测进程内执行(外部压测无法确定性"持住"服务端池连接),cpu busy-loop 同理;CLI 纯标准库零依赖,理由写入 docs/P3A.md §三
+  2. **镜像/网络注记已入文档**(P3A.md §四):本机 registry mirror 拉取 python/prom/grafana 均成功;应用镜像 pip 默认清华源(`ARG PIP_INDEX_URL` 可覆盖);9090/3000/9101/9102 与 WeKnora(80)/weekly MCP(18080)/NovaAgent(8900) 无冲突
+  3. `app_db_pool_wait_seconds` 含注入器自身获取等待,注入起始短暂高 P95 属真实数据（P3A.md §六.3）;构建期修复过两缺陷(CMD SERVICE 空/PoolTimeout 逃逸为 500),纪要在 §六.1
+  4. **P3b 未开**（遵守"别自行开 P3b"）;服务栈保持运行(:9090/:3000/:9101/:9102)供 Review,NovaAgent/WeKnora 未受影响
 
 ### P3b AIOps MCP Server（mcp/aiops）　📋 READY（待 P3a）
 - 仿 `mcp/weekly`：Python MCP，工具 `query_metrics(promql)`/`query_logs(service,keyword)`/`query_changes()`/`get_service_status()`/`list_alerts()`/`run_playbook(name)`，读 Prometheus HTTP API + docker logs。禁改 novaagent。
