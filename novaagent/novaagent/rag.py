@@ -17,9 +17,10 @@ RRF_K = 60
 VECTOR_TOP_K = 20
 KEYWORD_TOP_K = 20
 FUSION_TOP_K = 8
-FINAL_TOP_K = 5
+FINAL_TOP_K = 7          # T10 杠杆②: 5→7,容纳通用+专门两类来源,种子"复学一周"细节块进入上下文
 RERANK_MIN_SCORE = 0.3   # 低于该相关度的分块不作为回答依据(拒答机制)
-MAX_PER_DOC = 2          # 同一文档最多引用条数,保证来源多样性
+RERANK_BLEND = 0.6       # T10 杠杆③: 最终排序 = 0.6*rerank分 + 0.4*RRF秩归一(防单文档霸榜)
+MAX_PER_DOC = 2          # T10 修订: 维持 2——实测=1 会把种子文档的"复学一周"块挤出上下文(仅剩材料块)
 
 
 def chunk_text(text: str, size: int = 500, overlap: int = 80) -> list[str]:
@@ -137,13 +138,28 @@ async def search(query: str, min_rank: int) -> list[dict]:
     if not fused:
         return []
     idxs = [i for i, _ in fused]
+    raw_rerank: dict[int, float] = {}
     try:
         reranked = await rerank(query, [chunks[i]["content"] for i in idxs])
-        picked = [(idxs[i], s) for i, s in reranked]
-    except Exception:  # rerank 不可用时优雅降级到 RRF 序
-        picked = fused
-    # 相关度阈值过滤:全部低于阈值视为"知识库未覆盖",触发拒答
-    picked = [(i, s) for i, s in picked if s >= RERANK_MIN_SCORE]
+        raw_rerank = {idxs[pos]: sc for pos, sc in reranked}
+    except Exception:  # rerank 不可用时优雅降级到 RRF 序(此路径不做 rerank 阈值拒答,阈值语义属 rerank 分)
+        raw_rerank = {}
+    if raw_rerank:
+        # T10 ③: rerank 分数与 RRF 秩 blend——防止高相关但通用的单文档霸榜,
+        # 让 FTS BM25+向量一致性(RRF 秩)参与最终排序,专门条款上移。
+        rrf_pos = {i: p for p, (i, _) in enumerate(fused)}
+        n_f = max(len(fused), 1)
+        blended = sorted(
+            (
+                (i, RERANK_BLEND * sc + (1 - RERANK_BLEND) * (1.0 - rrf_pos.get(i, n_f) / n_f))
+                for i, sc in raw_rerank.items()
+            ),
+            key=lambda x: -x[1],
+        )
+        # 拒答阈值:仍按 rerank 原始分门控(blend 只影响排序,不改拒答行为)
+        picked = [(i, s) for i, s in blended if raw_rerank[i] >= RERANK_MIN_SCORE]
+    else:  # rerank 不可用的降级路径:保留 RRF 序
+        picked = sorted(fused, key=lambda x: -x[1])
     if not picked:
         return []
     # 同文档限流,保证引用来源多样性

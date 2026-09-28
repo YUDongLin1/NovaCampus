@@ -2,11 +2,25 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 import httpx
 
 from . import config
+
+# 评测确定性:仅评测启动服务进程时设置 NOVAAGENT_EVAL_TEMPERATURE(如 0),覆盖本进程
+# 全部 LLM 调用的采样温度;产品部署不设该变量,默认温度(0.3)不变。
+_EVAL_TEMPERATURE = os.environ.get("NOVAAGENT_EVAL_TEMPERATURE", "").strip()
+
+
+def _resolve_temperature(temperature: float) -> float:
+    if _EVAL_TEMPERATURE:
+        try:
+            return float(_EVAL_TEMPERATURE)
+        except ValueError:
+            return temperature
+    return temperature
 
 
 async def chat(
@@ -23,7 +37,7 @@ async def chat(
         "model": model or config.LLM_MODEL,
         "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": temperature,
+        "temperature": _resolve_temperature(temperature),
     }
     if tools:
         payload["tools"] = tools
@@ -56,7 +70,7 @@ async def chat_stream(
         "model": model or config.LLM_MODEL,
         "messages": messages,
         "max_tokens": max_tokens,
-        "temperature": temperature,
+        "temperature": _resolve_temperature(temperature),
         "stream": True,
     }
     if tools:

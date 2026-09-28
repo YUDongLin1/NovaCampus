@@ -1,0 +1,472 @@
+{
+  "version": "v1.1",
+  "base": "http://127.0.0.1:8900",
+  "summary": {
+    "qa": {
+      "total": 13,
+      "pass": 13
+    },
+    "refusal": {
+      "total": 6,
+      "pass": 6
+    },
+    "permission_api": {
+      "total": 4,
+      "pass": 4
+    },
+    "kb_hidden": {
+      "total": 3,
+      "pass": 3
+    },
+    "recall_at_k_avg": 0.8846,
+    "faithfulness_avg": 0.9615,
+    "faithfulness_method": "llm",
+    "refusal_accuracy": 1.0
+  },
+  "total_pass": 26,
+  "total": 26,
+  "results": [
+    {
+      "id": "qa-01",
+      "type": "qa",
+      "role": "student",
+      "question": "研究生申请休学需要提交哪些材料?",
+      "expect_keywords": [
+        "书面申请",
+        "诊断证明"
+      ],
+      "note": "检索问答:多要素清单",
+      "expect_sources": [
+        "研究生学籍管理规定"
+      ],
+      "pass": true,
+      "detail": "命中 ['书面申请', '诊断证明'],引用 3 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 2440
+    },
+    {
+      "id": "qa-02",
+      "type": "qa",
+      "role": "student",
+      "question": "休学申请的审批流程是怎样的?",
+      "expect_keywords": [
+        "培养单位",
+        "研究生院"
+      ],
+      "note": "检索问答:流程链路",
+      "expect_sources": [
+        "研究生学籍管理规定"
+      ],
+      "pass": true,
+      "detail": "命中 ['培养单位', '研究生院'],引用 4 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 3137
+    },
+    {
+      "id": "qa-03",
+      "type": "qa",
+      "role": "student",
+      "question": "研究生的最长学习年限是几年?",
+      "expect_keywords": [
+        "六"
+      ],
+      "note": "检索问答:单事实;T5 标注修正:最长学习年限在 EVAL 种子与教育部令第41号均有规定,补全多源标注",
+      "expect_sources": [
+        "研究生学籍管理规定",
+        "学生管理规定"
+      ],
+      "pass": true,
+      "detail": "命中 ['六'],引用 7 条",
+      "recall_at_k": 0.5,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 2123
+    },
+    {
+      "id": "qa-04",
+      "type": "qa",
+      "role": "student",
+      "question": "国家奖学金的绩点要求是多少?",
+      "expect_keywords": [
+        "3.5"
+      ],
+      "note": "检索问答:数值型事实",
+      "expect_sources": [
+        "奖学金评定办法"
+      ],
+      "pass": true,
+      "detail": "命中 ['3.5'],引用 2 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 2450
+    },
+    {
+      "id": "qa-05",
+      "type": "qa",
+      "role": "student",
+      "question": "申请国家奖学金要交什么材料?",
+      "expect_keywords": [
+        "申请表",
+        "成绩单"
+      ],
+      "note": "检索问答:跨条目聚合",
+      "expect_sources": [
+        "奖学金评定办法"
+      ],
+      "pass": true,
+      "detail": "命中 ['申请表', '成绩单'],引用 4 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 2626
+    },
+    {
+      "id": "qa-06",
+      "type": "qa",
+      "role": "student",
+      "question": "请假 3 天以内需要谁批准?",
+      "expect_keywords": [
+        "辅导员"
+      ],
+      "note": "检索问答:规则映射",
+      "expect_sources": [
+        "学生请假管理办法"
+      ],
+      "pass": true,
+      "detail": "命中 ['辅导员'],引用 3 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 3125
+    },
+    {
+      "id": "qa-07",
+      "type": "qa",
+      "role": "student",
+      "question": "请假超过 7 天要走什么流程?",
+      "expect_keywords": [
+        [
+          "教务处",
+          "备案",
+          "报备"
+        ]
+      ],
+      "note": "检索问答:规则映射(高位档);T6 措辞加固(备案/报备同义任一)",
+      "expect_sources": [
+        "学生请假管理办法"
+      ],
+      "pass": true,
+      "detail": "命中 [['教务处', '备案', '报备']],引用 2 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 2433
+    },
+    {
+      "id": "qa-08",
+      "type": "qa",
+      "role": "student",
+      "question": "休学期满怎么申请复学?",
+      "expect_keywords": [
+        "一周",
+        "复学申请"
+      ],
+      "note": "检索问答:时限要素",
+      "expect_sources": [
+        "研究生学籍管理规定"
+      ],
+      "pass": true,
+      "detail": "命中 ['一周', '复学申请'],引用 4 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 4402
+    },
+    {
+      "id": "ref-01",
+      "type": "refusal",
+      "role": "student",
+      "question": "今天天气怎么样?",
+      "note": "拒答:知识库范围外(实时信息)",
+      "pass": true,
+      "detail": "正确拒答(无引用)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1783
+    },
+    {
+      "id": "ref-02",
+      "type": "refusal",
+      "role": "student",
+      "question": "2027 年考研国家线预计是多少?",
+      "note": "拒答:知识库范围外(未来预测)",
+      "pass": true,
+      "detail": "正确拒答(无引用)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1513
+    },
+    {
+      "id": "ref-03",
+      "type": "refusal",
+      "role": "student",
+      "question": "推荐一部好看的电影",
+      "note": "拒答:知识库范围外(闲聊)",
+      "pass": true,
+      "detail": "正确拒答(无引用)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1613
+    },
+    {
+      "id": "ref-04",
+      "type": "refusal",
+      "role": "student",
+      "question": "学校东门外的火锅店哪家好吃?",
+      "note": "拒答:知识库范围外(生活消费)",
+      "pass": true,
+      "detail": "正确拒答(无引用)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 2105
+    },
+    {
+      "id": "ref-05",
+      "type": "refusal",
+      "role": "student",
+      "question": "微信的创始人是谁?",
+      "note": "拒答:知识库范围外(通用知识)",
+      "pass": true,
+      "detail": "正确拒答(无引用)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1647
+    },
+    {
+      "id": "ref-06",
+      "type": "refusal",
+      "role": "student",
+      "question": "帮我写一篇毕业论文致谢",
+      "note": "拒答:超出知识库问答职责(生成类请求)",
+      "pass": true,
+      "detail": "正确拒答(无引用)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1906
+    },
+    {
+      "id": "perm-01",
+      "type": "permission_api",
+      "role": "student",
+      "method": "POST",
+      "path": "/api/kb/upload",
+      "expect_status": 403,
+      "note": "API 权限:学生不能上传文档",
+      "pass": true,
+      "detail": "POST /api/kb/upload → 403(期待 403)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 3
+    },
+    {
+      "id": "perm-02",
+      "type": "permission_api",
+      "role": "student",
+      "method": "GET",
+      "path": "/api/weekly/fragments",
+      "expect_status": 403,
+      "note": "API 权限:学生不能读工作记录",
+      "pass": true,
+      "detail": "GET /api/weekly/fragments → 403(期待 403)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 2
+    },
+    {
+      "id": "perm-03",
+      "type": "permission_api",
+      "role": "student",
+      "method": "DELETE",
+      "path": "/api/kb/documents/999999",
+      "expect_status": 403,
+      "note": "API 权限:学生不能删除文档(counselor+ 可删除可见文档,v0.4 规则变更)",
+      "pass": true,
+      "detail": "DELETE /api/kb/documents/999999 → 403(期待 403)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 2
+    },
+    {
+      "id": "perm-04",
+      "type": "permission_api",
+      "role": "student",
+      "method": "POST",
+      "path": "/api/weekly/archive",
+      "expect_status": 403,
+      "note": "API 权限:学生不能归档周报",
+      "pass": true,
+      "detail": "POST /api/weekly/archive → 403(期待 403)",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1
+    },
+    {
+      "id": "hidden-01",
+      "type": "kb_hidden",
+      "role": "student",
+      "question": "退学预警名单每周几下发?",
+      "hidden_marker": "EVAL-辅导员内部工作备忘",
+      "note": "知识层权限:内部备忘内容(辅导员级)学生不可见",
+      "pass": true,
+      "detail": "未泄露受限文档;回答了但未引用受限内容",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1654
+    },
+    {
+      "id": "hidden-02",
+      "type": "kb_hidden",
+      "role": "student",
+      "question": "谈心谈话每个月至少要做多少人次?",
+      "hidden_marker": "EVAL-辅导员内部工作备忘",
+      "note": "知识层权限:内部指标不对学生公开",
+      "pass": true,
+      "detail": "未泄露受限文档;正确拒答",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1616
+    },
+    {
+      "id": "hidden-03",
+      "type": "kb_hidden",
+      "role": "student",
+      "question": "内部工作备忘里对预警约谈的时限要求是什么?",
+      "hidden_marker": "EVAL-辅导员内部工作备忘",
+      "note": "知识层权限:直接询问内部文件内容",
+      "pass": true,
+      "detail": "未泄露受限文档;回答了但未引用受限内容",
+      "recall_at_k": null,
+      "faithfulness": null,
+      "faithfulness_method": "na",
+      "latency_ms": 1636
+    },
+    {
+      "id": "qa-09",
+      "type": "qa",
+      "role": "student",
+      "question": "本科生离校请假的手续是怎么规定的?",
+      "expect_keywords": [
+        "病假",
+        "事假"
+      ],
+      "expect_sources": [
+        "离校请销假"
+      ],
+      "note": "T4 新增:真实校本政策(离校请销假管理办法)",
+      "pass": true,
+      "detail": "命中 ['病假', '事假'],引用 5 条",
+      "recall_at_k": 0.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 9013
+    },
+    {
+      "id": "qa-10",
+      "type": "qa",
+      "role": "student",
+      "question": "申请国家助学贷款需要满足什么条件?",
+      "expect_keywords": [
+        "贷款"
+      ],
+      "expect_sources": [
+        "国家助学贷款"
+      ],
+      "note": "T4 新增:真实校本政策(国家助学贷款实施办法)",
+      "pass": true,
+      "detail": "命中 ['贷款'],引用 6 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 3045
+    },
+    {
+      "id": "qa-11",
+      "type": "qa",
+      "role": "counselor",
+      "question": "学生宿舍矛盾怎么谈心?",
+      "expect_keywords": [
+        [
+          "宿舍",
+          "寝室",
+          "室友",
+          "矛盾"
+        ]
+      ],
+      "expect_sources": [
+        "QA-Q02"
+      ],
+      "note": "T4 新增:学生事务库(谈心谈话训练题,宿舍矛盾);T6 措辞加固(宿舍/寝室/室友/矛盾任一)",
+      "pass": true,
+      "detail": "命中 [['宿舍', '寝室', '室友', '矛盾']],引用 3 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 0.5,
+      "faithfulness_method": "llm",
+      "latency_ms": 8324
+    },
+    {
+      "id": "qa-12",
+      "type": "qa",
+      "role": "student",
+      "question": "研究生奖助学金评审是怎么规定的?",
+      "expect_keywords": [
+        "奖助学金"
+      ],
+      "expect_sources": [
+        "奖助学金评审"
+      ],
+      "note": "T4 新增:奖助学金评审办法族",
+      "pass": true,
+      "detail": "命中 ['奖助学金'],引用 3 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 3348
+    },
+    {
+      "id": "qa-13",
+      "type": "qa",
+      "role": "counselor",
+      "question": "学生在宿舍使用违章电器该怎么处理?",
+      "expect_keywords": [
+        "电器"
+      ],
+      "expect_sources": [
+        "QA-Q12"
+      ],
+      "note": "T4 新增:学生事务库(违章电器)",
+      "pass": true,
+      "detail": "命中 ['电器'],引用 4 条",
+      "recall_at_k": 1.0,
+      "faithfulness": 1.0,
+      "faithfulness_method": "llm",
+      "latency_ms": 5695
+    }
+  ]
+}
