@@ -4,7 +4,7 @@
 >
 > **当前持棒：Qoder**（P3b 交付:C0~C8 全过、双传输 SMOKE/防护测试/端到端 DEMO PASSED、evals v1.6 零回归 26/26;待 Review）
 > ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5/v1.6**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
-> 📌 **2026-09-29 晚间追加**：用户批准语料清单后 Qoder 已抓取入库 6 篇官网医保/保险/收费页（`documents 59→65`、`chunks 469→487`，doc_id 110~115），基线 **v1.6 零回归**（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）。同时实测发现**长问句 rerank 崩塌**（「学平险」0.89 → 口语长句 0.11，被 0.3 阈值归零）——F2 补了语料仍答不上，根因在检索不在语料，详见 `docs/P4.md` §2.8 与 `docs/p4/evidence/retrieval_diag_xuepingxian.txt`。
+> 📌 **2026-09-29 晚间追加**：用户批准语料清单后 Qoder 已抓取入库 6 篇官网医保/保险/收费页（`documents 59→65`、`chunks 469→487`，doc_id 110~115），基线 **v1.6 零回归**（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）。同时实测发现**rerank 层检索崩塌**（8 种自然措辞**仅 3 种**能命中已入库的正确材料：「学平险」0.8875 通过、「学平险在哪里买」0.1007 归零，且**与问句长度不单调**——7 字崩、48 字反而通过），F2 补了语料仍答不上，根因在检索不在语料 → 详见 `docs/P4.md` §2.8、`docs/CASE_STUDY.md` §3，证据 `docs/p4/evidence/query_variant_matrix.txt`（措辞矩阵）与 `retrieval_diag_xuepingxian.txt`（四层归因）。
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -596,7 +596,7 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
   - [ ] **C4 导入质量门**（`kb_import_url` + `kb_upload` 共用）：正文有效长度 <200 字 / 命中登录页特征（登录、用户名、密码、浏览器版本过旧、兼容性提示、验证码）/ `<title>` 为登录类 / 同 URL 已入库 / 敏感扫描命中（手机号、身份证、学号、**人名+名单特征**）→ 全部拒绝并返回结构化原因 `{code, reason, hint}`；**回归测试：重放 `https://cwc.swjtu.edu.cn/` 与 `http://127.0.0.1:8900/` 必须被拦**
   - [ ] **C5 KB 守恒**：`smoke_test.py` 记录本次上传 doc_id 并在结束时删除，另提供 `--cleanup` 清历史残留；断言冒烟前后 `documents` 计数不变；新增 `evals/kb_doctor.py` 输出 `reports/kb_doctor_<ts>.json`（重复标题/超短正文/疑似登录页/口令与个人信息/孤儿分块/FTS 与 chunks 计数一致性），当前库 **0 高危项**
   - [x] **C6 语料入库 —— Qoder 已于 2026-09-29 完成**（用户批准 `docs/p4/corpus-candidates.md` 后，用 `corpus/fetch_public_pages.py` 抓取 6 篇公开官网页并入库：`doc_id 110~115`，`documents 59→65`、`chunks 469→487`，`医保 1→7`/`学平险 0→2`/`参保 0→7` 个分块）。**Zcode 的剩余职责**：① 用 `kb_doctor` 复核这 6 篇（无超短正文/无个人信息/`chunks_fts` 计数与 `chunks` 一致）；② 把 `fetch_public_pages.py` 里的 `gate()`/`DENY_URLS`/`clean_body()` 移植进 `main.py: kb_import_url`（那是运行时拦截，脚本只是原型）；③ 复跑 F1/F2/F3 实测并留痕（现状：F1 已能带 `[n]` 有据回答，**F2 仍 `sources=0`**，F3 未区分学段）。入库日志 `docs/p4/evidence/corpus_import_log.txt`；抓取与脱敏记录 `corpus_fetch_report.txt`。**红线不变**：含学生姓名的公示/名单页禁入库、不得用用户真实学工账号登录抓取、不得把 LLM 搜索摘要当语料
-  - [ ] **C10 长问句失败的优雅降级**（实测根因见 `docs/P4.md` §2.8：同一材料「学平险」rerank **0.8875**，换成口语长句崩到 **0.1136**，低于 `RERANK_MIN_SCORE=0.3` 被全丢 → `sources=0`）：本单**不要求修好检索**（根治在 P4d 的查询改写），但必须保证这类失败**不胡答**——拒答模板的 `contacts.json` **须包含保卫处**（学平险归口，非计财处）**与校医院医保办**，F2 原句实测答案应给出正确出口而非泛泛"咨询学校部门"；同时**新增一条"短问句/口语长问句"配对用例**（同一知识点各一条），并在回执里如实记录长问句仍失败的用例清单，供 P4d 验收对照
+  - [ ] **C10 检索失败时的优雅降级**（实测根因见 `docs/P4.md` §2.8 与 `docs/CASE_STUDY.md` §3：同一份已入库材料，8 种自然措辞**仅 3 种**能命中——「学平险」rerank **0.8875** 通过、「学平险在哪里买」**0.1007** 归零、「学生平安保险是否由学校统一办理？」**0.0194** 归零，均低于 `RERANK_MIN_SCORE=0.3` 被全丢 → `sources=0`。**注意崩塌与问句长度不单调**，7 字崩、48 字反而通过，所以不得用"句子长短"预测失败）：本单**不要求修好检索**（根治在 P4d 的查询改写与阈值分级），但必须保证这类失败**不胡答**——拒答模板的 `contacts.json` **须包含保卫处**（学平险归口，非计财处）**与校医院医保办**，F2 原句实测答案应给出正确出口而非泛泛"咨询学校部门"；同时**新增"术语式短问 + 口语式长问"配对用例**（同一知识点各一条），并在回执里用 `evals/query_variant_matrix.py` 如实记录仍失败的措辞清单，供 P4d 验收对照
   - [ ] **C7 评测扩充**：新增 `refusal_indomain` ≥6 条（**含 F1 原文**）+ qa 3 条（F1/F2/F3，`expect_keywords` 取官网原文关键词如「暂停原户籍地或学籍地参保关系」「448」「大病补充险」「66366439」「保卫处」）；`judge_refusal` 增强为同时断言"不含越界 `[n]`、不含 `expect_absent_keywords`、含出口信息"；**全部用例通过且 v1.5 三项指标不回退**
   - [ ] **C8 F3 学段**：研究生对应办法不在库时，回答必须**声明适用学段**（如"以下依据本科生办法"）并提示研究生规定未覆盖；不得默认按本科生作答（评测断言）
   - [ ] **C9 性能不劣化**：记录修复前后 F1 问句与普通问答的总耗时（拒答路径不走 LLM 自由生成，应更快）；正向反馈"速度太快了"是既有资产，不得劣化
@@ -680,9 +680,9 @@ git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资�
   - [ ] 图：`intent →(chitchat/time/meta) direct_answer` / `→ retrieve → grade →(达标) generate` / `→(不达标) rewrite → retrieve`（`MAX_REWRITE=2`）`→ refuse_with_exit`（复用 P4a 硬门控）
   - [ ] 问时间/日期类**不调 LLM**（正则 + `datetime` 直答）；意图判定超时/失败 → **降级为默认走检索**（路由挂了不能不答）
   - [ ] `rag.search` 返回质量信号 `{top_score, n_above_threshold, fused_candidates}`；`grade` 判定 `top_score≥0.3 且 n_above_threshold≥2`（可配）
-  - [ ] 改写策略含"去情境噪声"（直接对应 F1 长问句失守场景）、同义扩展、学段限定；`retrieval_trace` 落 `conversations`
+  - [ ] 改写策略以**意图归一 + 术语展开**为主（学平险 ↔ 学生平安保险 ↔ 意外伤害保险理赔；实测这是 F2 崩塌主因，**与句子长短无关**），辅以去情境噪声（对应 F1 的拒答失守场景）、学段限定、拆子问题；`retrieval_trace` 落 `conversations`
   - [ ] 新增评测类型 `intent`（断言 `retrieval_trace.skipped=true`）与 `rewrite`（口语化长问句断言发生改写且最终命中）；**给出实测毫秒数**：闲聊路径首字延迟显著低于检索路径，普通问答不劣化
-  - [ ] **必须修好 F2 长问句**（本单的硬指标）：用 F2 原句「我们学校有学平险吗，我看我们计财处只有医保这项」断言 `rag.search` 返回含学平险文档。现状是向量已排到第 2/3 位、融合也进 top8，但 **rerank 从短问句的 0.8875 崩到 0.1136、低于 0.3 阈值被全丢**（`docs/P4.md` §2.8、`docs/p4/evidence/retrieval_diag_xuepingxian.txt`）；诊断工具 `evals/diag_retrieval.py` 可直接复跑
+  - [ ] **必须把已入库材料的措辞命中率从 3/8 提上来**（本单硬指标）：基线是 2026-09-29 实测的 `evals/query_variant_matrix.py` 输出——同一份学平险材料，8 种自然问法仅「学平险」「学校有学平险吗」「多子句书面全称」3 种命中，其余 5 种（含**学生原句**、「学平险在哪里买」、「学生平安保险是否由学校统一办理？」）全被 `RERANK_MIN_SCORE=0.3` 归零，而**向量层本已把目标排到第 1~4 位**。要求：① 查询改写的**意图归一 + 术语展开**（学平险 ↔ 学生平安保险 ↔ 意外伤害保险理赔）；② 评估 rerank **分级阈值**或"标题命中核心术语时保底候选"，让"排序不佳"不再被放大成"完全无来源"；③ 验收须用 F2 原句断言命中，并**复跑变体矩阵给出新命中率**（目标 ≥6/8）；④ 归因工具 `evals/diag_retrieval.py` 可直接复跑，勿凭"句子长短"直觉下结论（本项初版归因已被变体矩阵证伪，见 `docs/CASE_STUDY.md` §3）
   - [ ] 评估并**书面记录**两项：① `RERANK_MIN_SCORE` 是否改分级阈值（如 top1 单判 / top1 与 top2 差值判定）；② `db.fts_search()` 整句短语匹配失败后回退的 2-gram 计次是否加停用词过滤（现状"学校/我们/这项"等通用词把教育部令 5 个分块顶上榜单）。**禁止单独调 `MAX_PER_DOC`**（T10 已实测 =1 会挤出关键块）
   - [ ] 顺带处理遗留：`qa-09`（离校请销假）R@k 长期 0.0
 - **依赖**：P4c 合并；PyPI 可达（已实测清华源/官方源 langgraph 均 200）
