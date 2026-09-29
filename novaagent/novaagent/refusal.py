@@ -49,8 +49,10 @@ def should_refuse(sources: list[dict], quality: dict) -> tuple[bool, str]:
     触发(任一):
       - sources 为空(empty_sources);
       - rerank 可用且 top_score(原始 rerank 峰值)< RERANK_MIN_SCORE(low_top_score);
-      - rerank 可用且达标分块数 n_above_threshold < 2(insufficient_evidence)
-        ——单条达标来源不足以交叉印证,避免"有来源但答非所问"。
+      - rerank 可用且达标分块数 n_above_threshold < 2 且 top_score 低于单来源放行线
+        (insufficient_evidence)——单条达标来源需"极强置信"(config.
+        REFUSAL_SINGLE_SOURCE_MIN_SCORE=0.9)才放行;实测修正依据:qa-01「研究生申请
+        休学材料」仅 1 块 0.9952 达标,一刀切 n_above<2 会误杀高置信单据(见 P4A.md)。
     rerank 不可用的降级路径(quality.rerank_available=False)不做分数门控
     (阈值语义属于 rerank 分),仅按来源空判。
     返回 (是否拒答, 原因码)。
@@ -62,7 +64,8 @@ def should_refuse(sources: list[dict], quality: dict) -> tuple[bool, str]:
         if top is not None and top < config.RERANK_MIN_SCORE:
             return True, "low_top_score"
         if quality.get("n_above_threshold", 0) < 2:
-            return True, "insufficient_evidence"
+            if top is None or top < config.REFUSAL_SINGLE_SOURCE_MIN_SCORE:
+                return True, "insufficient_evidence"
     return False, ""
 
 

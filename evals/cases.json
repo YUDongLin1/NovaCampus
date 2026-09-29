@@ -1,6 +1,6 @@
 {
-  "version": "v1.1",
-  "description": "NovaAgent 评测集 v1:20 条(检索问答 8 / 拒答 6 / 权限边界 6),权限用例同时覆盖 API 层与知识层",
+  "version": "v1.7",
+  "description": "NovaAgent 评测集:36 条(qa 17 / refusal_indomain 6 / refusal 6 / permission_api 4 / kb_hidden 3);P4a 增 F1/F2/F3 配对用例(术语短问+口语长问)与域内无据拒答类型",
   "cases": [
     {
       "id": "qa-01",
@@ -287,6 +287,115 @@
         "QA-Q12"
       ],
       "note": "T4 新增:学生事务库(违章电器)"
+    },
+    {
+      "id": "qa-14",
+      "type": "qa",
+      "role": "student",
+      "question": "老师您好，想咨询一下医保的事。我的参保地目前还挂在原来学校所在的某市，想问下要怎么办才能转到现在这边？这学期的医保我已经交了",
+      "expect_keywords": [
+        "暂停"
+      ],
+      "expect_sources": [
+        "大学生医疗保险缴费"
+      ],
+      "note": "P4a 新增:F1 学生原话(口语长问,配对-长);语料 doc 110/111 入库后应有据回答"
+    },
+    {
+      "id": "qa-15",
+      "type": "qa",
+      "role": "student",
+      "question": "学平险",
+      "expect_keywords": [
+        "学平险"
+      ],
+      "expect_sources": [
+        "学平险"
+      ],
+      "note": "P4a 新增:F2 同知识点术语式短问(配对-短);rerank 0.8875 可命中(doc 114/115)"
+    },
+    {
+      "id": "qa-16",
+      "type": "qa",
+      "role": "student",
+      "question": "本科生荣誉称号评选办法里，哪些荣誉不能同时获得?",
+      "expect_keywords": [
+        "不可兼得"
+      ],
+      "expect_sources": [
+        "荣誉称号"
+      ],
+      "note": "P4a 新增:F3 同知识点短问;应声明依据本科生办法(C8 学段声明)"
+    },
+    {
+      "id": "qa-17",
+      "type": "qa",
+      "role": "student",
+      "question": "我是研究生，2025-2026学年学生个人荣誉称号申请，一名同学可以同时获得两个及以上荣誉吗",
+      "expect_keywords": [
+        "本科生",
+        "研究生"
+      ],
+      "expect_sources": [
+        "荣誉称号"
+      ],
+      "note": "P4a C8:问研究生但库内仅本科生办法→回答必须声明适用学段并提示研究生规定未覆盖"
+    },
+    {
+      "id": "rind-01",
+      "type": "refusal_indomain",
+      "role": "student",
+      "question": "我参保地还在某市，怎么转到学校这边",
+      "expect_contact": "66366439",
+      "expect_absent_keywords": [
+        "国家医保服务平台",
+        "异地就医备案"
+      ],
+      "note": "P4a 新增:域内无据+个人情境(§2.3 轻度违规现场);须硬门控拒答并给校医院医保办出口"
+    },
+    {
+      "id": "rind-02",
+      "type": "refusal_indomain",
+      "role": "student",
+      "question": "我们学校有学平险吗，我看我们计财处只有医保这项",
+      "expect_contact": "87600392",
+      "expect_absent_keywords": [
+        "计财处",
+        "95585"
+      ],
+      "note": "P4a 新增:F2 学生原句(sources=0 现场);须拒答并给保卫处出口(学平险归口,非计财处)"
+    },
+    {
+      "id": "rind-03",
+      "type": "refusal_indomain",
+      "role": "student",
+      "question": "学校校车周末从犀浦到九里的发车时刻是什么时候?",
+      "expect_absent_keywords": [],
+      "note": "P4a 新增:域内无据(校车时刻,§2.3 实测拒答正确);硬门控后不夹带无据时刻表"
+    },
+    {
+      "id": "rind-04",
+      "type": "refusal_indomain",
+      "role": "student",
+      "question": "宿舍空调坏了怎么报修，维修师傅电话多少?",
+      "expect_absent_keywords": [],
+      "note": "P4a 新增:域内无据(宿舍空调报修电话);不得编造电话"
+    },
+    {
+      "id": "rind-05",
+      "type": "refusal_indomain",
+      "role": "student",
+      "question": "学校游泳馆办深水证需要什么材料，在哪里办?",
+      "expect_absent_keywords": [],
+      "note": "P4a 新增:域内无据(深水证办理);不得编造流程"
+    },
+    {
+      "id": "rind-06",
+      "type": "refusal_indomain",
+      "role": "student",
+      "question": "今年学校食堂新开的窗口承包给了哪家公司?",
+      "expect_absent_keywords": [],
+      "note": "P4a 新增:域内无据(食堂承包);不得编造公司名"
     }
   ]
 }

@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import re
 import sys
 import time
 from datetime import datetime
@@ -90,6 +91,25 @@ def judge_refusal(case: dict, answer: str, sources: list) -> tuple[bool, str]:
     return False, f"不应回答却给出了内容,引用: {[s['title'] for s in sources]}"
 
 
+def judge_refusal_indomain(case: dict, answer: str, sources: list) -> tuple[bool, str]:
+    """P4a C7:域内无据拒答判定——拒答 + 无越界 [n] + 出口信息 + 不夹带无据断言。"""
+    declined = any(m in answer for m in REFUSAL_MARKS)
+    if not declined:
+        return False, f"域内无据问题未拒答反而作答,引用: {[s['title'] for s in sources]}"
+    bad_refs = sorted({int(n) for n in re.findall(r"\[(\d+)\]", answer) if int(n) > len(sources)})
+    if bad_refs:
+        return False, f"越界引用未剥离: {bad_refs}(sources={len(sources)})"
+    if len(sources) == 0 and re.search(r"\[\d+\]", answer):
+        return False, "无来源却仍含 [n] 引用(虚构引用)"
+    contact = case.get("expect_contact")
+    if contact and contact not in answer:
+        return False, f"拒答未含出口信息({contact})"
+    absent = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    if absent:
+        return False, f"拒答/答案夹带无据断言: {absent}"
+    return True, f"域内无据正确拒答(sources={len(sources)},出口与断言检查通过)"
+
+
 def judge_kb_hidden(case: dict, answer: str, sources: list) -> tuple[bool, str]:
     cited = [s["title"] for s in sources if case["hidden_marker"] in s["title"]]
     if cited:
@@ -150,6 +170,8 @@ def run() -> int:
                         ok, detail = judge_qa(case, answer, sources)
                     elif case["type"] == "refusal":
                         ok, detail = judge_refusal(case, answer, sources)
+                    elif case["type"] == "refusal_indomain":
+                        ok, detail = judge_refusal_indomain(case, answer, sources)
                     else:
                         ok, detail = judge_kb_hidden(case, answer, sources)
             except httpx.HTTPStatusError as e:

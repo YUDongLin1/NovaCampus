@@ -106,14 +106,16 @@ def unit_tests() -> None:
     assert quality_gate_reject("", "正常页", "校园通知正文，用于验证长度下限与放行路径。" * 15) is None
     print("[U3] 敏感扫描 OK(手机号 personal_info/名单 name_list/登录标题 login_title/正常页放行)")
 
-    # U4 门控判定(拒答硬门控)
-    assert refusal.should_refuse([], {"rerank_available": True, "top_score": 0.9, "n_above_threshold": 0})[0]
-    assert refusal.should_refuse([{"t": 1}], {"rerank_available": True, "top_score": 0.9, "n_above_threshold": 1})[0]
-    assert not refusal.should_refuse([{"t": 1}, {"t": 2}], {"rerank_available": True, "top_score": 0.9, "n_above_threshold": 2})[0]
+    # U4 门控判定(拒答硬门控;含实测修正:单来源高置信放行,单来源低分拒)
+    G = lambda t, n: {"rerank_available": True, "top_score": t, "n_above_threshold": n}
+    assert refusal.should_refuse([], G(0.9, 0))[0]
+    assert refusal.should_refuse([{"t": 1}], G(0.5, 1))[0]        # 单来源低分→拒
+    assert not refusal.should_refuse([{"t": 1}], G(0.9952, 1))[0]  # qa-01 实测:单块 0.9952→答
+    assert not refusal.should_refuse([{"t": 1}, {"t": 2}], G(0.9, 2))[0]
     assert not refusal.should_refuse([{"t": 1}], {"rerank_available": False, "top_score": None, "n_above_threshold": 1})[0]
     short = quality_gate_reject("", "短文", "只有一句话。")
     assert short and short["code"] == "too_short", short
-    print("[U4] 拒答门控判定 OK(空来源/单达标拒,双达标与降级路径答,短正文拒)")
+    print("[U4] 拒答门控判定 OK(空来源/单达标低分拒,单来源高置信与双达标答,降级路径答,短正文拒)")
 
     # U5 出口匹配(F2 → 保卫处;F1 短问 → 校医院医保办)
     f2 = [c["dept"] for c in refusal.match_contacts("我们学校有学平险吗，我看我们计财处只有医保这项")]
