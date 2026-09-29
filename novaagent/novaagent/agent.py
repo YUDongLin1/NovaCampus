@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import math
@@ -100,7 +101,10 @@ async def build_conversation_context(conversation_id: int, model: str) -> tuple[
         ctx_info["history_msg_ids"] = [m["id"] for m in hist]
         return [{"role": m["role"], "content": m["content"]} for m in hist], ctx_info
 
-    # 超预算:最近消息保留 ≤40% 预算,较早部分压缩
+    # 超预算:最近消息保留 ≤40% 预算,较早部分压缩。
+    # P4b C4 实测修正:单次压缩 1000+ 条会按主题归并、丢掉具体数字(实测摘要 1.3k 字,
+    # 埋点的 448/95585/417号 全部丢失)→ 改为分块压缩(每 40 条一块,并发调用,逐块保数),
+    # 各块摘要拼接后注入并整体落 conversation_summary(原文永久保留)。
     recent: list[dict] = []
     kept = 0
     for m in reversed(hist):
@@ -112,14 +116,25 @@ async def build_conversation_context(conversation_id: int, model: str) -> tuple[
     older = hist[: len(hist) - len(recent)]
     older_text = "\n".join(f"[msg {m['id']}] {m['role']}: {m['content']}" for m in older)
     try:
-        msg = await llm.chat(
-            [{"role": "user", "content": COMPRESS_PROMPT.format(history=older_text[:60000])}],
-            max_tokens=1200, temperature=0,
-        )
-        summary = (msg.get("content") or "").strip()
-        if not summary:
-            raise ValueError("压缩结果为空")
-        db.upsert_conversation_summary(conversation_id, summary, older[-1]["id"])
+        cached = db.get_conversation_summary(conversation_id)
+        if cached and cached["covered_until_message_id"] >= older[-1]["id"] and cached["summary_text"]:
+            summary = cached["summary_text"]  # 摘要已覆盖到同一点,复用(避免每轮重复压缩)
+        else:
+            chunks = [older[i:i + 40] for i in range(0, len(older), 40)]
+
+            async def _compress_chunk(ch: list[dict]) -> str:
+                text = "\n".join(f"[msg {m['id']}] {m['role']}: {m['content']}" for m in ch)
+                msg = await llm.chat(
+                    [{"role": "user", "content": COMPRESS_PROMPT.format(history=text[:20000])}],
+                    max_tokens=800, temperature=0,
+                )
+                return (msg.get("content") or "").strip()
+
+            parts = await asyncio.gather(*(_compress_chunk(ch) for ch in chunks))
+            summary = "\n".join(p for p in parts if p)
+            if not summary:
+                raise ValueError("压缩结果为空")
+            db.upsert_conversation_summary(conversation_id, summary, older[-1]["id"])
         ctx_info["compressed"] = True
         ctx_info["summary_covered_until"] = older[-1]["id"]
         ctx_info["compressed_from_count"] = len(older)
@@ -317,11 +332,23 @@ class AgentService:
             conversation_id = db.create_conversation(user_id, title=question[:20])
         eff = self.effective_llm(user_id)
         min_rank = db.config.ROLE_RANK[role]
-        sources, quality = await rag.search_with_quality(question, min_rank)
-        # P4a C1 拒答硬门控:无来源/相关度不足 → 确定性模板(代码拼装,不经 LLM)
-        do_refuse, reason = refusal.should_refuse(sources, quality)
-        # P4b: 历史注入(过去轮次)先于当前问题落库——本问不计入自身历史
+        # P4b: 历史注入(过去轮次)先于检索与当前问题落库——本问不计入自身历史
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
+        sources, quality = await rag.search_with_quality(question, min_rank)
+        # P4a C1 拒答硬门控:无来源/相关度不足 → 确定性模板(代码拼装,不经 LLM)。
+        # P4b C2/C4 多轮分支:追问轮的证据不只来自知识库——本会话历史(含压缩摘要)已注入
+        # 上下文。首问(无历史)维持硬拒答不变(refusal_indomain 评测即此路径);追问轮检索
+        # 不达标时不再硬拒,改为注入代码拼装的「依据历史回答/如实说明未覆盖」指令,
+        # 由模型按已注入的证据回答——refusal.py 未改动,门控判定结果仍透传给模型。
+        do_refuse, reason = refusal.should_refuse(sources, quality)
+        followup_note = ""
+        if do_refuse and hist_msgs:
+            do_refuse = False
+            ctx_info["followup_no_new_sources"] = True
+            followup_note = ("[系统提示] 知识库未检索到与该问句直接相关的新来源"
+                             f"（检索判定: {reason}）。若能从上方对话历史（含压缩摘要）中找到答案，"
+                             "请基于历史回答并注明「依据此前对话」；若历史与知识库都不足以回答，"
+                             "请明确说明两者均未覆盖，不得编造。")
         db.add_message(user_id, "user", question, conversation_id)
         if do_refuse:
             answer = refusal.build_refusal(question, reason)
@@ -332,6 +359,8 @@ class AgentService:
         context = "\n\n".join(
             f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
         ) or "(本角色可见范围内未检索到相关资料)"
+        if followup_note:
+            context = f"{followup_note}\n\n{context}"
         if stage_note:
             context = f"{stage_note}\n\n{context}"
         messages = [{"role": "system", "content": SYSTEM_PROMPT.format(context=context)}]
@@ -384,9 +413,18 @@ class AgentService:
             conversation_id = db.create_conversation(user_id, title=question[:20])
         eff = self.effective_llm(user_id)
         min_rank = db.config.ROLE_RANK[role]
-        sources, quality = await rag.search_with_quality(question, min_rank)
-        do_refuse, reason = refusal.should_refuse(sources, quality)
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
+        sources, quality = await rag.search_with_quality(question, min_rank)
+        # P4b C2/C4 多轮分支(与 chat_for 同款):追问轮检索不达标 → 注入历史依据指令而非硬拒
+        do_refuse, reason = refusal.should_refuse(sources, quality)
+        followup_note = ""
+        if do_refuse and hist_msgs:
+            do_refuse = False
+            ctx_info["followup_no_new_sources"] = True
+            followup_note = ("[系统提示] 知识库未检索到与该问句直接相关的新来源"
+                             f"（检索判定: {reason}）。若能从上方对话历史（含压缩摘要）中找到答案，"
+                             "请基于历史回答并注明「依据此前对话」；若历史与知识库都不足以回答，"
+                             "请明确说明两者均未覆盖，不得编造。")
         db.add_message(user_id, "user", question, conversation_id)
         if do_refuse:  # P4a C1: 确定性拒答模板直接作为流式输出
             text = refusal.build_refusal(question, reason)
@@ -403,6 +441,8 @@ class AgentService:
         context = "\n\n".join(
             f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
         ) or "(本角色可见范围内未检索到相关资料)"
+        if followup_note:
+            context = f"{followup_note}\n\n{context}"
         if stage_note:
             context = f"{stage_note}\n\n{context}"
         messages = [{"role": "system", "content": SYSTEM_PROMPT.format(context=context)}]

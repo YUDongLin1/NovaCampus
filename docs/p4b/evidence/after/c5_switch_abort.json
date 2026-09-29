@@ -1,0 +1,20 @@
+{
+  "switch": {
+    "conv_id": 39,
+    "ctx_fill_width": "0%",
+    "ctx_text": "上下文 0%（0/85196 tok 估算）",
+    "msg_count": 200
+  },
+  "mid": {
+    "aborting": true,
+    "msgs_mid": 202
+  },
+  "after": {
+    "abort_cleared": true,
+    "conv_id_after": 34
+  },
+  "back": {
+    "conv_id_back": 39,
+    "msg_count_back": 200
+  }
+}

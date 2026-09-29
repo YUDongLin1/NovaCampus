@@ -27,6 +27,8 @@ function newConversation() {
   abortInflight();
   window._convId = null;
   document.getElementById('messages').innerHTML = `<div class="hint">${WELCOME_HINT}</div>`;
+  const bar = document.getElementById('ctx-bar');
+  if (bar) bar.style.display = 'none';  // 新会话尚无占用数据
   loadConversations();
 }
 
@@ -34,6 +36,8 @@ async function switchConversation(cid) {
   if (cid === window._convId) return;
   abortInflight();  // P4b C5: 切走即中止进行中的 SSE(服务端生成器随之取消,不落库)
   window._convId = cid;
+  const bar = document.getElementById('ctx-bar');
+  if (bar) bar.style.display = 'none';  // 占用条随会话切换清空(下一轮回答时按事件重建)
   try {
     const d = await api(`/api/conversations/${cid}/messages?limit=200`);
     const box = document.getElementById('messages');
