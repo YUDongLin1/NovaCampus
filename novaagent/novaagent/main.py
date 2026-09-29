@@ -4,6 +4,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -184,6 +185,7 @@ async def kb_upload(
         raise HTTPException(400, "仅支持 .txt / .md / .pdf / .docx")
     if not text.strip():
         raise HTTPException(400, "未能从文件中提取到文本")
+    _gate_or_400("", Path(name).stem, text)  # P4a C4: 上传同走质量门(URL 类检查跳过)
     chunks = rag.chunk_text(text)
     if not chunks:
         raise HTTPException(400, "切分结果为空")
@@ -208,6 +210,18 @@ async def kb_import_url(body: dict, user=Depends(require_role("counselor"))):
     category = (body.get("category") or "其他").strip()[:20] or "其他"
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "URL 必须以 http(s):// 开头")
+    # P4a C4: 抓取前先拦禁抓清单(名单/登录页/自家前端)——禁抓页不发起网络请求;
+    # 其余质量项在抓取+提取后对真实正文执行
+    if url in DENY_URLS or any(u in url for u in DENY_URLS):
+        logger.warning("导入被质量门拦截: code=deny_url url=%s", url)
+        raise HTTPException(400, detail={"code": "deny_url",
+                                         "reason": "URL 命中禁抓清单(含学生姓名的名单页/登录页首页/自家前端)",
+                                         "hint": "请粘贴具体文章页 URL;含学生姓名的公示/名单页一律禁止入库"})
+    dup = db.find_document_by_url(url)
+    if dup:
+        raise HTTPException(400, detail={"code": "duplicate_url",
+                                         "reason": f"该 URL 已入库(doc_id={dup['id']}《{dup['title']}》)",
+                                         "hint": "同 URL 不重复入库;如需更新内容请先删除旧文档"})
     async with httpx.AsyncClient(timeout=25, follow_redirects=True,
                                  headers={"User-Agent": "Mozilla/5.0 (NovaAgent/0.4; campus KB importer)"}) as client:
         try:
@@ -225,6 +239,8 @@ async def kb_import_url(body: dict, user=Depends(require_role("counselor"))):
     text, title = extract_html(resp.text)
     if not text:
         raise HTTPException(400, "未能从网页中提取到文本")
+    text, _stats = clean_body(text)  # P4a C6: 导航/页脚裁剪(fetch_public_pages 原型移植)
+    _gate_or_400(url, title, text)   # P4a C4: 质量门(登录页/短正文/口令/敏感/名单)
     chunks = rag.chunk_text(text)
     if not chunks:
         raise HTTPException(400, "切分结果为空")
@@ -279,6 +295,118 @@ def extract_html(html: str) -> tuple[str, str]:
     lines = [ln.strip() for ln in "".join(ex.parts).split("\n")]
     text = "\n".join(ln for ln in lines if ln)
     return text, (ex.title.strip() or "未命名网页")
+
+
+# ---------- P4a C4:导入质量门(kb_upload / kb_import_url 共用) ----------
+# 原型:corpus/fetch_public_pages.py 的 gate()/DENY_URLS/clean_body()(C6 移植)。
+# 口令检测必须覆盖多种措辞(P3b Review 实测教训):前端首页曾以 v0.3「密码均为 xxx123」
+# 与 v0.5「admin/admin123 · counselor/…」两种措辞两度入库,只匹配单一措辞会漏。
+
+DENY_URLS = [
+    "https://hospital.swjtu.edu.cn/info/1013/5558.htm",  # 2025年度城乡居民医保已缴费人员名单公示(含学生姓名)
+    "https://hospital.swjtu.edu.cn/info/1013/3988.htm",  # 2023级新生参保失败名单及处理方法(含学生姓名)
+    "https://cwc.swjtu.edu.cn/",                          # 计财处首页=登录框(脏数据 id=109 来源)
+    "http://127.0.0.1:8900/",                             # 自家前端(曾把演示口令写进库 id=22/120)
+]
+LOGIN_FEATURES = ["浏览器版本过旧", "兼容性提示", "请输入验证码", "用户名", "登录密码", "忘记密码"]
+MIN_EFFECTIVE_CHARS = 200
+
+# 口令/演示凭据样式(每种措辞一条,均有单测)
+PASSWORD_PATTERNS: list[tuple[str, str]] = [
+    (r"(用户名|口令|密码|账号)\s*[/／]\s*(口令|密码|用户名|账号)", "用户名/口令斜杠式"),
+    (r"演示账号|演示口令|默认口令", "演示账号/演示口令字样"),
+    (r"(admin|counselor|student)123", "演示口令字面量(admin123/counselor123/student123)"),
+    (r"密码(均为|都为|同为)", "「密码均为…」句式"),
+]
+RE_MOBILE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
+RE_IDCARD = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
+
+# 正文起止与导航裁剪(fetch_public_pages.clean_body 移植;宁留噪声,不可丢正文)
+_START_MARKS = [re.compile(r"^当前位置"), re.compile(r"^首页正文$"), re.compile(r"网站首页>")]
+_END_MARKS = re.compile(r"^(地址：|通讯地址|Copyright|版权所有|蜀ICP|川公网安备|西南交通大学官方微信|西南交通大学官方微博)")
+_NOISE_SUB = [(re.compile(r"admin点击：\[\]"), ""), (re.compile(r"^正文$"), ""), (re.compile(r"^首页$"), "")]
+_NAV_WORDS = {
+    "首页", "网站首页", "医院概况", "党的建设", "医院动态", "通知公告", "健康教育", "医疗保险",
+    "健康管理", "红十字会", "联系我们", "学生医保", "教工医保", "报销须知", "机构设置", "部门概况",
+    "现任领导", "工作人员", "工作动态", "办事指南", "户政业务", "车辆业务", "政审业务", "消防安全",
+    "党建之家", "学习之家", "支部工作", "武装工作", "大学生征兵工作", "军训工作", "政策法规",
+    "法律法规", "规章制度", "安全警示", "安全教育", "警示案例", "English", "公开制度", "公开年报",
+    "公开事项", "公开目录", "公开指南", "监督投诉",
+}
+
+
+def clean_body(text: str) -> tuple[str, dict]:
+    """裁掉整站导航/页脚,只留正文(fetch_public_pages 原型移植)。返回 (正文, 统计)。"""
+    lines = text.split("\n")
+    start = 0
+    for i, ln in enumerate(lines):
+        if any(m.search(ln) for m in _START_MARKS):
+            start = i + 1
+            break
+    end = len(lines)
+    for i in range(start, len(lines)):
+        if _END_MARKS.search(lines[i]):
+            end = i
+            break
+    kept, nav_drop = [], 0
+    for ln in lines[start:end]:
+        for pat, rep in _NOISE_SUB:
+            ln = rep if pat.search(ln) else ln
+        ln = ln.replace("\ufeff", "").strip()
+        if not ln:
+            continue
+        if ln in _NAV_WORDS:
+            nav_drop += 1
+            continue
+        kept.append(ln)
+    return "\n".join(kept), {"dropped_nav": nav_drop, "cut_head": start, "cut_tail": len(lines) - end}
+
+
+def quality_gate_reject(url: str, title: str, text: str) -> dict | None:
+    """导入质量门(纯函数,可单测)。返回 None=放行;{code, reason, hint}=拒绝原因。
+
+    检查项(P4a C4):禁抓 URL → 登录类标题 → 正文过短 → 登录页特征 →
+    口令/演示凭据(四种措辞样式) → 手机号/身份证 → 名单特征(人名+名单)。
+    """
+    if url:
+        if url in DENY_URLS or any(u in url for u in DENY_URLS):
+            return {"code": "deny_url",
+                    "reason": "URL 命中禁抓清单(含学生姓名的名单页/登录页首页/自家前端)",
+                    "hint": "请粘贴具体文章页 URL;含学生姓名的公示/名单页一律禁止入库"}
+    if title in ("登录", "未命名网页", ""):
+        return {"code": "login_title",
+                "reason": f"标题为登录/未命名类({title!r}),疑似非内容页",
+                "hint": "请从具体文章页导入,而非站点首页或登录跳转页"}
+    if len(text) < MIN_EFFECTIVE_CHARS:
+        return {"code": "too_short",
+                "reason": f"正文有效长度 {len(text)} < {MIN_EFFECTIVE_CHARS} 字,低信息量",
+                "hint": "首页/导航页通常没有正文,请粘贴具体文章页 URL"}
+    hits = [f for f in LOGIN_FEATURES if f in text[:600]]
+    if len(hits) >= 2:
+        return {"code": "login_page",
+                "reason": f"命中登录页特征 {hits}",
+                "hint": "疑似登录框/兼容性提示页,请粘贴正文文章页 URL"}
+    for pat, label in PASSWORD_PATTERNS:
+        if re.search(pat, text):
+            return {"code": "credential",
+                    "reason": f"命中口令/演示凭据样式:{label}",
+                    "hint": "演示口令与凭据信息禁止入库(安全边界);请移除相关段落后重试"}
+    if RE_MOBILE.search(text) or RE_IDCARD.search(text):
+        return {"code": "personal_info",
+                "reason": "正文疑似含手机号或身份证号(个人信息)",
+                "hint": "个人信息禁止入库;如为公开业务电话请人工确认后联系管理员处理"}
+    if ("名单" in title or "名单" in text[:400]) and ("姓名" in text or "学号" in text):
+        return {"code": "name_list",
+                "reason": "名单特征(标题/正文含「名单」且正文含姓名/学号)",
+                "hint": "含学生姓名的公示/名单页禁止入库(P4 红线)"}
+    return None
+
+
+def _gate_or_400(url: str, title: str, text: str) -> None:
+    reject = quality_gate_reject(url, title, text)
+    if reject:
+        logger.warning("导入被质量门拦截: code=%s url=%s title=%s", reject["code"], url, title[:60])
+        raise HTTPException(400, detail=reject)
 
 
 @app.get("/api/kb/documents")
