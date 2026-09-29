@@ -23,6 +23,8 @@ logs/
 exports/
 # 例外:验收证据留痕必须入库(否则 docs/P3A.md 第五节引用的 CLI 注入日志会静默丢失)
 !docs/p3a/evidence/*.log
+# 例外:P3b 证据留痕(step0 实时复跑 CLI 日志 + aiops_demo 端到端现场演示输出)
+!docs/p3b/evidence/*.log
 # 例外:P4 证据留痕(KB 清理与拒答门控实测的评测日志)
 !docs/p4/evidence/*.log
 

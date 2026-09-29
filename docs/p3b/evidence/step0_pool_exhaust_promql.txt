@@ -1,0 +1,12 @@
+PROMQL: app_db_pool_in_use{job="ykt"}
+   ykt  10
+PROMQL: app_db_pool_in_use{job="ykt"} / app_db_pool_size{job="ykt"}
+   ykt  1
+PROMQL: app_db_pool_waiting{job="ykt"}
+   ykt  0
+PROMQL: sum by(status)(rate(http_requests_total{job="ykt",status=~"5.."}[30s]))
+    503 0.24000960038401536
+PROMQL: sum(rate(app_db_pool_wait_seconds_sum{job="ykt"}[30s]))
+     0.48030005516220525
+PROMQL: fault_active{job="ykt",type="pool_exhaust"}
+   ykt  1

@@ -1,0 +1,16 @@
+[inject] target=ykt mode=pool_exhaust duration=60.0s base=http://127.0.0.1:9102
+[before] {"service": "ykt", "faults": {"pool_exhaust": {"active": false, "ends_at": "02:08:19"}, "cpu_spike": {"active": false, "ends_at": "02:09:01"}}, "pool": {"size": 10, "in_use": 0, "waiting": 0, "wait_timeout_s": 2.0}}
+[OK] {"started": true, "mode": "pool_exhaust", "duration_s": 60.0, "note": "到期自动恢复;duration=0 表示取消"}
+[poll] t+5s active=True pool_in_use=10 waiting=0
+[poll] t+10s active=True pool_in_use=10 waiting=1
+[poll] t+15s active=True pool_in_use=10 waiting=1
+[poll] t+20s active=True pool_in_use=10 waiting=0
+[poll] t+25s active=True pool_in_use=10 waiting=0
+[poll] t+30s active=True pool_in_use=10 waiting=1
+[poll] t+35s active=True pool_in_use=10 waiting=1
+[poll] t+40s active=True pool_in_use=10 waiting=0
+[poll] t+45s active=True pool_in_use=10 waiting=0
+[poll] t+50s active=True pool_in_use=10 waiting=1
+[poll] t+55s active=True pool_in_use=10 waiting=1
+[poll] t+60s active=False pool_in_use=0 waiting=0
+[OK] pool_exhaust 已到期自动恢复
