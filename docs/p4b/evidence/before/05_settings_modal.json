@@ -1,0 +1,25 @@
+{
+  "filterDump": {
+    "filter_value": "政策文件",
+    "list_head": "全部分类\n办事指引\n政策文件\n其他\n文档\t可见\t分块\t操作\n西南交通大学2026年收费公示\n政策文件 counselor · 2026-09-29\t全体\t6\t查看\n大学生医保假期使用的温馨提示\n政策文"
+  },
+  "modalDump": {
+    "modal_chars": 3398,
+    "modal_head": "分类\n政策文件\n可见级别\n学生及以上\n上传\ncounselor · 2026-09-29\n分块数\n6\nAI 摘要\n本公示为西南交通大学2026年收费项目及标准，",
+    "modal_title": "《西南交通大学2026年收费公示》",
+    "modal_visible": "flex"
+  },
+  "testToast": {
+    "inline": "连接",
+    "toast": ""
+  },
+  "setDump": {
+    "has_custom": true,
+    "modal_title": "设置",
+    "model_radios": [
+      "qwen-flash",
+      "qwen3.7-plus",
+      "on"
+    ]
+  }
+}
