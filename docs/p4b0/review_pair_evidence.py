@@ -109,15 +109,22 @@ add("01 登录页文案 token 覆盖", len(tokens), "缺失 %d 个(见 note)" % 
     "MATCH" if not missing else "CHECK", "缺失项均为登录后/main 区域元素或 placeholder,不在 login-box innerText 范围内" if missing else "")
 
 # ---------- 浏览器侧取到的资源字节 vs 磁盘字节 ----------
+# ⚠ 行尾口径:仓库里 commit 的 blob 是 **LF**,但本机 `core.autocrlf=true` → 每次 checkout/merge
+# 后工作区文件变成 **CRLF**,每行多 1 字节。所以"字节数"有两种成立值,必须都算进来比,
+# 否则对账会出**假 DIFF**(本次复核就是这么发现并追出来的:theme.css 22102 ↔ 22455,差 = 353 行)。
 DISK = {"/css/theme.css": r"novaagent\web\css\theme.css",
         "/js/api.js": r"novaagent\web\js\api.js", "/js/ui.js": r"novaagent\web\js\ui.js",
         "/js/chat.js": r"novaagent\web\js\chat.js", "/js/kb.js": r"novaagent\web\js\kb.js",
         "/js/weekly.js": r"novaagent\web\js\weekly.js"}
 for a in after.get("11_assets", []):
-    disk = os.path.getsize(os.path.join(ROOT, DISK[a["url"]]))
-    ok = a["status"] == 200 and a["bytes"] == disk and ("charset=utf-8" in (a["ct"] or ""))
-    add("11 %s" % a["url"], "磁盘 %d B" % disk, "HTTP %s / %s B / %s" % (a["status"], a["bytes"], a["ct"]),
-        "MATCH" if ok else "DIFF", "浏览器实际收到字节数 == 磁盘字节数,且 charset 显式")
+    raw = io.open(os.path.join(ROOT, DISK[a["url"]]), "rb").read()
+    crlf = raw.count(b"\r\n")
+    disk_crlf, disk_lf = len(raw), len(raw) - crlf
+    form = "CRLF" if a["bytes"] == disk_crlf else ("LF" if a["bytes"] == disk_lf else "?")
+    ok = a["status"] == 200 and form in ("CRLF", "LF") and "charset=utf-8" in (a["ct"] or "")
+    add("11 %s" % a["url"], "磁盘 LF=%d B / CRLF=%d B" % (disk_lf, disk_crlf),
+        "HTTP %s / %s B / %s" % (a["status"], a["bytes"], a["ct"]),
+        "MATCH" if ok else "DIFF", "浏览器收到的字节数 == 磁盘字节数(%s 形式),charset 显式" % form)
 
 # ---------- 截图客观视觉度量 ----------
 vis = []
