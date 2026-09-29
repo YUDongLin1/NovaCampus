@@ -1,0 +1,12 @@
+  kb_hidden        3/3
+  refusal_indomain 6/6
+  TOTAL            36/36(100%)
+  Recall@k 均值: 0.9412 | 忠实度均值: 0.9706(llm) | 拒答准确率: 1.0
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20260929_175526.json
+  kb_hidden        3/3
+  refusal_indomain 6/6
+  TOTAL            36/36(100%)
+  Recall@k 均值: 0.9412 | 忠实度均值: 0.9118(llm) | 拒答准确率: 1.0
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20260929_175656.json
