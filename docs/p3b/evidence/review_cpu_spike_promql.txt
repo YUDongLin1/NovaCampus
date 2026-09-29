@@ -1,0 +1,26 @@
+# Review 补充实测(Qoder, 2026-09-29 15:42:08+0800)——为 P3B.md §三 行5 的注入中 CPU 峰值补成立出处
+# 命令: sims/fault_inject.py --target ykt --mode cpu_spike --duration 30,注入期间查 Prometheus
+
+PROMQL: process_cpu_percent{job="ykt"}(注入中 t+14s)
+   ykt 1647.7
+[inject] target=ykt mode=cpu_spike duration=30.0s base=http://127.0.0.1:9102
+[before] {"service": "ykt", "faults": {"pool_exhaust": {"active": false, "ends_at": "07:38:19"}, "cpu_spike": {"active": false, "ends_at": "06:48:30"}}, "pool": {"size": 10, "in_use": 0, "waiting": 0, "wait_timeout_s": 2.0}}
+[OK] {"started": true, "mode": "cpu_spike", "duration_s": 30.0, "note": "到期自动恢复;duration=0 表示取消"}
+[poll] t+3s active=True pool_in_use=1 waiting=0 cpu=1477.4%
+[poll] t+6s active=True pool_in_use=0 waiting=0 cpu=1691.5%
+[poll] t+9s active=True pool_in_use=0 waiting=0 cpu=1690.7%
+[poll] t+12s active=True pool_in_use=1 waiting=0 cpu=1660.3%
+[poll] t+15s active=True pool_in_use=0 waiting=0 cpu=1716.9%
+[poll] t+18s active=True pool_in_use=0 waiting=0 cpu=1687.7%
+[poll] t+21s active=True pool_in_use=1 waiting=0 cpu=1685.1%
+[poll] t+24s active=True pool_in_use=0 waiting=0 cpu=1701.6%
+[poll] t+27s active=True pool_in_use=0 waiting=0 cpu=1682.3%
+[poll] t+30s active=False pool_in_use=0 waiting=0 cpu=1714.5%
+[OK] cpu_spike 已到期自动恢复
+[cpu] cpu_peak=1716.9% (来源: http://127.0.0.1:9102/metrics 的 process_cpu_percent,轮询期采样取最大)
+
+PROMQL: max_over_time(process_cpu_percent{job="ykt"}[40s])(注入结束取峰)
+   ykt 1716.9
+
+PROMQL: process_cpu_percent{job="ykt"}(恢复后)
+   ykt 1

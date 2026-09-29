@@ -2,7 +2,8 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（P3b 交付:C0~C8 全过、双传输 SMOKE/防护测试/端到端 DEMO PASSED、evals v1.6 零回归 26/26;待 Review）
+> **当前持棒：Zcode**（**P3b 已 Review 通过并合并 master `2234fc8`**；现下发 **P4a**——内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料复核）
+> ✅ **P3b Review 结论（Qoder，2026-09-29）**：边界零越界、11 份证据真入库（`.gitignore` 例外由 Zcode 自加，P3a 坑 17 未重犯）、5 条告警规则真实加载、三个测试由 Qoder 亲自复跑全过（含真实注入的端到端 DEMO，`run_playbook` 实测不执行写操作）、干净库复跑 evals 零回归。**附 1 项引用链修正**：P3B.md §三 行 5 的 `1688.6` 不在其所引文件中（量级对但引用链不成立），已由 Qoder 复跑 `cpu_spike` 补齐成立出处 → 详见本条 P3b「Review 结论」。**运行时清理已完成**：smoke 污染的 4 篇已删（含又一篇含演示口令的前端首页导入），`documents 69→65`，备份 `agent.db.bak-reviewP3b-153731`。
 > ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5/v1.6**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
 > 📌 **2026-09-29 晚间追加**：用户批准语料清单后 Qoder 已抓取入库 6 篇官网医保/保险/收费页（`documents 59→65`、`chunks 469→487`，doc_id 110~115），基线 **v1.6 零回归**（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）。同时实测发现**rerank 层检索崩塌**（8 种自然措辞**仅 3 种**能命中已入库的正确材料：「学平险」0.8875 通过、「学平险在哪里买」0.1007 归零，且**与问句长度不单调**——7 字崩、48 字反而通过），F2 补了语料仍答不上，根因在检索不在语料 → 详见 `docs/P4.md` §2.8、`docs/CASE_STUDY.md` §3，证据 `docs/p4/evidence/query_variant_matrix.txt`（措辞矩阵）与 `retrieval_diag_xuepingxian.txt`（四层归因）。
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
@@ -448,7 +449,7 @@
   3. `app_db_pool_wait_seconds` 含注入器自身获取等待,注入起始短暂高 P95 属真实数据（P3A.md §六.3）;构建期修复过两缺陷(CMD SERVICE 空/PoolTimeout 逃逸为 500),纪要在 §六.1
   4. **P3b 未开**（遵守"别自行开 P3b"）;服务栈保持运行(:9090/:3000/:9101/:9102)供 Review,NovaAgent/WeKnora 未受影响
 
-### P3b AIOps MCP Server（`mcp/aiops`）　🟣 IN_REVIEW（2026-09-29 交付,持棒：Qoder）
+### P3b AIOps MCP Server（`mcp/aiops`）　✅ DONE（Qoder Review 通过并合并 master `2234fc8`，2026-09-29；附 1 项引用链修正）
 
 - **目标**：把 P3a 监控栈包成 Agent 能调用的**只读取证工具集**（收告警→查指标→捞日志→查变更→跑预案），并让"注入现场"能被 MCP 客户端以**文本证据**复现。做完什么样：`mcp/aiops` 起来后 `tests/smoke_test.py` 双传输全过；在 ykt 池耗尽注入期间，`list_alerts` 返回 `firing` 告警、`query_metrics` 返回 100% 池利用率、`query_logs` 捞到真实 503 行、`run_playbook` 输出带出处的根因候选。它是 P3c 诊断链的工具底座，**简历第二亮点的"手"**。
 
@@ -562,6 +563,20 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
   6. 运行态供 Review:sims 栈 4 容器 Up、aiops server :18081 在跑、NovaAgent :8900 带评测温度开关在跑;端口 9090/3000/9101/9102/18081/18080 互不冲突
 
 
+#### Review 结论（Qoder，2026-09-29）——通过，附 1 项引用链修正
+
+独立核验（**不采信回执自述，全部本机复跑**）：
+
+- **边界**：`git diff --name-only master...cf33ef9` = 25 文件，逐一比对白名单，黑名单 `novaagent/ corpus/ weknora/ web/ mcp/weekly/ sims/common.py sims/ykt sims/jiaowu sims/grafana sims/Dockerfile sims/requirements.txt evals/run_evals.py` **零命中** ✅（回执自述"23 文件"基于其书写时点 HEAD=`ef4026d`，实测该点确为 23，合并态 25，两口径均无越界）
+- **证据入库对账（坑 17）**：`.gitignore` 第 27 行 `!docs/p3b/evidence/*.log` **是 Zcode 自己在 `968bb4c` 加的**（`git log -S` 定责）；`git ls-tree cf33ef9` 实测 11 份证据全部真入库（含 4 个 `.log`），`git check-ignore` 无匹配 → **P3a 那个"落盘≠入库"的坑本单没有重犯** ✅
+- **告警规则真实性**：`/api/v1/rules` 实查 4 组 5 条（`SimsServiceDown`/`SimsHttp5xxRateHigh`/`SimsDbPoolSaturated`/`SimsDbPoolWaitP95High`/`SimsCpuSpike`），全部 `health=ok` → C1 是真规则不是编的 ✅
+- **三个测试我亲自复跑**：`SMOKE TEST PASSED`（双传输 7 工具，`run_playbook` 5 步全只读、`gather_diagnosis` 证据链 6 条）；`GUARD TESTS PASSED`（含点数截断声明、`+0800` 时间、4 位有效、mini-yaml 回退）；`AIOPS DEMO PASSED`（**真实注入 45s**：池利用率 100.0%、5xx 0.2/s、503 日志 6 行、`query_changes` 认到注入窗口、三信号命中、`mitigation` 只输出"建议命令，需人工执行"→ **红线"不执行写操作"实测成立**）
+- **C8 我用干净库复跑**：`documents` 清回 65 后 evals = **26/26、R@k 0.9231、拒答 1.0、忠实度均值 0.9615**（v1.6 三轮为 1.0/1.0/0.9615，属 judge 方差）→ **零回归成立** ✅
+- **运行时清理（他移交的处置权）**：删除 smoke 污染的 4 篇（`id 116/117/118/120`），备份 `agent.db.bak-reviewP3b-153731` → `documents 69→65`、`chunks 491→487`、FTS 重建一致、孤儿 0、重复标题 0、**含口令分块 0**。他"未自行清理并建议先清回 65"的判断正确。
+- ⚠ **修正 1（引用链，坑 18 同类重犯）**：`docs/P3B.md` §三 行 5 原写「注入中 `process_cpu_percent=1688.6`，出处 `step0_cpu_spike_promql.txt`」——实查该文件**只含「恢复后 0.5」+ 一行残留 `ykt 1`（落盘截断）**，`1688.6` 在**所有证据文件中均不存在**（`grep -rln 1688` 空）。数值量级与实测相符（1650~1717），但**引用链不成立**。处置：Qoder 独立复跑 `cpu_spike 30s` 补齐成立出处 → 新证据 `review_cpu_spike_promql.txt`（注入中 1647.7、`max_over_time[40s]=1716.9`、CLI `cpu_peak=1716.9%`、恢复后 1），文档已改为引用真实存在的文件与数字。**教训升级**：坑 18 不是"别人会犯"，是**机制会反复产生**——引用链核对必须成为 Review 的固定动作，不能靠写文档的人自觉。
+- **一条反证记录（对我自己）**：Review 中我一度怀疑"他没加 `.gitignore` 例外"与"id=120 不含演示口令"，**两处都是我错**——前者被我自己的 `tail -25` 截断输出误导，后者因我的扫描模式过窄（只查了旧版措辞 `密码均为`，实际是 `admin/admin123 · counselor/…`）。均已用 `git log -S`／直读分块内容纠正。**由此得到一条 P4a 必须吸收的要求：质量门的口令/敏感检测不得只匹配单一措辞。**
+- **新增待办**（转 P4a，已写进其规格）：① 敏感扫描须覆盖 `账号 用户/口令` 样式（`admin123`/`counselor123` 等），不只"密码均为"；② `smoke_test.py` 的网页导入用例**导入的是自家前端首页**（`http://127.0.0.1:8900/`），必须改抓本地 fixture 或纳入自清理。
+
 ### P3c NovaAgent 接入 AIOps + 诊断链　📋 READY（待 P3b）
 - 仿 `weekly_client`：admin 角色注册 AIOps MCP；ReAct 循环「告警→取证(查指标/日志/变更)→根因→中文诊断报告」。仅 admin 可见。
 
@@ -577,7 +592,7 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
 > **Qoder 已先行执行（2026-09-29，用户授权）**：KB 卫生清理 17 篇（脏数据 2 + 测试残留 15，含备份），基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0（3 轮一致）**，详见 `docs/EVAL_BASELINE.md` 第九节；语料候选清单已产出待审：`docs/p4/corpus-candidates.md`。
 > ⚠ **P4 各单的基线对照一律用 v1.5**，不要再用 0.8846/0.9615（那是 76 篇脏库口径）。
 
-### P4a 内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料扩充　📋 READY（待 P3b 合并后下发）
+### P4a 内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料扩充　🔧 IN_PROGRESS（2026-09-29 Qoder 下发，持棒 Zcode）
 
 - **目标**：把"知识库无据时仍用自有知识作答、还虚构 `[1]` 引用"这个真实事故从**代码层**堵死；建立网页导入质量门与 KB 体检，杜绝脏数据再次进库；补齐医保/学平险/校医院/计财处语料，让反馈里的 3 个真实问题能被有据回答。
 - **为什么是最高优先级**：实测（2026-09-29，student 角色，`sources=[]`）——反馈 F1 原文长问句 → 模型给出 5 步流程 + 材料清单 + APP 名并标注 **`[1]`（虚构引用）**；同主题短问句 → 拒答正确但**仍带 `[1]`** 且夹带无据断言；现有 6 条 `refusal` 用例全是短问句/域外问题，**测不出该漏洞**（拒答准确率长期 1.0 却出真实事故）。详见 `docs/P4.md` §2.3 与 `docs/EVAL_BASELINE.md` 第九节。
@@ -594,7 +609,9 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
   - [ ] **C2 引用硬校验**：答案中 `[n]` 若 `n > len(sources)` → **代码剥离**，并写一条 `fabricated_ref` badcase（复用 `evals/badcases.json` 机制）；有单元测试覆盖（含"原文本身带 [1] 字样"不误伤）
   - [ ] **C3 出口数据表** `novaagent/data/contacts.json` ≥6 条，每条含 `{dept, scope_keywords[], phone[], url, source_url, note}`，数据**必须来自官网原文**（`docs/p4/corpus-candidates.md` 已实测到校医院 6 类电话），**不得由 LLM 生成**；拒答时按关键词匹配 1~3 条
   - [ ] **C4 导入质量门**（`kb_import_url` + `kb_upload` 共用）：正文有效长度 <200 字 / 命中登录页特征（登录、用户名、密码、浏览器版本过旧、兼容性提示、验证码）/ `<title>` 为登录类 / 同 URL 已入库 / 敏感扫描命中（手机号、身份证、学号、**人名+名单特征**）→ 全部拒绝并返回结构化原因 `{code, reason, hint}`；**回归测试：重放 `https://cwc.swjtu.edu.cn/` 与 `http://127.0.0.1:8900/` 必须被拦**
+    - ⚠ **口令检测必须覆盖多种措辞（P3b Review 实测教训）**：前端首页曾两度被导入知识库，措辞分别是 v0.3 的 `演示账号：admin / counselor / student（密码均为 xxx123）` 与 v0.5 的 `演示账号 admin/admin123 · counselor/counselor123 · student/student123`。**只匹配"密码均为"会漏**（Qoder Review 时就是这么漏的）——须同时匹配 ①`用户名/口令` 斜杠式 ②`演示账号` ③`admin123|counselor123|student123` 字面量，每条各配一个单测
   - [ ] **C5 KB 守恒**：`smoke_test.py` 记录本次上传 doc_id 并在结束时删除，另提供 `--cleanup` 清历史残留；断言冒烟前后 `documents` 计数不变；新增 `evals/kb_doctor.py` 输出 `reports/kb_doctor_<ts>.json`（重复标题/超短正文/疑似登录页/口令与个人信息/孤儿分块/FTS 与 chunks 计数一致性），当前库 **0 高危项**
+    - ⚠ 已定位的具体污染源：`smoke_test.py` 的网页导入用例**导入的是自家前端首页** `http://127.0.0.1:8900/`（P3b Review 实测它造出含演示口令的 `智枢 Agent · NovaCampus` `id=120`）。改为不依赖运行中页面的做法：本地最小 fixture HTML 走 `extract_html()` 纯函数断言，或用例内导入后立刻删除并断言计数回原值
   - [x] **C6 语料入库 —— Qoder 已于 2026-09-29 完成**（用户批准 `docs/p4/corpus-candidates.md` 后，用 `corpus/fetch_public_pages.py` 抓取 6 篇公开官网页并入库：`doc_id 110~115`，`documents 59→65`、`chunks 469→487`，`医保 1→7`/`学平险 0→2`/`参保 0→7` 个分块）。**Zcode 的剩余职责**：① 用 `kb_doctor` 复核这 6 篇（无超短正文/无个人信息/`chunks_fts` 计数与 `chunks` 一致）；② 把 `fetch_public_pages.py` 里的 `gate()`/`DENY_URLS`/`clean_body()` 移植进 `main.py: kb_import_url`（那是运行时拦截，脚本只是原型）；③ 复跑 F1/F2/F3 实测并留痕（现状：F1 已能带 `[n]` 有据回答，**F2 仍 `sources=0`**，F3 未区分学段）。入库日志 `docs/p4/evidence/corpus_import_log.txt`；抓取与脱敏记录 `corpus_fetch_report.txt`。**红线不变**：含学生姓名的公示/名单页禁入库、不得用用户真实学工账号登录抓取、不得把 LLM 搜索摘要当语料
   - [ ] **C10 检索失败时的优雅降级**（实测根因见 `docs/P4.md` §2.8 与 `docs/CASE_STUDY.md` §3：同一份已入库材料，8 种自然措辞**仅 3 种**能命中——「学平险」rerank **0.8875** 通过、「学平险在哪里买」**0.1007** 归零、「学生平安保险是否由学校统一办理？」**0.0194** 归零，均低于 `RERANK_MIN_SCORE=0.3` 被全丢 → `sources=0`。**注意崩塌与问句长度不单调**，7 字崩、48 字反而通过，所以不得用"句子长短"预测失败）：本单**不要求修好检索**（根治在 P4d 的查询改写与阈值分级），但必须保证这类失败**不胡答**——拒答模板的 `contacts.json` **须包含保卫处**（学平险归口，非计财处）**与校医院医保办**，F2 原句实测答案应给出正确出口而非泛泛"咨询学校部门"；同时**新增"术语式短问 + 口语式长问"配对用例**（同一知识点各一条），并在回执里用 `evals/query_variant_matrix.py` 如实记录仍失败的措辞清单，供 P4d 验收对照
   - [ ] **C7 评测扩充**：新增 `refusal_indomain` ≥6 条（**含 F1 原文**）+ qa 3 条（F1/F2/F3，`expect_keywords` 取官网原文关键词如「暂停原户籍地或学籍地参保关系」「448」「大病补充险」「66366439」「保卫处」）；`judge_refusal` 增强为同时断言"不含越界 `[n]`、不含 `expect_absent_keywords`、含出口信息"；**全部用例通过且 v1.5 三项指标不回退**

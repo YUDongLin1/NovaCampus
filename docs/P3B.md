@@ -51,7 +51,7 @@ service 名白名单校验防 promql 注入。**红线(run_playbook)**:steps 只
 | 2 | C1 前 rules/alerts 为空 | `step0_rules_before_c1.json` / `step0_alerts_before_c1.json` | `data.groups=[]` / `data.alerts=[]` |
 | 3 | pool_exhaust 60s 池饱和 | `step0_pool_exhaust.log` | `[poll]` 行 `pool_in_use=10`(t+5s~t+55s),`t+60s active=False pool_in_use=0` 自动恢复 |
 | 4 | 注入中 promql(利用率/503/等待) | `step0_pool_exhaust_promql.txt` | `app_db_pool_in_use=10`、利用率=1、**503 速率 0.240009/s**(status="503" 分支)、等待速率 0.4803 s/s、`fault_active=1` |
-| 5 | CPU 注入尖峰与恢复 | `step0_cpu_spike_promql.txt` | 注入中 `process_cpu_percent=1688.6`、`max_over_time[40s]=1688.6`;恢复后 **0.5** |
+| 5 | CPU 注入尖峰与恢复 | `review_cpu_spike_promql.txt`(Qoder Review 独立复跑)+ `step2_cpu_spike_cpu.log`(Zcode 开发期 CLI) | Review 复跑:注入中 `process_cpu_percent=1647.7`(t+14s)、`max_over_time[40s]=1716.9`、`cpu_peak=1716.9%`、恢复后 `1`;开发期 CLI 自留 `cpu_peak=1712.9%`(见行 6)。⚠ **本行原写「注入中 1688.6,出处 `step0_cpu_spike_promql.txt`」——经 Review 核:该文件实仅含「恢复后 0.5」+ 一行残留 `ykt 1`(落盘时截断),`1688.6` 不在任何证据文件中。量级虽与实测区间(1650~1717)相符,但引用链不成立,故由 Qoder 复跑补齐成立出处并在 HANDOFF 记为坑 18 同类重犯** |
 | 6 | CPU 注入 CLI 自留证据(C2 修成) | `step2_cpu_spike_cpu.log` | `[poll]` 行 `cpu=1535.3%…1712.9%`,结束 `cpu_peak=1712.9%`(来源标注 /metrics 的 process_cpu_percent) |
 | 7 | pool_exhaust 期间 CPU 无关 | `step2_pool_exhaust_cpu.log` | 轮询行 `cpu=0.0%~1.0%`,cpu_peak=1.0% |
 | 8 | 告警规则加载 5 条 | `step1_alerts_firing.json` 同源 `/api/v1/rules` | rules_count=5(注入前 smoke 输出 `[SSE] list_alerts OK: 规则 5 条`) |

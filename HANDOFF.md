@@ -45,6 +45,7 @@
 | 仓库 | `E:\AILearn\NovaCampus`,git 身份 YUDongLin1 |
 | NovaAgent | `uvicorn novaagent.main:app --port 8900`(在 novaagent/ 下跑,venv=`novaagent/.venv`) |
 | weekly MCP | docker 容器(18080)或本地 `python mcp/weekly/server.py`;NovaAgent 启动时会连它,**连不上则服务起不来**(lifespan 致命) |
+| **aiops MCP(P3b 新增)** | **宿主机 venv 形态**:`mcp/aiops/.venv`,起 `python mcp/aiops/server.py` → `http://127.0.0.1:18081/{sse,mcp}`,7 个只读工具;依赖 Prometheus `:9090` + 宿主 docker CLI 取 `docker logs`(**容器内无 docker CLI、无 /var/run/docker.sock,实测已定论**)。**NovaAgent 尚未接入它——那是 P3c**(将以 `AIOPS_MCP_URL` 对齐 `WEEKLY_MCP_URL` 模式) |
 | WeKnora | docker compose,http://localhost(评测基线,不动它) |
 | 演示账号 | admin / counselor / student,密码均 xxx123 |
 | DB | `novaagent/data/agent.db`(SQLite);**2026-09-29 KB 清理+语料增补后 documents=65 / chunks=487**(清理前 76/486,备份 `agent.db.bak-20260929-104207`);WeKnora 库 `novaagent/data/` 无关 |
@@ -68,7 +69,8 @@
 | T8+T9 | 流式 SSE + 会话持久化 | ✅ DONE 合并 `4f2a6ce` |
 | T10 | 检索相关性根治(FTS blend+TOP_K7)+生成侧规则9+评测温度开关 | ✅ DONE 合并 `1328168` |
 | **P3a** | **模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈** | **✅ DONE 合并 `b8245c2`** |
-| **P3b** | **AIOps MCP Server(mcp/aiops)** | **🔧 IN_PROGRESS —— 2026-09-29 已下发,持棒 Zcode,分支 `task/P3b-aiops-mcp`** |
+| **P3b** | **AIOps MCP Server(mcp/aiops)** | **✅ DONE —— Review 通过并合并 master `2234fc8`(2026-09-29),附 1 项引用链修正** |
+| **P4a** | **内容质量与 KB 卫生(拒答硬门控 + 导入质量门 + 语料复核)** | **🔧 IN_PROGRESS —— 2026-09-29 已下发,持棒 Zcode** |
 | P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
 | **P4a~P4g**(含 **P4b-0** 前端拆分) | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → **前端拆分** → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
 | T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
@@ -81,7 +83,9 @@
 
 **P3a 交付**:`sims/`(common 共用层:MetricsMiddleware / SimPool 有界池 / FaultManager / psutil CPU 轮询 / 自压测)+ jiaowu/ykt 两服务 + `fault_inject.py` CLI + `docker-compose.sims.yml` + Grafana 总览盘(uid `sims-overview`,6 面板)。验收证据在 `docs/p3a/evidence/`(targets 双 up、池耗尽 in_use 恒 10→5xx 0.204/s→自动恢复、CPU ~1700%、Grafana 截图)。
 
-**下一步 = 等 Zcode 交回 P3b**(规格已下发,`docs/TASKS.md` P3b 条目 C0~C8 + 开单指令副本 `docs/p3b/zcode-order.md`),然后按 `docs/COLLAB.md` §5 闸门 Review。P3b 要点:第 0 步强制实时复跑(补 P3a 欠账)、C1 新增 Prometheus 告警规则(`list_alerts` 的唯一真实数据源,现实测 rules/alerts 均为空)、C2 让 `fault_inject.py` 抓 `process_cpu_percent`、主体仿 `mcp/weekly` 建 `mcp/aiops` 六个只读工具、**禁改 `novaagent/**`**。
+**下一步 = 等 Zcode 交回 P4a**(已下发,`docs/TASKS.md` P4a 条目 C0~C10;分支 `task/P4a-answer-quality`)。P4a 头号目标不是加功能,是**把"无据也答 + 虚构 `[1]` 引用"从代码层堵死**:实测 SYSTEM_PROMPT 的 9 条规则挡不住带情境的真实问法,而 6 条 `refusal` 用例全是域外问题(天气/电影/火锅店/微信创始人)所以指标长期 1.0。Review P4a 时先查 **C0**(修复前证据是否真复现失守)、**C1/C2**(是否落在代码而非又加一条 prompt 规则)、**C10**(检索失败是否**优雅降级**为"拒答 + 保卫处/校医院出口"),并按坑 17/18 做证据对账与 claim→字段核查。
+
+**P3b 已完成并合并 master `2234fc8`**:`mcp/aiops` 7 个只读工具(宿主机 venv,`:18081/{sse,mcp}`)、Prometheus 5 条告警规则(实测 health=ok)、`fault_inject.py` 自留 `cpu=`/`cpu_peak` 证据、C5 端到端 DEMO 由 Qoder 亲自复跑通过(`run_playbook` 实测不执行写操作)。Review 附 1 项引用链修正(见坑 18 的 P3b 重犯记录)。**P3c 起才会再碰 `novaagent/**`;P4a 也碰(白名单已显式授权)——两单严禁并行,顺序 P4a → P4b-0 → P4b…,P3c/P3d 待 P4 之后由用户定。**
 
 **P3b 之后 = P4**(用户反馈驱动的产品升级,设计与拆分已入库):`docs/P4.md`(模块 M1~M9 + 实测证据)+ `docs/TASKS.md` 的 P4a~P4g。**用户 2026-09-29 决策:P3b 先做完,P4 排其后串行下发。**
 
@@ -125,6 +129,8 @@
 
 17. **落盘 ≠ 入库**:Zcode 的 `docs/p3a/evidence/` 有 8 份证据、文档逐条引用,但 `.gitignore` 的 `*.log` 让其中 2 份 CLI 日志**只在工作区、从未进 commit**——新克隆仓库会缺证据。铁律:凡文档引用的证据文件,必须 `git diff --name-status master...HEAD` 与引用清单**逐条对账**,并 `git check-ignore -v` 排查静默排除。已加 `!docs/p3a/evidence/*.log` 例外。
 18. **数字要有成立的出处**:验收表把 CPU `1650.5%` 归给 CLI 日志 + promql 文件,但 CLI 只轮询 `/debug/fault/status`(**响应里根本没有 CPU 字段**),promql 记的是**恢复后**值——峰值只有 Grafana 截图能证。结论方向没错,但引用链不成立。**Review 要顺着"claim → 该文件是否真含此字段"追一遍**,不能只看文件在不在。
+    - ⚠ **同类错误在 P3b 重犯(2026-09-29)**:P3B.md §三 行 5 写「注入中 `process_cpu_percent=1688.6`，出处 `step0_cpu_spike_promql.txt`」,实查该文件只有「恢复后 0.5」+ 一行落盘截断的残留 `ykt 1`,`1688.6` 在**所有**证据文件中都不存在(`grep -rln 1688` 空)。数值量级对,引用链不对。**结论:引用链核对不是"写过一次就完了"的规矩,是 Review 每单必做的固定动作**——写文档的人会凭屏幕记忆填数字,落盘文件会截断。
+    - ⚠ **同时提醒 Reviewer 自己**:本次 Review 我有两处误判都被证据推翻——① 怀疑"Zcode 没加 .gitignore 例外",实际是我自己的 `git diff --stat | tail -25` 把首行截掉了(该例外确由他在 `968bb4c` 添加);② 怀疑"id=120 不含演示口令",实际含,是我的扫描模式只认旧措辞 `密码均为` 而实际是 `admin/admin123` 斜杠式。**用截断的输出下结论、用单一措辞做检测,都会产生假问题。**
 19. **daemon 挂了不能假装复跑**:P3a Review 时 Docker Desktop 已停、4 端口不可达 → 明确定性为**证据复核**,写进文档,并把实时复跑推给 P3b 第 0 步。**别用旧截图冒充本次实测**。
 20. **时间戳交叉是判真伪的利器**:`prometheus_targets.json` 的 `lastScrape` 10:32:44Z(+0800=18:32:44)与截图文件 mtime 18:32:20 吻合、与 CLI 日志采样窗口吻合 → 三方一致才判"真实运行留痕"。
 
