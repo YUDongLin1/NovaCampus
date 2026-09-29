@@ -615,3 +615,28 @@ async def health():
 @app.get("/")
 async def index():
     return FileResponse(WEB_DIR / "index.html")
+
+
+# ---------- P4b-0 前端拆分:静态资源挂载(本单对 main.py 的唯一改动) ----------
+# 显式给 media_type:Windows 下 mimetypes 受注册表影响,若 .js 被判成 text/plain
+# 浏览器会因严格 MIME 校验拒绝执行脚本 → 拆分后页面白屏。故不走 StaticFiles 猜测。
+_WEB_MEDIA = {".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8"}
+
+
+def _serve_web_asset(sub: str, name: str) -> FileResponse:
+    root = (WEB_DIR / sub).resolve()
+    target = (root / name).resolve()
+    if not str(target).startswith(str(root)) or target.suffix != "." + sub or not target.is_file():
+        raise HTTPException(404, "资源不存在")
+    return FileResponse(target, media_type=_WEB_MEDIA[target.suffix])
+
+
+@app.get("/css/{name}")
+async def css_asset(name: str):
+    return _serve_web_asset("css", name)
+
+
+@app.get("/js/{name}")
+async def js_asset(name: str):
+    return _serve_web_asset("js", name)
+

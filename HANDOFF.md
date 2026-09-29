@@ -72,7 +72,7 @@
 | **P3b** | **AIOps MCP Server(mcp/aiops)** | **✅ DONE —— Review 通过并合并 master `2234fc8`(2026-09-29),附 1 项引用链修正** |
 | **P4a** | **内容质量与 KB 卫生(拒答硬门控 + 导入质量门 + 语料复核)** | **✅ DONE —— Review 通过并合并 master `827e1ae`(2026-09-29),两处裁决批准,附 1 项规格缺口** |
 | **P4a-1** | **质量门补口:识别导航/索引型页面** | **✅ DONE —— Review 通过并合并 master `5399a5e`(2026-09-29),附带修复我上轮合并的 RE_IDCARD 保单号误伤** |
-| **P4b-0** | **前端模块化拆分(index.html 887 行,纯重构)** | **🔧 IN_PROGRESS —— 已下发,持棒 Zcode,分支 `task/P4b-0-frontend-split`** |
+| **P4b-0** | **前端模块化拆分(index.html 887 行,纯重构)** | **🟣 IN_REVIEW —— ⚠ 实现者是 Qoder 本人(Zcode 额度用尽后代做),未合并 master,待用户或 Zcode 独立复核** |
 | P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
 | **P4a~P4g**(含 **P4b-0** 前端拆分) | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → **前端拆分** → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
 | T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
@@ -85,7 +85,9 @@
 
 **P3a 交付**:`sims/`(common 共用层:MetricsMiddleware / SimPool 有界池 / FaultManager / psutil CPU 轮询 / 自压测)+ jiaowu/ykt 两服务 + `fault_inject.py` CLI + `docker-compose.sims.yml` + Grafana 总览盘(uid `sims-overview`,6 面板)。验收证据在 `docs/p3a/evidence/`(targets 双 up、池耗尽 in_use 恒 10→5xx 0.204/s→自动恢复、CPU ~1700%、Grafana 截图)。
 
-**下一步 = 等 Zcode 交回 P4b-0**(前端拆分,`task/P4b-0-frontend-split`,规格 `docs/TASKS.md` P4b-0 条目 C1~C6,开单指令 `docs/p4b0/zcode-order.md`)。**Review 要点**:这是**纯重构单**,任何行为/视觉变化都算缺陷;`main.py` **只准动静态资源路由一处**(碰其他行即打回);必须留 before/after 五条路径走查证据 + `documents` 守恒 + 评测 v1.7 不回退。**严禁在本单顺手加功能**(会话栏/文件夹树都不属于本单)。
+**下一步 = P4b-0 独立复核**(⚠ **本单实现者是 Qoder 本人**——Zcode 额度用尽、用户指示代做;**实现者=审查者会失效,所以未合并 master**,分支 `task/P4b-0-frontend-split` 停在 IN_REVIEW)。**复核人=用户或 Zcode**,三条要点:① `python docs/p4b0/verify_invariants.py` 应全绿(CSS 逐行等价 / JS 行多重集 0 缺 0 多 / **顶层可执行语句 6 条顺序一致**——这是跨文件重排安全性的关键证明 / 标记等价 / 处理器 25→25 无未解析 / API 调用点 20→20);② `git diff master...HEAD -- novaagent/novaagent/main.py` 只应有 +25 行静态路由、删 0 行;③ **补拍 after 截图**与 `evidence/before/` 同名配对目视(本会话 Chrome DevTools MCP 工作区根不含 `E:` 盘,`filePath` 被拒 → after 截图缺失,是取证缺口不是没验)。通过后再开 P4b。
+
+**P4b-0 结果**:`index.html` 887→168 行 + `css/theme.css` + `js/{api,ui,chat,kb,weekly}.js`;评测 2 轮 36/36、R@k 0.9412、拒答 1.0;冒烟 PASSED、`documents` 65→65;`kb_doctor` 0 高危;浏览器实测控制台 **0 error 0 warn**、SSE 与来源渲染与 BEFORE **逐项同值**(bot_msgs=17、相关度 0.9971)。两条既存缺陷刻意未修(见坑 30/31)。
 
 **P4a-1 已完成(合并 `5399a5e`)**:`index_page` 结构判据(短行占比≥50% 且长行占比<15% 且总行≥20 护栏)——**不是靠字数**,因为导航页菜单本身 1600+ 字。我独立扫 40 篇公开语料 **0 误伤**、实站四 URL 全拒、评测 5 轮全过;并顺带修掉我上一轮合并进去的 `RE_IDCARD` 保单号误伤(双向验证过:保单号放行、真身份证样式仍拦、非法出生日期不误拦)。**待办**:P4c 须用**自造合成案例文体样本**补一条放行断言——`corpus/clean/affairs/` 为守红线双方都未读取,那 20 篇案例"重导零误伤"目前**未实测**,不得为此去读真实 affairs。
 
@@ -153,6 +155,10 @@
 
 28. **长度门拦不住导航/索引页(2026-09-29 P4a Review 实测)**:`kb_import_url` 用"正文 ≥200 字"判低信息量,但**整站菜单本身就超 200 字**——索引页 `infpub.swjtu.edu.cn/gksx/cw_zcjsfxx/sfxm_sfyj_sfbzjtsfs.htm` 导入成功(81 行 / 菜单式短行 62% / 正文式长行仅 9 条 / 1623 字)。铁律:低信息量判定必须看**结构特征**(短行占比 + 长行条数),不能只看字数;判据要配真实样本做单测(fixture 已留 `docs/p4/evidence/sample_index_page.txt`)。责任在规格未把"索引页不可入库"转成可执行判据,不在实现。
 29. **取证先于清理——我自己又犯了一次**:Review 时我用同一批 URL 做导入回归测试,测试**污染了 KB(65→66)**;我第一次操作是"直接删掉污染文档",结果**删之前没把该页特征测完**,只好重新抓一次补样本。这与坑 17/18 是同一类:**动手清理/修复之前,先确保要引用的证据已经测完并落盘**。运行时数据由我处置没问题,但顺序错了会自找返工。
+
+30. **后端返回结构化错误,前端却只会显示 HTTP 状态码(既存,转 P4g)**:P4a 把导入拒绝改成 `{code, reason, hint}`,但 `web/js/api.js` 的 `api()` 只在 `detail` 是**字符串**时渲染它,遇到 dict 就回退成 `HTTP 400`。实测 counselor 导入导航页 → 界面只显示 **"导入失败：HTTP 400"**,那句"请粘贴具体文章页 URL"的关键 hint **从未到达用户**。教训:**接口契约改了必须同时检查消费端**;`{code,reason,hint}` 设计再漂亮,前端不渲染等于没做。P4b-0 属纯重构故未顺手修。
+31. **`importUrl()` 依赖内联事件的全局 `event`**(`const btn = event.target`):从浏览器控制台/自动化脚本直接调用会 `TypeError: Cannot read properties of undefined (reading 'target')`——**这不是回归**,拆分前后一字未动。要单测或自动化驱动,需改成显式传参。做 UI 自动化前先分清"我调用方式不对"与"代码坏了"。
+32. **纯重构单的"行为零变化"要可机检,不能靠截图**:本次用六条不变量替代肉眼(CSS 逐行 / JS 行**多重集** / **顶层可执行语句相对顺序** / 去标签标记 / 内联处理器集合+标识符可解析 / API 调用点集合),工具 `docs/p4b0/verify_invariants.py`。其中**顶层语句顺序**那条最容易被忽略——函数声明有提升所以跨文件重排安全,但 `const`/`let` 初值语句重排会出事,必须单独证明。另记:我第一版校验脚本自己有两个缺陷(D 只扫骨架没扫 js、C 把骨架重复计入导致 25→42),**报 FAIL 时先怀疑尺子,再怀疑工件**。
 
 ## 七、快速验证命令(接手自检)
 

@@ -1,0 +1,37 @@
+- text: 智
+- generic: 智
+- heading "智枢 Agent" [level=2]
+- paragraph: NovaCampus 校园智能体 · 自研 v0.5
+- textbox "用户名": counselor
+- textbox "密码"
+- button "登 录"
+- paragraph: 演示账号 admin/admin123 · counselor/counselor123 · student/student123
+- banner:
+  - generic: 智
+  - heading "智枢 NOVACAMPUS AGENT" [level=1]:
+    - text: 智枢
+    - generic: NOVACAMPUS AGENT
+  - button "退出"
+- main:
+  - generic: 知识库问答自动检索并标注引用 [n]；「记一条碎片…」「生成本周周报」会触发周报工具；右下角可切换模型与账户设置。
+  - textbox "输入问题，例如：休学需要哪些材料？"
+  - button "发送"
+  - button "知识库"
+  - button "工作记录"
+  - button "周报"
+  - combobox:
+    - option "全部分类" [selected]
+  - table:
+    - rowgroup:
+      - row "文档 可见 分块 操作":
+        - columnheader "文档"
+        - columnheader "可见"
+        - columnheader "分块"
+        - columnheader "操作"
+    - rowgroup:
+      - row "加载中…":
+        - cell "加载中…"
+- generic: "?"
+- generic: 未登录
+- generic: —
+- button "⚙"

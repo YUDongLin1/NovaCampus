@@ -1,0 +1,12 @@
+{
+  "has_custom_form": true,
+  "modal_head": "对话模型\nqwen-flash(默认 · 快速经济)\nqwen3.7-plus(推理 · 高质量)\n使用自定义 API（OpenAI 兼容）\n模型名称\nBase",
+  "modal_title": "设置",
+  "model_radios": [
+    "qwen-flash",
+    "qwen3.7-plus",
+    "on"
+  ],
+  "import_toast_cwc": "导入失败：该操作需要 辅导员 及以上权限",
+  "test_toast": "导入失败：该操作需要 辅导员 及以上权限"
+}
