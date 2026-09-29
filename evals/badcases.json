@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "20260929_175528",
+  "updated_at": "20260929_191651",
   "note": "累积档案:只增不删,废弃用 wontfix 标记",
   "cases": [
     {
@@ -344,9 +344,67 @@
             3
           ],
           "sources_count": 1
+        },
+        {
+          "at": "20260929_185844",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260929_185909",
+          "question": "请假超过 7 天要走什么流程?",
+          "stripped_refs": [
+            5
+          ],
+          "sources_count": 2
+        },
+        {
+          "at": "20260929_190114",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260929_191427",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260929_191451",
+          "question": "请假超过 7 天要走什么流程?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 2
+        },
+        {
+          "at": "20260929_191629",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260929_191651",
+          "question": "请假超过 7 天要走什么流程?",
+          "stripped_refs": [
+            5,
+            7,
+            8
+          ],
+          "sources_count": 2
         }
       ],
-      "last_seen": "20260929_175528"
+      "last_seen": "20260929_191651"
     }
   ]
 }

@@ -1,0 +1,29 @@
+[发现的质量门符号] ['_INDEX_LONG_RATIO', '_INDEX_MIN_LINES', '_INDEX_PUNCT', '_INDEX_SHORT_RATIO', '_gate_or_400', 'index', 'index_page_stats', 'is_index_page', 'quality_gate_reject']
+
+[导航页样本] stats={"total_lines": 81, "short_lines": 50, "long_lines": 9, "short_ratio": 0.6173, "long_ratio": 0.1111} -> is_index_page={'total_lines': 81, 'short_lines': 50, 'long_lines': 9, 'short_ratio': 0.6173, 'long_ratio': 0.1111} PASS(被拒)
+  回执声称 81 行 短行 61.73pct 长行 9  ->  实测行数=None 短行占比=0.6173 长行=None
+
+[corpus 公开语料逐篇] (affairs 已按红线排除)
+  合计扫描 40 篇(公开),index_page 误伤 0 篇 PASS
+
+[KB 已入库语料 doc_id>=110]
+  doc 110  关于2026年度大学生医疗保险缴费的通知                     is_index_page=None
+  doc 111  大学生医保假期使用的温馨提示                           is_index_page=None
+  doc 112  西南交通大学2026年收费公示                          is_index_page=None
+  doc 113  西南交通大学校医院联系方式(各科室咨询电话)                   is_index_page=None
+  doc 114  大学生意外伤害保险理赔须知(学平险)                       is_index_page=None
+  doc 115  关于西南交通大学2016年度新生学平险保险的通知                 is_index_page=None
+  被判索引页=0 PASS
+
+[正则对账]
+  使用常量 RE_IDCARD
+  [PASS] 保单号(须放行)                 输入=PECD201651010000000351 命中=False 期望=False
+  [PASS] 日期合法 18 位(须拦截)           输入=110101199003070019 命中=True 期望=True
+  [PASS] 出生日期不合法(须放行)             输入=110101199013070019 命中=False 期望=False
+  [PASS] 学号样式(须放行)                输入=2025100123456 命中=False 期望=False
+
+[gate 结构体拒绝(离线口径)]
+  函数=quality_gate_reject
+  infpub 导航页 -> {'code': 'index_page', 'reason': '导航/索引型页面:菜单式短行占比 62%(50/81 行),正文式长行仅 11%', 'hint': '请粘贴具体文章页 URL（含发布日期/正文的页面），导航页无法入库'} PASS
+
+[SUM] 误伤=0 索引页漏检=0 KB错判=0 正则=PASS

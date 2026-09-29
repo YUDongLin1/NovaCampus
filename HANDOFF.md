@@ -71,7 +71,8 @@
 | **P3a** | **模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈** | **✅ DONE 合并 `b8245c2`** |
 | **P3b** | **AIOps MCP Server(mcp/aiops)** | **✅ DONE —— Review 通过并合并 master `2234fc8`(2026-09-29),附 1 项引用链修正** |
 | **P4a** | **内容质量与 KB 卫生(拒答硬门控 + 导入质量门 + 语料复核)** | **✅ DONE —— Review 通过并合并 master `827e1ae`(2026-09-29),两处裁决批准,附 1 项规格缺口** |
-| **P4a-1** | **质量门补口:识别导航/索引型页面** | **🔧 IN_PROGRESS —— 小单已下发,持棒 Zcode,分支 `task/P4a-1-index-gate`** |
+| **P4a-1** | **质量门补口:识别导航/索引型页面** | **✅ DONE —— Review 通过并合并 master `5399a5e`(2026-09-29),附带修复我上轮合并的 RE_IDCARD 保单号误伤** |
+| **P4b-0** | **前端模块化拆分(index.html 887 行,纯重构)** | **🔧 IN_PROGRESS —— 已下发,持棒 Zcode,分支 `task/P4b-0-frontend-split`** |
 | P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
 | **P4a~P4g**(含 **P4b-0** 前端拆分) | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → **前端拆分** → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
 | T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
@@ -84,7 +85,9 @@
 
 **P3a 交付**:`sims/`(common 共用层:MetricsMiddleware / SimPool 有界池 / FaultManager / psutil CPU 轮询 / 自压测)+ jiaowu/ykt 两服务 + `fault_inject.py` CLI + `docker-compose.sims.yml` + Grafana 总览盘(uid `sims-overview`,6 面板)。验收证据在 `docs/p3a/evidence/`(targets 双 up、池耗尽 in_use 恒 10→5xx 0.204/s→自动恢复、CPU ~1700%、Grafana 截图)。
 
-**下一步 = 等 Zcode 交回 P4a-1**(小单:`task/P4a-1-index-gate`,规格在 `docs/TASKS.md` P4a-1 条目 C1~C5,开单指令 `docs/p4a1/zcode-order.md`)。做完即 Review 合并,然后下发 **P4b-0 前端拆分**。**P4a-1 严禁扩范围**——尤其不要顺手动 `RERANK_MIN_SCORE` 或查询改写(那是 P4d 的活,且 P4d 要一并裁决 judge 口径)。
+**下一步 = 等 Zcode 交回 P4b-0**(前端拆分,`task/P4b-0-frontend-split`,规格 `docs/TASKS.md` P4b-0 条目 C1~C6,开单指令 `docs/p4b0/zcode-order.md`)。**Review 要点**:这是**纯重构单**,任何行为/视觉变化都算缺陷;`main.py` **只准动静态资源路由一处**(碰其他行即打回);必须留 before/after 五条路径走查证据 + `documents` 守恒 + 评测 v1.7 不回退。**严禁在本单顺手加功能**(会话栏/文件夹树都不属于本单)。
+
+**P4a-1 已完成(合并 `5399a5e`)**:`index_page` 结构判据(短行占比≥50% 且长行占比<15% 且总行≥20 护栏)——**不是靠字数**,因为导航页菜单本身 1600+ 字。我独立扫 40 篇公开语料 **0 误伤**、实站四 URL 全拒、评测 5 轮全过;并顺带修掉我上一轮合并进去的 `RE_IDCARD` 保单号误伤(双向验证过:保单号放行、真身份证样式仍拦、非法出生日期不误拦)。**待办**:P4c 须用**自造合成案例文体样本**补一条放行断言——`corpus/clean/affairs/` 为守红线双方都未读取,那 20 篇案例"重导零误伤"目前**未实测**,不得为此去读真实 affairs。
 
 **P4a 已完成(合并 `827e1ae`)**:拒答硬门控(确定性模板,不经 LLM)+ `[n]` 越界硬剥离 + `contacts.json` 7 条官网出口 + 导入质量门 + `smoke_test` 自清理与 **KB 守恒 65→65** + 评测集 v1.7(36 条,新增 `refusal_indomain`)。**两处裁决已批准**:① 单来源 `top≥0.9` 放行线(我原规格 `n_above≥2` 过紧会结构性误杀 qa-01);② judge 对"学段声明句"的盲区移交 P4d(附三条约束:禁止为指标删声明、改口径须记版本、应以合法上下文而非白名单)。**新认知**:虚引**不限于零来源场景**——`badcases.json` 的 `fabricated_ref.history[]` 实测 `qa-01` 仅 1 个来源却标 `[3]`(详见 EVAL_BASELINE 第十一节)。P4a 头号目标不是加功能,是**把"无据也答 + 虚构 `[1]` 引用"从代码层堵死**:实测 SYSTEM_PROMPT 的 9 条规则挡不住带情境的真实问法,而 6 条 `refusal` 用例全是域外问题(天气/电影/火锅店/微信创始人)所以指标长期 1.0。Review P4a 时先查 **C0**(修复前证据是否真复现失守)、**C1/C2**(是否落在代码而非又加一条 prompt 规则)、**C10**(检索失败是否**优雅降级**为"拒答 + 保卫处/校医院出口"),并按坑 17/18 做证据对账与 claim→字段核查。
 
