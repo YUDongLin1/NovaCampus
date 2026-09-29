@@ -130,6 +130,30 @@ def unit_tests() -> None:
         assert r and r["code"] == "deny_url", (url, r)
     print("[U6] 禁抓回归 OK(cwc 首页/自家前端 均命中 DENY_URLS)")
 
+    # U7 导航/索引页判据(P4a-1):真实样本拒,正文页放行,6 篇已入库语料零误伤
+    from novaagent.main import index_page_stats, is_index_page
+    sample = Path(__file__).resolve().parent.parent.parent / "docs" / "p4" / "evidence" / "sample_index_page.txt"
+    sample_text = sample.read_text(encoding="utf-8")
+    st = index_page_stats(sample_text)
+    assert st["short_ratio"] >= 0.5 and st["long_ratio"] < 0.15 and st["total_lines"] >= 20, st
+    r = quality_gate_reject("", "收费项目", sample_text)
+    assert r and r["code"] == "index_page", r
+    article = ("一、校园卡服务:校园卡丢失后可在一卡通中心挂失与补办，工作日 08:30-17:00 受理，"
+               "补办需携带学生证或身份证原件，挂失后 24 小时内生效。\n"
+               "二、体育场馆:游泳馆开放时间为每日 06:30-21:30，深水区须持深水证入场；"
+               "体育馆需提前一日线上预约，节假日开放时间以场馆公告为准。\n"
+               "三、校车安排:校区间通勤班车工作日每日六个班次，发车时刻以后勤服务网最新公告为准，"
+               "节假日停运；教师班车随原班次执行。\n"
+               "四、报修服务:宿舍水电故障可在后勤服务平台提交报修工单，"
+               "紧急情况可拨打楼宇值班电话，报修后 48 小时内须响应。\n"
+               "五、快递服务:各校区快递服务站位于生活区商业街，取件需凭取件码，"
+               "大件物品可预约送货到楼，贵重物品须本人签收。\n"
+               "六、以上服务事项如有调整，以各主管部门最新通知为准。")
+    assert quality_gate_reject("", "校园便民服务指南", article) is None, "正文页不应被 index_page 误伤"
+    assert is_index_page(article) is None
+    print(f"[U7] 导航/索引页判据 OK(真实样本 short={st['short_ratio']:.0%}/long={st['long_ratio']:.0%} 被拒;"
+          f"正文页放行)")
+
 
 class _FixtureHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
@@ -318,7 +342,13 @@ def main() -> int:
                        json={"url": denied, "role_min": "counselor"})
             assert r.status_code == 400, f"{denied} 应被质量门拦截,得到 {r.status_code}"
             assert r.json()["detail"]["code"] == "deny_url", r.json()
-        print("[16a] 导入质量门回归 OK(cwc 首页/自家前端 → 400 deny_url)")
+        # P4a-1: 导航/索引页回归(真实站点,结构判据在抓取后生效)——须被拦且 code=index_page
+        r = c.post(f"{BASE}/api/kb/import_url", headers=auth(counselor["token"]),
+                   json={"url": "https://infpub.swjtu.edu.cn/gksx/cw_zcjsfxx/sfxm_sfyj_sfbzjtsfs.htm",
+                         "role_min": "counselor"})
+        assert r.status_code == 400, f"索引页应被质量门拦截,得到 {r.status_code}"
+        assert r.json()["detail"]["code"] == "index_page", r.json()
+        print("[16a] 导入质量门回归 OK(cwc 首页/自家前端 → deny_url;infpub 导航索引页 → index_page)")
 
         # P4a: 网页导入正路径——本地 fixture(不依赖运行中页面,根除 smoke 污染源)
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), _FixtureHandler)

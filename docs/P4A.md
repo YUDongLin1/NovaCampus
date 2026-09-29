@@ -112,3 +112,11 @@
 6. **fabricated_ref badcase 为运行时写入**:extract_badcases.py 合并逻辑只增不删,该案可与之共存;
    本单未跑 extract(验收命令不含)。
 7. **降级路径**(rerank 服务不可用)不做分数门控——阈值语义属 rerank 分,降级时仅按"来源为空"拒。
+
+## 九、P4a-1 补口:导航/索引页判据(2026-09-29,另见 docs/P4A1.md)
+
+P4a Review 发现规格缺口:长度门(≥200 字)拦不住整站菜单页(实测样本 1623 字纯菜单)。P4a-1 在
+`quality_gate_reject` 增加**结构性判据** `index_page`(main.py):短行(≤12 字无句读无数字)占比 ≥50%
+且正文长行(>25 字含句读)占比 <15% 且总行数 ≥20 → 拒绝 `{code:"index_page"}`。C2 零误伤:6 篇已入库
+语料短行占比最高 25%、corpus/clean policy+ops 37/37 放行;顺带修复保单号被简版身份证正则误判的
+personal_info 误伤(换出生日期校验版,与 kb_doctor 一致)。详见 docs/P4A1.md。

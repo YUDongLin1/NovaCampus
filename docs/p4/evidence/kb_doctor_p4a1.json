@@ -1,0 +1,23 @@
+{
+  "generated_at": "2026-09-29 18:58:04",
+  "db": "E:\\AILearn\\NovaCampus\\novaagent\\data\\agent.db",
+  "documents": 65,
+  "chunks": 487,
+  "summary": {
+    "danger": 0,
+    "warn": 2
+  },
+  "danger": [],
+  "warn": [
+    {
+      "kind": "short_body",
+      "doc_id": 10,
+      "detail": "《EVAL-学生请假管理办法》正文仅 153 字"
+    },
+    {
+      "kind": "short_body",
+      "doc_id": 11,
+      "detail": "《EVAL-辅导员内部工作备忘》正文仅 138 字"
+    }
+  ]
+}

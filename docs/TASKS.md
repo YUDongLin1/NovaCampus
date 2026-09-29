@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（**P4a 已 Review 通过并合并 master `827e1ae`**；现下发 **P4a-1**——导入质量门补口"识别导航/索引型页面"，**小单**）
+> **当前持棒：Qoder**（P4a-1 交付:index_page 结构判据(实站 infpub 拦截+零误伤 43/43)、smoke U7/16a 全过、KB 守恒 65→65、kb_doctor 0 高危、评测 3 轮 36/36 零回归;待 Review）
 > ✅ **P4a Review 结论（Qoder，2026-09-29，独立复跑）**：边界 19 文件全在白名单内、`evals/faithfulness.py` 确未动；证据对账全绿（坑 17 无失守）；拒答门控实测 F2 原句 1337ms（修复前 5.1~6.5s）+ **出口正确指向保卫处**、无越界引用；`smoke_test` **自清理 + KB 守恒 65→65**、U2 口令三样式为真断言。评测我复跑 3 轮（36/36、36/36、35/36），加他 5 轮共 **8 轮 7 全过**，唯一失败项 qa-08 是 T10 时代即记录在案的轮换波动用例（R@k 与忠实度均为 1.0，非 P4a 回归）；R@k **0.9231→0.9412**。**两处裁决已批准**：① 单来源放行线 `top≥0.9`（我的 `n_above≥2` 规格过紧会结构性误杀 qa-01，属规格缺陷非实现缺陷）；② 忠实度 judge 对"系统注入的学段声明句"的盲区移交 P4d，附三条约束（禁止为指标删声明 / 改口径须记版本 / 应以合法上下文而非白名单实现）。**另发现一处规格缺口转 P4a-1**：C4 拦住了我点名的两个脏 URL，却放进一个**导航索引页**（整站菜单本身超 200 字，纯长度门无解）——责任在我未把"索引页不可入库"写成可执行判据。详见 P4a「Review 结论」。
 > ✅ **P3b Review 结论（Qoder，2026-09-29）**：边界零越界、11 份证据真入库（`.gitignore` 例外由 Zcode 自加，P3a 坑 17 未重犯）、5 条告警规则真实加载、三个测试由 Qoder 亲自复跑全过（含真实注入的端到端 DEMO，`run_playbook` 实测不执行写操作）、干净库复跑 evals 零回归。**附 1 项引用链修正**：P3B.md §三 行 5 的 `1688.6` 不在其所引文件中（量级对但引用链不成立），已由 Qoder 复跑 `cpu_spike` 补齐成立出处 → 详见本条 P3b「Review 结论」。**运行时清理已完成**：smoke 污染的 4 篇已删（含又一篇含演示口令的前端首页导入），`documents 69→65`，备份 `agent.db.bak-reviewP3b-153731`。
 > ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5/v1.6**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
@@ -672,18 +672,18 @@ git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness
 
 **⚠ 第三处：规格缺口（责任在我，转 P4a-1）**——C4 实测拦住我点名的两个脏 URL，却**放进了一个导航索引页**：`https://infpub.swjtu.edu.cn/gksx/cw_zcjsfxx/sfxm_sfyj_sfbzjtsfs.htm`（该页我在 `docs/p4/corpus-candidates.md` 明确标注过"导航索引页，不可入库"，但**没把这条转成 C4 的可执行判据**）。原因是纯长度门（≥200 字）拦不住整站菜单：实抓样本 81 行、62% 是菜单式短行、正文式长行仅 9 条、总字数 1623。已把该页正文抓取落盘为分析样本 `docs/p4/evidence/sample_index_page.txt`（**只存样不入库**）。另记我一笔流程疏漏：我在删除该测试文档前没完成特征测量，只好重新抓一次补样本——**取证先于清理**这条我自己写的纪律，我自己也没做严。
 
-### P4a-1 导入质量门补口：识别并拦截导航/索引型页面　🔧 IN_PROGRESS（2026-09-29 Qoder 下发，持棒 Zcode）
+### P4a-1 导入质量门补口：识别并拦截导航/索引型页面　🟣 IN_REVIEW（2026-09-29 交付,持棒：Qoder）
 
 - **背景**：P4a 的 C4 用"正文有效长度 ≥200 字"做低信息量判据，实测**拦不住导航/索引页**——整站菜单本身就超 200 字。P4a Review 时用 `https://infpub.swjtu.edu.cn/gksx/cw_zcjsfxx/sfxm_sfyj_sfbzjtsfs.htm` 复现：该导入成功、KB 一度 65→66（Review 已清回）。责任在 Qoder 规格未把"索引页不可入库"转成可执行判据，非实现缺陷。
 - **目标**：给质量门加一条**结构性判据**，把"链接菜单页"与"正文页"区分开；保持对现有 6 篇已入库语料零误伤。
 - **允许改**：`novaagent/novaagent/main.py`（`quality_gate_reject` / `clean_body` 一带）、`novaagent/tests/smoke_test.py`（新增 U7 单测 + 回归项）、`docs/P4A.md`（补一节）、`docs/P4A1.md`（新）
 - **禁改**：`evals/**`（评测集与 judge 口径本单不动）、`corpus/**`、`sims/**`、`mcp/**`、`weknora/**`、`novaagent/web/**`、`novaagent/novaagent/{agent.py,rag.py,refusal.py,db.py,config.py}`、`evals/faithfulness.py`
 - **完成标准**：
-  - [ ] **C1 判据落地**：在 `quality_gate` 增加 `index_page` 判定。建议特征（可调整，须在回执说明理由）：提取正文后 `菜单式短行占比 ≥50%`（短行=≤12 字且不含 `、，。：；！？` 与数字）**且** `正文式长行 < 15%`（长行=>25 字且含句读）→ 拒绝，`code=index_page`、`hint="请粘贴具体文章页 URL（含发布日期/正文的页面），导航页无法入库"`
-  - [ ] **C2 零误伤**：现有 6 篇已入库语料（`doc_id 110~115`）与 `corpus/clean/**` 全部政策文件重跑门控必须**全部放行**；把"误伤清单"落盘（若有用误伤的，说明判据需要收窄，宁可收窄也不许放过导航页）
-  - [ ] **C3 回归 + 单测**：U7 用真实样本 `docs/p4/evidence/sample_index_page.txt`（81 行/菜单 62%/长行 9 条）断言拒绝；同测内放一篇正文页断言放行；`smoke_test.py` 的 [16a] 脏 URL 回归项扩充为含该索引页
-  - [ ] **C4 KB 守恒不回退**：冒烟前后 `documents` 仍 65→65；`kb_doctor` `danger=0`
-  - [ ] **C5 零回归**：评测 v1.7（36 用例）**不回退**——R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6；忠实度按 v1.7 口径记录并注明 qa-08 波动（8 轮 7 全过的历史波动率，勿因单轮 35/36 判回归）
+  - [x] **C1 判据落地**：在 `quality_gate` 增加 `index_page` 判定。建议特征（可调整，须在回执说明理由）：提取正文后 `菜单式短行占比 ≥50%`（短行=≤12 字且不含 `、，。：；！？` 与数字）**且** `正文式长行 < 15%`（长行=>25 字且含句读）→ 拒绝，`code=index_page`、`hint="请粘贴具体文章页 URL（含发布日期/正文的页面），导航页无法入库"`
+  - [x] **C2 零误伤**：现有 6 篇已入库语料（`doc_id 110~115`）与 `corpus/clean/**` 全部政策文件重跑门控必须**全部放行**；把"误伤清单"落盘（若有用误伤的，说明判据需要收窄，宁可收窄也不许放过导航页）
+  - [x] **C3 回归 + 单测**：U7 用真实样本 `docs/p4/evidence/sample_index_page.txt`（81 行/菜单 62%/长行 9 条）断言拒绝；同测内放一篇正文页断言放行；`smoke_test.py` 的 [16a] 脏 URL 回归项扩充为含该索引页
+  - [x] **C4 KB 守恒不回退**：冒烟前后 `documents` 仍 65→65；`kb_doctor` `danger=0`
+  - [x] **C5 零回归**：评测 v1.7（36 用例）**不回退**——R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6；忠实度按 v1.7 口径记录并注明 qa-08 波动（8 轮 7 全过的历史波动率，勿因单轮 35/36 判回归）
 - **验收命令**：
 ```bash
 cd /e/AILearn/NovaCampus && export NO_PROXY="127.0.0.1,localhost"
@@ -701,6 +701,21 @@ git diff --name-only master...HEAD | grep -E "^evals/|^corpus/|^sims/|^mcp/|^nov
 ```
 - **依赖**：P4a 已合并 master `827e1ae`；样本 `docs/p4/evidence/sample_index_page.txt` 已在 master
 - **体量提示**：**这是个小单**（预计 1 个函数 + 1 个单测 + 文档补节）。做完即交回，不要顺手扩范围——尤其不要顺手动 `RERANK_MIN_SCORE` 或查询改写（那是 P4d 的活）。
+
+#### 交接回执（Zcode → Qoder，2026-09-29）——P4a-1 达成
+
+- **分支 + 提交**：`task/P4a-1-index-gate` @ `ff77849`(代码+证据单提交)+本回执提交;`git diff --name-status master...HEAD` 共 7 文件,**全在白名单内**(main.py 仅质量门函数/正则注释,smoke_test.py,docs×4;grep evals//corpus//sims//mcp//web//agent.py/rag.py/refusal.py 无命中)
+- **diff 摘要**：`main.py`(+index_page_stats/is_index_page 纯函数+gate 的 index_page 分支;RE_IDCARD 换出生日期校验版)、`tests/smoke_test.py`(+U7、[16a] 扩 infpub 回归)、`docs/P4A1.md`(新)、`docs/P4A.md`(§九补节)、`docs/p4/evidence/`(+3 份:零误伤检查/三URL实站拒绝/kb_doctor 留档)
+- **C1 判据落地**:短行=≤12 字无句读无数字、长行=>25 字含句读;**短行占比≥50% 且长行<15% 且总行数≥20 → index_page 拒**。规格判据之外**加了一条 20 行小样本护栏**(理由:纯比例判据会被 4 行便签类极短文本偶然命中;导航页特征是"行多且多为菜单",护栏不影响真实目标)。样本实算 81 行/短行 61.73%/长行 9 → 拒(与 Review 分析 62%/9 一致);实站抓取(经 extract_html+clean_body)68 行/57%/12% → 同拒,两口径稳健
+- **C2 零误伤**:`docs/p4/evidence/index_gate_false_positive_check.txt`——6 篇已入库语料短行占比 0%~25%(最高 25%,远低于 50%)全部放行;corpus/clean/policy+ops **37/37 放行**;affairs/** 按红线未扫描未读取。**顺带修复 1 例既有误伤(非 index_page)**:doc 115 保单号 PECD201651010000000351 被 P4a 简版身份证正则误判 personal_info → 换带出生日期合法性校验版正则(与 kb_doctor 一致),真身份证样例仍拦截;此项属"C2 六篇全放行"硬要求内的质量门函数修正
+- **C3 回归+单测**:smoke **[U7]**(真实样本断言拒+六段正文页断言放行)+ **[16a] 扩充**(cwc/自家前端 deny_url + **infpub 索引页实站抓取后 index_page**)全过;实测输出 `[16a] 导入质量门回归 OK(cwc 首页/自家前端 → deny_url;infpub 导航索引页 → index_page)`
+- **C4 守恒**:smoke 全量 **65→65**(自清理 4 篇);三 URL 实站回归后复核 **65**(`p4a1_reject_urls.txt` 末行,全 REJECT 无写入);kb_doctor **danger=0** warn=2(EVAL 种子短正文,预期内)→ `kb_doctor_p4a1.json`
+- **C5 零回归**:评测 3 轮 **36/36 ×3**、R@k **0.9412 ×3**(≥0.9412 ✓)、拒答 1.0、refusal_indomain 6/6 ×3;忠实度 0.9412/0.9706/0.9706(中位 0.9706,v1.7 同口径;低分项 qa-02/07/17 轮换,系已裁决移交 P4d 的 C8 声明句 judge 盲区,非本单回归);qa-08 本轮 3 轮均 PASS(历史波动率 ≈1/8)→ `reports/eval_report_20260929_190{111,340,542}.json`
+- **取证先于清理**:三 URL 全 REJECT 无写入,smoke 自清理后 documents 复核 65——KB 全程无脏数据进出
+- **完成标准自评**:C1~C5 全过(逐条见上方勾选与 docs/P4A1.md)
+- **误伤清单**:index_page 判据 **0 误伤**;顺带修复 personal_info 保单号误伤 1 例(doc 115,修复前后对照见 `index_gate_false_positive_check.txt`)
+- **遗留**:无。索引页阈值(50%/15%/20 行)如有新误伤样本,按「收窄判据优先」原则调整并更新 docs/P4A1.md
+
 
 ### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　📋 READY（待 P4a-1，**P4b 的强制前置**）
 

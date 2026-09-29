@@ -1,0 +1,6 @@
+[P4a-1 验收] 导入质量门三 URL 实站回归(产品温度)
+============================================================
+REJECT https://infpub.swjtu.edu.cn/gksx/cw_zcjsfxx/sfxm_sfyj_sfbzjtsfs.htm {"code": "index_page", "reason": "导航/索引型页面:菜单式短行占比 57%(39/68 行),正文式长行仅 12%", "hint": "请粘贴具体文章页 URL（含发布日期/正文的页面），导航页无法入库"}
+REJECT https://cwc.swjtu.edu.cn/ {"code": "deny_url", "reason": "URL 命中禁抓清单(含学生姓名的名单页/登录页首页/自家前端)", "hint": "请粘贴具体文章页 URL;含学生姓名的公示/名单页一律禁止入库"}
+REJECT http://127.0.0.1:8900/ {"code": "deny_url", "reason": "URL 命中禁抓清单(含学生姓名的名单页/登录页首页/自家前端)", "hint": "请粘贴具体文章页 URL;含学生姓名的公示/名单页一律禁止入库"}
+documents 复核: 65(须 65)

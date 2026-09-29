@@ -319,7 +319,52 @@ PASSWORD_PATTERNS: list[tuple[str, str]] = [
     (r"密码(均为|都为|同为)", "「密码均为…」句式"),
 ]
 RE_MOBILE = re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)")
-RE_IDCARD = re.compile(r"(?<!\d)\d{17}[\dXx](?!\d)")
+# P4a-1 C2 实测修正:简版 \d{17}[\dXx] 会把 18 位业务编号(如保单号 PECD2016…)误判为
+# 身份证,导致已入库语料 doc 115 无法通过重导;改为带出生日期合法性校验的版本
+# (6 位地区+8 位合法出生日期+3 位顺序+校验位),与 evals/kb_doctor.py 保持一致。
+RE_IDCARD = re.compile(
+    r"(?<!\d)\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?!\d)")
+
+# P4a-1 C1:导航/索引页结构判据——长度门拦不住整站菜单(实测样本 1623 字全菜单)。
+# 短行=≤12 字且不含句读与数字(纯菜单项);长行=>25 字且含句读(正文式句子)。
+# 菜单短行占比 ≥50% 且正文长行 <15% 且总行数 ≥20(小样本防误伤)→ 判为索引页。
+# 实测依据:docs/p4/evidence/sample_index_page.txt(81 行/短行 62%/长行 9 条)被拒;
+# 6 篇已入库语料与 corpus/clean/policy+ops 全部放行(零误伤,报告见 docs/p4/evidence/)。
+_INDEX_PUNCT = "、，。：；！？"
+_INDEX_MIN_LINES = 20
+_INDEX_SHORT_RATIO = 0.5
+_INDEX_LONG_RATIO = 0.15
+
+
+def index_page_stats(text: str) -> dict:
+    """统计导航/索引页结构特征(纯函数,可单测)。"""
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    short = long_ = 0
+    for ln in lines:
+        has_punct = any(ch in _INDEX_PUNCT for ch in ln)
+        has_digit = any(ch.isdigit() for ch in ln)
+        if len(ln) <= 12 and not has_punct and not has_digit:
+            short += 1
+        elif len(ln) > 25 and has_punct:
+            long_ += 1
+    total = len(lines)
+    return {
+        "total_lines": total,
+        "short_lines": short,
+        "long_lines": long_,
+        "short_ratio": round(short / total, 4) if total else 0.0,
+        "long_ratio": round(long_ / total, 4) if total else 0.0,
+    }
+
+
+def is_index_page(text: str) -> dict | None:
+    """导航/索引页判定(纯函数)。命中返回统计 dict(供 reason 引用),否则 None。"""
+    stats = index_page_stats(text)
+    if (stats["total_lines"] >= _INDEX_MIN_LINES
+            and stats["short_ratio"] >= _INDEX_SHORT_RATIO
+            and stats["long_ratio"] < _INDEX_LONG_RATIO):
+        return stats
+    return None
 
 # 正文起止与导航裁剪(fetch_public_pages.clean_body 移植;宁留噪声,不可丢正文)
 _START_MARKS = [re.compile(r"^当前位置"), re.compile(r"^首页正文$"), re.compile(r"网站首页>")]
@@ -386,6 +431,13 @@ def quality_gate_reject(url: str, title: str, text: str) -> dict | None:
         return {"code": "login_page",
                 "reason": f"命中登录页特征 {hits}",
                 "hint": "疑似登录框/兼容性提示页,请粘贴正文文章页 URL"}
+    idx = is_index_page(text)
+    if idx:
+        return {"code": "index_page",
+                "reason": (f"导航/索引型页面:菜单式短行占比 {idx['short_ratio']:.0%}"
+                           f"({idx['short_lines']}/{idx['total_lines']} 行),"
+                           f"正文式长行仅 {idx['long_ratio']:.0%}"),
+                "hint": "请粘贴具体文章页 URL（含发布日期/正文的页面），导航页无法入库"}
     for pat, label in PASSWORD_PATTERNS:
         if re.search(pat, text):
             return {"code": "credential",
