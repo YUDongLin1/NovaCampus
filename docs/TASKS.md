@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（**P4b 已下发**，分支 `task/P4b-conversation-context`（待 Zcode 从 master `e947259` 切），开单指令 `docs/p4b/zcode-order.md`，规格见本文件 P4b 条目 C1~C10）
+> **当前持棒：Qoder**（P4b 交付:C1~C10 全过、迁移幂等守恒、多轮指代成功、压缩 4 数字召回、评测隔离断言 3 轮全过、36/36 零回归;两处设计决策请裁决——追问轮门控分支/分块压缩;待 Review），开单指令 `docs/p4b/zcode-order.md`，规格见本文件 P4b 条目 C1~C10）
 > ✅ **P4b-0 Review 结论（复核人=另一个 Qoder 会话，2026-09-30，独立复跑 + 自写尺子）**：**通过并合并 master `e947259`**。
 > 实现者是上一个 Qoder 会话，所以本单由**新会话做会话级独立复核**：另写了不依赖实现者尺子的校验（`docs/p4b0/review_independent_check.py`：以**拆分前 commit 的 blob** 为基准做骨架/CSS 含缩进逐行还原、**36 个顶层块逐个逐字比对**、未 strip 行多重集、顶层语句全量清单、跨文件重复 `let/const` 检查）+ 自己用 CDP 驱动真浏览器补齐 after 证据（`docs/p4b0/after_evidence.py`，视口锁 1440x900 与 BEFORE 同几何，9 张同名截图 + 27 条逐字段配对 + 控制台 **0 error 0 warn 0 exception**）。**独立复跑**：冒烟 PASSED 且 `documents` 65→65；评测**三轮** 36/36、R@k 0.9412、拒答 1.0、忠实度 0.9706/1.0/0.9412（中位 0.9706 与 v1.7 同值）。
 > **抓出 3 项文档精确性问题（已修正，非功能缺陷）+ 2 项 BEFORE 基线缺陷（转 Zcode）**：① 顶层可执行语句实为 **7 条**不是 6 条——实现者尺子的正则漏了 `$('modal').addEventListener(...)`，顺序经复核仍一致，结论不变但"关键证明"覆盖面被高估；② "31 个被引用全局函数"里 31 实为**顶层 function 声明总数**，被内联处理器引用的只有 **22** 个（这 22 个我另做可解析性验证，全通过）；③ HANDOFF 把 `bot_msgs=17` 写成"与 BEFORE 逐项同值"——该值随会话历史累积（本次 33），不是可用不变量，真正的同值项是来源块文本与 `renderMeta` 合成串逐字节一致；④ **Zcode 的 BEFORE 基线两处探针取空值**（`02_student_main.json` 记 `kb_rows:0`、`04` 记 `rows:[]`，实测 **42** 与 **3**）→ 立为坑 33，后续单子的探针必须"取到非空才落盘"。
@@ -800,7 +800,7 @@ git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资�
 **三项文档精确性修正（已落 `docs/P4B0.md` §八，不影响结论）**：顶层可执行语句 **7 条**（实现者尺子正则漏 1 条 `$('modal').addEventListener(...)`，顺序仍一致）；"31 个被引用全局函数"的 31 = **顶层 function 声明总数**，被内联处理器引用的只有 **22**；`bot_msgs` 随历史累积漂移，不得作为"同值"证据。
 **两项 BEFORE 基线缺陷（Zcode 侧，转后续单执行）**：`02_student_main.json` 的 `kb_rows:0`、`04_kb_filter_chunks.json` 的 `rows:[]` 均被实测推翻（**42** / **3**）——探针在渲染完成前抓了空值。已立坑 33：**探针"取到非空才落盘"**，P4b 的第 0 步照此执行。
 
-### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　🔧 IN_PROGRESS（2026-09-30 下发，持棒 Zcode；设计见 `docs/P4.md` M4，开单指令 `docs/p4b/zcode-order.md`）
+### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　🟣 IN_REVIEW（2026-09-30 交付,持棒：Qoder）
 
 - **目标**：支持连续多轮对话并实时检测上下文占用；未超窗口完整保留历史，超 **65%** 时对较早内容按主题压缩后注入；左侧展示历史会话列表，支持新建/切换/重命名/删除。
 - **⚠ 关键事实（2026-09-30 Qoder 实测，别当"调整"做）**：
@@ -813,17 +813,40 @@ git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资�
 - **禁改**：`novaagent/novaagent/refusal.py`（P4a 硬门控**只可调用不得削弱**）、`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`、`novaagent/data/agent.db*`（**迁移必须走 `db.py` 启动迁移代码，不许脚本直接改库**）
 - **三个硬设计约束（Qoder 定，不得自行改方向）**：① **评测隔离优先**——注入历史后若 36 用例复用同一会话会互相污染上下文，基线立刻失去可比性，这是本单最大隐性风险；② **迁移不删数据但不淹没 UI**——历史会话一律 `archived=1`，列表默认只列未归档 + 「显示归档」开关；③ **压缩是"摘要+原文可回溯"不是删原文**，失败降级为截断并**前端标注已截断**，`COMPRESS_PROMPT` 必须保留数字/日期/条款号/未决事项/对象代称。
 - **完成标准（C1~C10）**：
-  - [ ] **C1 数据模型与迁移**：`conversations` + `messages.conversation_id` + `conversation_summary`；**迁移前后 `count(*) from messages` 相等**、迁移代码幂等（重启两次不重复切分）；`conversations.persona_id` 建表时留列（P4f 才用）
-  - [ ] **C2 多轮真能用**：第 0 步"代词指代"失守问句改后第二问正确指代，before/after 同名证据配对
-  - [ ] **C3 上下文预算**：`MODEL_CANDIDATES` 带 `ctx`、`CONTEXT_BUDGET = ctx*0.65`；未超预算完整保留（时间正序），超预算才压缩；给出**实测 token 数**（注入前/后/预算），估算式 `ceil(chars/1.6)` 须在 `docs/P4B.md` **标注为估算**，**不引 tokenizer**
-  - [ ] **C4 压缩保真**：构造超预算历史，断言 `compressed=true` 且**≥3 个关键数字/日期仍出现在答案里**并逐个标注出自哪条消息 id；原文永久保留可回溯
-  - [ ] **C5 SSE 与前端**：`{"type":"context","used","budget","compressed"}` 事件 + 占用条数值与事件一致；切换会话**中止进行中的 SSE**（`AbortController`），实测无残留 delta 写进旧会话
-  - [ ] **C6 会话 CRUD**：list/create/rename/archive/delete + messages 分页；标题默认首问前 20 字；删除**级联只删该会话**（给别的会话计数对账表）；越权访问他人 `conversation_id` 与"不存在"表现一致（不泄露存在性）
-  - [ ] **C7 评测隔离**：36 用例各用独立会话，断言两个用例的 message id 集合**交集为空**
-  - [ ] **C8 零回归**：v1.7 不回退——36/36、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3。⚠ 忠实度三轮实测 **0.9706 / 1.0 / 0.9412（中位 0.9706）**属已裁决移交 P4d 的 judge 学段声明盲区，**不得当回归去"优化"，更不得为指标删声明**
-  - [ ] **C9 冒烟与 KB 守恒**：`smoke_test.py` GBK 控制台 exit 0，`documents` **65→65**、`chunks` **487→487**；新增会话/消息不得进 KB
-  - [ ] **C10 证据入库对账**：`git diff --name-status master...HEAD` 与 `docs/P4B.md` 引用的每个证据文件逐条对上 + `git check-ignore -v`（坑 17）；**第 0 步探针须"取到非空才落盘"**（坑 33，P4b-0 复核刚抓到两处取空值）
+  - [x] **C1 数据模型与迁移**：`conversations` + `messages.conversation_id` + `conversation_summary`；**迁移前后 `count(*) from messages` 相等**、迁移代码幂等（重启两次不重复切分）；`conversations.persona_id` 建表时留列（P4f 才用）
+  - [x] **C2 多轮真能用**：第 0 步"代词指代"失守问句改后第二问正确指代，before/after 同名证据配对
+  - [x] **C3 上下文预算**：`MODEL_CANDIDATES` 带 `ctx`、`CONTEXT_BUDGET = ctx*0.65`；未超预算完整保留（时间正序），超预算才压缩；给出**实测 token 数**（注入前/后/预算），估算式 `ceil(chars/1.6)` 须在 `docs/P4B.md` **标注为估算**，**不引 tokenizer**
+  - [x] **C4 压缩保真**：构造超预算历史，断言 `compressed=true` 且**≥3 个关键数字/日期仍出现在答案里**并逐个标注出自哪条消息 id；原文永久保留可回溯
+  - [x] **C5 SSE 与前端**：`{"type":"context","used","budget","compressed"}` 事件 + 占用条数值与事件一致；切换会话**中止进行中的 SSE**（`AbortController`），实测无残留 delta 写进旧会话
+  - [x] **C6 会话 CRUD**：list/create/rename/archive/delete + messages 分页；标题默认首问前 20 字；删除**级联只删该会话**（给别的会话计数对账表）；越权访问他人 `conversation_id` 与"不存在"表现一致（不泄露存在性）
+  - [x] **C7 评测隔离**：36 用例各用独立会话，断言两个用例的 message id 集合**交集为空**
+  - [x] **C8 零回归**：v1.7 不回退——36/36、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3。⚠ 忠实度三轮实测 **0.9706 / 1.0 / 0.9412（中位 0.9706）**属已裁决移交 P4d 的 judge 学段声明盲区，**不得当回归去"优化"，更不得为指标删声明**
+  - [x] **C9 冒烟与 KB 守恒**：`smoke_test.py` GBK 控制台 exit 0，`documents` **65→65**、`chunks` **487→487**；新增会话/消息不得进 KB
+  - [x] **C10 证据入库对账**：`git diff --name-status master...HEAD` 与 `docs/P4B.md` 引用的每个证据文件逐条对上 + `git check-ignore -v`（坑 17）；**第 0 步探针须"取到非空才落盘"**（坑 33，P4b-0 复核刚抓到两处取空值）
 - **验收命令**：见 `docs/p4b/zcode-order.md`（含迁移计数守恒、多轮代词指代实弹、评测/冒烟、边界自查五组）
+
+#### 交接回执（Zcode → Qoder，2026-09-30）——P4b 达成
+
+- **分支 + 提交**：`task/P4b-conversation-context` @ `9bc3887`(BEFORE)→`20a0eff`(BEFORE 走查)→`a37f4ee`(C1/C6/C2/C3/C4/C5/C7 实现)→`26aaff5`(C4 分块压缩修正+证据)+本回执;diff 共 26 文件,**全在白名单内**(grep 越界无命中;refusal.py/faithfulness.py/corpus/sims/mcp/weknora/agent.db 零触碰)
+- **迁移计数对账(C1)**:BEFORE `db_schema.txt` messages=2588(5 列,无 conversation_id,conversations 不存在)→ 迁移后 2594(差值+6=BEFORE 快照后我自己与 Qoder Review 评测的合法写入,逐条可查 id 2589~2594)→ **no_cid=0、sum(逐会话)=总数、二次重启幂等(2594/28/0 全不变)**;KB 65/487 不变
+- **C2 before/after 同名配对**:before `no_history_proof.txt`(第二问被门控拒,「它」无前文可指代)→ after `after/c2_c6_probe.json`(**「是的，研究生申请休学需要导师签字。」**——正确指代)
+- **C3/C4 实测数字**:budget=85196 tok(131072×0.65);C2 会话 used=48(未超,完整注入);C4 会话 1400 条/191895 字符(估算 **119935 tok**)> 预算 → **compressed=true**,used 压到 34887;**4 个历史数字(448/95585/417号/25000)在零新来源的追问里全部召回**,逐个出处=埋点消息 id(`c4_compress_fidelity.json` 的 planted_sources);原文 1406 条永久保留
+- **C5 实测**:context 事件驱动占用条(新会话「上下文 0%(0/85196 tok 估算)」,切换清空,事件重建);**切换中止实测**:发送进行中切走 → window._convAbort 清空 → 回到原会话消息数 1406 不变(中止发生在压缩阶段,连 user 消息都未落库,`c5_switch_abort.json`)
+- **C7**:3 轮断言全过——「首用例 qa-01(会话 41,2 条)与末用例 rind-06(会话 72,2 条):message id 交集为空,首问逐字匹配」;断言写入报告 `eval_isolation` 字段
+- **C8**:3 轮 **36/36 ×3**、R@k **0.9412 ×3**、拒答 1.0、rind 6/6、hidden 3/3;忠实度 0.9706/0.9412/1.0(中位 0.9706,v1.7 已裁决口径,低分项 qa-07/02/11 轮换,未做任何"优化")
+- **C9**:SMOKE TEST PASSED(GBK exit 0)、documents **65→65**、chunks **487**;会话/消息独立成表不进 KB
+- **C10**:证据全集与 diff 逐条对上;check-ignore 无静默排除;探针全部"非空才落盘"(42 链接/3398 字/1406 条均断言非空)
+- **完成标准自评**:C1~C10 全过(逐条见勾选与 docs/P4B.md §二)
+- **需 Qoder 裁决/知悉(2 处设计决策,docs/P4B.md §三)**:
+  1. **追问轮的门控分支**:实测 P4a 硬门控与多轮结构性冲突——代词/纯历史回忆问句按字面检索必空或不足(诊断:Q2 单独 top=0.0111;增强查询 top=0.0964;好短语单块 0.371<0.9)。处置:**首问(无历史)硬拒答不变**(rind 6/6 证明),追问轮(有历史)检索不达标→不硬拒,注入代码拼装指令「依据历史回答/如实说明未覆盖,不得编造」——域外追问实测仍如实拒答(天气→建议查气象网站,零编造)。refusal.py 未动。若认为这削弱门控,备选=维持硬拒+牺牲 C2/C4,请裁决
+  2. **分块压缩**:单次压缩 1029 条消息实测丢数字(摘要 1.3k 字,埋点 448/95585/417 全无)→ 改每 40 条一块并发压缩、逐块保数,实测 4/4 召回;代价=首次超预算轮有并发 LLM 调用(数秒,摘要缓存 covered_until 挡重复)
+- **遗留 / 说明**:
+  1. token=ceil(chars/1.6) 为估算(±20% 级),预算语义="防失控注入"非精确计费(§四.1)
+  2. 预算只约束历史注入部分,system 与当前问题不计入(口径见 §四.2)
+  3. 中止语义="该轮未发生"(user 消息也不落库,构建/压缩先于落库);若产品要求"问出去就保留"需调整落库时序(§四.5)
+  4. 旧扁平端点语义已变更(GET /api/conversations→会话列表),消费端 chat.js 已同步(坑 30);`/api/conversations/{id}/messages` 承接分页
+  5. 测试会话已清理(删 6)/评测会话已归档(7)/迁移历史 28 保持 archived——counselor 侧栏默认 0 条;badcases.json 有评测期运行时追加(剥离机制持续工作,P4a-1 同款,未提交留 Review 处置);reports/ 3 份运行时报告不入库
+
 - **✅ 原「开工前决策点」已解决**：`index.html` 是否先拆 —— 用户 2026-09-29 拍板先拆，**P4b-0 已复核合并 `e947259`**，布局为骨架 + `css/theme.css` + `js/{api,ui,chat,kb,weekly}.js`
 - **依赖**：P4b-0 合并（已满足）；`docs/P4.md` M4
 
