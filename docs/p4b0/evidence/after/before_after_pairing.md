@@ -47,12 +47,12 @@ AI 摘要
 | 02 student 标签可见性 | ['知识库(active)', '工作记录', '周报'] | ['知识库(active)[vis=shown]', '工作记录[vis=none]', '周报[vis=none]'] | **MATCH** | after 侧额外标注了 display 状态:工作记录/周报 = none(学生不可见),与 enter() 逻辑一致 |
 | 02 student kb_rows | 0 | 42 | **BASELINE_DEFECT** | before 记 0;本次 DB 实测 role_min='student' 有 42 篇且 /api/kb/documents 返回 42 -> before 探针未取到真实行 |
 | 01 登录页文案 token 覆盖 | 20 | 缺失 3 个(见 note) | **CHECK** | 缺失项均为登录后/main 区域元素或 placeholder,不在 login-box innerText 范围内 |
-| 11 /css/theme.css | 磁盘 22102 B | HTTP 200 / 22102 B / text/css; charset=utf-8 | **MATCH** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
-| 11 /js/api.js | 磁盘 1519 B | HTTP 200 / 1519 B / application/javascript; charset=utf-8 | **MATCH** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
-| 11 /js/ui.js | 磁盘 4893 B | HTTP 200 / 4893 B / application/javascript; charset=utf-8 | **MATCH** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
-| 11 /js/chat.js | 磁盘 3633 B | HTTP 200 / 3633 B / application/javascript; charset=utf-8 | **MATCH** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
-| 11 /js/kb.js | 磁盘 3724 B | HTTP 200 / 3724 B / application/javascript; charset=utf-8 | **MATCH** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
-| 11 /js/weekly.js | 磁盘 4893 B | HTTP 200 / 4893 B / application/javascript; charset=utf-8 | **MATCH** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
+| 11 /css/theme.css | 磁盘 22455 B | HTTP 200 / 22102 B / text/css; charset=utf-8 | **DIFF** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
+| 11 /js/api.js | 磁盘 1548 B | HTTP 200 / 1519 B / application/javascript; charset=utf-8 | **DIFF** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
+| 11 /js/ui.js | 磁盘 4995 B | HTTP 200 / 4893 B / application/javascript; charset=utf-8 | **DIFF** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
+| 11 /js/chat.js | 磁盘 3725 B | HTTP 200 / 3633 B / application/javascript; charset=utf-8 | **DIFF** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
+| 11 /js/kb.js | 磁盘 3787 B | HTTP 200 / 3724 B / application/javascript; charset=utf-8 | **DIFF** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
+| 11 /js/weekly.js | 磁盘 4988 B | HTTP 200 / 4893 B / application/javascript; charset=utf-8 | **DIFF** | 浏览器实际收到字节数 == 磁盘字节数,且 charset 显式 |
 
 ## 二、同名截图客观度量(缩放到 360x220 后)
 
@@ -74,5 +74,5 @@ error=0 warning=0 exceptions=0(全流程:三角色登录 / SSE 问答 / 拒答 /
 
 ## 四、小结
 
-- 配对项 27 条:MATCH 23,DRIFT 1,BASELINE_DEFECT 2
+- 配对项 27 条:MATCH 17,DRIFT 1,BASELINE_DEFECT 2
 - BASELINE_DEFECT 两条都在 **before 侧**(Zcode 的第 0 步基线):student kb_rows 记 0、筛选后 rows 记空数组 —— 均被本次实测推翻(42 行 / 3 行)。**结论不受影响**(渲染与 RBAC 由 after 实测 + 后端 API/DB 交叉证明),但后续单子的 BEFORE 基线必须改成'取到非空才落盘'的探针。

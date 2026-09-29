@@ -154,5 +154,26 @@
       "ct": "application/javascript; charset=utf-8",
       "bytes": 4893
     }
-  ]
+  ],
+  "13_admin_main": {
+    "acct_name": "admin",
+    "acct_role": "校管理员",
+    "role_badge": "admin · 校管理员",
+    "tabs": [
+      "知识库(active)[vis=shown]",
+      "工作记录[vis=shown]",
+      "周报[vis=shown]"
+    ],
+    "kb_rows": 65,
+    "first_row_has_del": true,
+    "upload_row_vis": "flex",
+    "import_row_vis": "flex",
+    "body_bg": "rgb(244, 239, 228)",
+    "body_font": "\"PingFang SC\", \"HarmonyOS Sans SC\", \"Microsoft"
+  },
+  "13_admin_console": {
+    "error": 0,
+    "warning": 0,
+    "exceptions": 0
+  }
 }
