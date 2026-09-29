@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（**P4a-1 已 Review 通过并合并 master `5399a5e`**；现下发 **P4b-0 前端模块化拆分**——本单是纯重构，行为零变化是硬门）
+> **当前持棒：Qoder**（**P4b-0 由 Qoder 代 Zcode 实现完毕，未合并 master，待独立复核**——实现者=审查者会失效，所以这一单我不给自己过。复核要点见 P4b-0「交接回执」末段）
 > ✅ **P4a-1 Review 结论（Qoder，2026-09-29，独立复跑）**：8 文件全在白名单内、`evals/**` 未动；claim→字段逐一对上（他声称 81 行/短行 61.73%/长行 9，我实算 `short_ratio=0.6173, long_lines=9` **完全吻合**）；**零误伤我扫得更广——40 篇公开语料 0 误伤、KB 六篇全放行**；实站四 URL 全拒（含我加的红线用例"含学生姓名名单页 → deny_url"）、`documents` 全程 65→65、`kb_doctor danger=0`；评测我复跑 2 轮 36/36、R@k 0.9412、拒答 1.0（加他 3 轮共 5 轮全过）。**附带修复经双向验证**：`RE_IDCARD` 保单号误伤修掉了、真身份证样式仍拦、非法出生日期不误拦——**修的是我上一轮合并进去的缺陷**。一条未覆盖面转 P4c：affairs 语料为守红线双方均未读取，其"重导零误伤"未实测 → P4c 须用**自造合成样本**补断言，不得为此读取真实 affairs。
 > ✅ **P4a Review 结论（Qoder，2026-09-29，独立复跑）**：边界 19 文件全在白名单内、`evals/faithfulness.py` 确未动；证据对账全绿（坑 17 无失守）；拒答门控实测 F2 原句 1337ms（修复前 5.1~6.5s）+ **出口正确指向保卫处**、无越界引用；`smoke_test` **自清理 + KB 守恒 65→65**、U2 口令三样式为真断言。评测我复跑 3 轮（36/36、36/36、35/36），加他 5 轮共 **8 轮 7 全过**，唯一失败项 qa-08 是 T10 时代即记录在案的轮换波动用例（R@k 与忠实度均为 1.0，非 P4a 回归）；R@k **0.9231→0.9412**。**两处裁决已批准**：① 单来源放行线 `top≥0.9`（我的 `n_above≥2` 规格过紧会结构性误杀 qa-01，属规格缺陷非实现缺陷）；② 忠实度 judge 对"系统注入的学段声明句"的盲区移交 P4d，附三条约束（禁止为指标删声明 / 改口径须记版本 / 应以合法上下文而非白名单实现）。**另发现一处规格缺口转 P4a-1**：C4 拦住了我点名的两个脏 URL，却放进一个**导航索引页**（整站菜单本身超 200 字，纯长度门无解）——责任在我未把"索引页不可入库"写成可执行判据。详见 P4a「Review 结论」。
 > ✅ **P3b Review 结论（Qoder，2026-09-29）**：边界零越界、11 份证据真入库（`.gitignore` 例外由 Zcode 自加，P3a 坑 17 未重犯）、5 条告警规则真实加载、三个测试由 Qoder 亲自复跑全过（含真实注入的端到端 DEMO，`run_playbook` 实测不执行写操作）、干净库复跑 evals 零回归。**附 1 项引用链修正**：P3B.md §三 行 5 的 `1688.6` 不在其所引文件中（量级对但引用链不成立），已由 Qoder 复跑 `cpu_spike` 补齐成立出处 → 详见本条 P3b「Review 结论」。**运行时清理已完成**：smoke 污染的 4 篇已删（含又一篇含演示口令的前端首页导入），`documents 69→65`，备份 `agent.db.bak-reviewP3b-153731`。
@@ -732,7 +732,7 @@ git diff --name-only master...HEAD | grep -E "^evals/|^corpus/|^sims/|^mcp/|^nov
 
 **一条未覆盖面（非阻断，转 P4c）**：为守红线，`corpus/clean/affairs/`（第三方案例语料，本地不入库）**双方均未读取**，因此"重导 20 篇学生事务案例时判据零误伤"**未经实测**。这类叙事体长句多、按现有判据大概率安全，但不该靠大概率。**处置**：P4c（批量归类/移动会触碰这批文档）须用**自造合成案例文体样本**补一条放行断言，**不得为此读取真实 affairs 内容**。
 
-### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　🔧 IN_PROGRESS（2026-09-29 Qoder 下发，持棒 Zcode）
+### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　🟣 IN_REVIEW（2026-09-29，**实现者=Qoder 代 Zcode**，待独立复核后合并）
 
 - **背景与决策**：用户 2026-09-29 明确要求「在 P4b 开工前先拆分」。现状 `novaagent/web/index.html` 是 **887 行单文件**（HTML+CSS+JS 混写），而 P4b（会话栏）/P4c（文件夹树）/P4e（联网开关与来源分区）/P4f（辅导员入口）/P4g（文本框）**每一单都要改它**——不拆就会连续在同一文件上冲突，Review 也难定位。
 - **目标**：拆成可维护的多文件结构，**保持零构建、单页体验与视觉完全不变**（不引 React/Vite/打包器，与现有 FastAPI 静态托管方式一致）。
@@ -757,6 +757,27 @@ git diff --name-only master...HEAD | grep -vE "^novaagent/(web/|novaagent/main\.
 git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资源路由这一处改动
 ```
 - **依赖**：P4a 合并。**⚠ 串行提醒**：P4a 与本单都会触碰 `main.py`（前者改导入质量门、后者加静态路由），**绝不能并行开**；本单完成后 P4b 才允许开工。
+
+#### 交接回执（P4b-0）——⚠ 实现者是 Qoder 本人，请独立复核后再合并
+
+- **角色破例说明**：Zcode 额度用尽，用户指示由 Qoder 代做剩余部分。**Zcode 完成了第 0 步 BEFORE 基线**（19 份证据 + `split_frontend.py`，提交 `8459bd3`），Qoder 接手实现拆分与验证。**因实现者=审查者会失效，本单不自行合并 master**，状态置 `IN_REVIEW`，**独立复核人 = 用户或 Zcode**。
+- **分支 + 提交**：`task/P4b-0-frontend-split`（未合并；master 仍在 `8249928`）
+- **diff 摘要**：`web/index.html` 887→**168 行**；新增 `web/css/theme.css`(353) + `web/js/{api,ui,chat,kb,weekly}.js`(29/102/92/63/95)；`main.py` **+25 行、删 0 行**（`/css/{name}`、`/js/{name}` 只读路由，显式 `media_type` + 目录穿越与后缀校验——不用 `StaticFiles` 是因为 Windows `mimetypes` 可能把 `.js` 猜成 `text/plain`，浏览器严格 MIME 校验会拒执行→白屏）；新增 `docs/P4B0.md`、`docs/p4b0/split_frontend.py`(修 3 处 off-by-one)、`docs/p4b0/verify_invariants.py`、`evidence/before/index.original.html`、`evidence/after/invariants.json`
+- **完成标准自评**：
+  - [x] **C1 行为零变化**——用**可机检的不变量**代替口头保证（`python docs/p4b0/verify_invariants.py` 全绿，结果存 `evidence/after/invariants.json`）：CSS 逐行等价 ✅ / JS 行**多重集**等价（缺 0、多 0）✅ / **顶层可执行语句 6 条且相对顺序完全一致** ✅（这是函数块跨文件重排安全性的关键证明）/ 去标签后 HTML 标记逐行等价 ✅ / 内联事件处理器 25→25 且**无未解析标识符** ✅ / API 调用点 20→20 ✅。另：`split_frontend.py` 内含拼接断言（Qoder 接手时它有三处 off-by-one：末行边界、`weekly_b` 少吞闭合 `}`、`kb_b` 少吞 `importUrl` 的 `}`——**均由断言挡下而非靠肉眼**）
+  - [x] **C2 三角色走查**：浏览器实测 counselor 登录后 tabs/账户名/kb_rows(63) 正常；**前端零新增权限判断**（未动任何 RBAC 逻辑）
+  - [x] **C3 零新依赖**：无框架/构建/新增 CDN。⚠ 发现 **T3 既存**的 Google Fonts 外链（head 第 8–10 行），**拆分前后一字未动**——改它属行为变更，本单刻意不碰；已核实 `--font-display/--font-body` 变量带完整本地回退链（Songti SC/STSong/SimSun/Georgia,serif 等），断网优雅降级
+  - [x] **C4 可核对**：行数/字节表见 `docs/P4B0.md` §一；`index.html` 只剩骨架
+  - [x] **C5 零回归**：`NOVAAGENT_EVAL_TEMPERATURE=0` 连跑 2 轮 **36/36、R@k 0.9412、拒答 1.0**（忠实度 0.9412 属已裁决移交 P4d 的 judge 学段声明盲区方差，**未当回归处理、也没删声明**）
+  - [x] **C6 冒烟守恒**：`smoke_test.py` PASSED、**`documents` 65→65**；`kb_doctor` danger=0
+- **运行时验证**（Chrome DevTools MCP，非静态推断）：控制台 **0 error 0 warn**；`/css/theme.css` 与 5 个 js 全 200 且**字节数与磁盘一致**、Content-Type 正确；计算样式生效（body 字体链 + 背景 `rgb(244,239,228)`）；真实点击「发送」跑通 SSE，`bot_msgs=17`、来源块文本与相关度 `0.9971` **与 BEFORE 逐项同值**；周报生成/归档按钮/设置弹窗 radios 均同 BEFORE；登录页截图目视比对一致
+- **顺手发现两条既存缺陷（未修，避免污染纯重构单）**：
+  1. → **P4g**：质量门返回结构化 `{code,reason,hint}`，但前端 `api()` 只渲染**字符串** `detail`，遇 dict 回退成 `HTTP 400` → **实测 counselor 导入导航页时界面只显示「导入失败：HTTP 400」**，P4a 精心设计的 hint 从未到达用户
+  2. → 待办：`importUrl()` 依赖内联事件的全局 `event`（`const btn = event.target`），脚本直呼会 `TypeError`，不利于自动化测试
+- **本单未验证 / 请复核人补**：
+  1. **after 截图缺失**——本会话 Chrome DevTools MCP 的工作区根不含 `E:` 盘，`filePath` 被拒，`evidence/after/` 只有 `invariants.json`。请从自己会话补拍与 `before/` 同名的截图做目视配对
+  2. 学生/管理员两角色的界面只做了 API 层与代码等价推定，**未在浏览器逐一走查**（结构等价 + 无新增前端权限逻辑可推其不变，但目视确认更稳）
+  3. `git diff master...HEAD -- novaagent/novaagent/main.py` 应只有新增 25 行、删 0 行
 
 ### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　📋 READY（待 P4b-0，设计见 `docs/P4.md` M4）
 

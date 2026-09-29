@@ -1,0 +1,14 @@
+{
+  "css_line_eq": true,
+  "js_multiset_eq": true,
+  "js_missing": 0,
+  "js_extra": 0,
+  "toplevel_order_eq": true,
+  "toplevel_count": 6,
+  "markup_eq": true,
+  "handlers_eq": true,
+  "handler_count": 25,
+  "undefined_idents": [],
+  "api_eq": true,
+  "fails": []
+}
