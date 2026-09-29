@@ -39,6 +39,23 @@ def http_json(method: str, url: str, body: dict | None = None, timeout: float = 
         return json.loads(resp.read().decode("utf-8"))
 
 
+def read_cpu_percent(base: str, timeout: float = 5.0) -> float | None:
+    """C2 取证:从 {base}/metrics(Prometheus 文本)解析无 label 的 process_cpu_percent。
+
+    解析失败返回 None(轮询行打印 cpu=NA),不影响注入流程与退出码。
+    """
+    try:
+        with urllib.request.urlopen(f"{base}/metrics", timeout=timeout) as resp:
+            for line in resp.read().decode("utf-8", "replace").splitlines():
+                # 精确匹配指标名(避开 process_cpu_seconds_total 等);该指标无 label
+                if line.startswith("process_cpu_percent ") or line.startswith("process_cpu_percent{"):
+                    tail = line.rsplit(None, 1)[-1] if " " in line else ""
+                    return round(float(tail), 1)
+    except Exception:
+        return None
+    return None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="P3a 故障注入 CLI")
     ap.add_argument("--target", required=True, choices=sorted(DEFAULT_BASES))
@@ -71,25 +88,34 @@ def main() -> int:
     if args.duration <= 0 or args.no_wait:
         return 0
 
-    # 2) 轮询至恢复(服务到期自动恢复)
+    # 2) 轮询至恢复(服务到期自动恢复);同窗抓 process_cpu_percent 留 CPU 文本证据(C2)
     t0 = time.time()
+    cpu_peak: float | None = None
     deadline = t0 + args.duration + 30
     while time.time() < deadline:
         time.sleep(min(5.0, max(2.0, args.duration / 10)))
+        cpu = read_cpu_percent(base)
+        if cpu is not None and (cpu_peak is None or cpu > cpu_peak):
+            cpu_peak = cpu
         try:
             st = http_json("GET", f"{base}/debug/fault/status")
             faults = st.get("faults", {})
             active = faults.get(args.mode, {}).get("active")
             pool = st.get("pool", {})
             print(f"[poll] t+{time.time() - t0:.0f}s active={active} "
-                  f"pool_in_use={pool.get('in_use')} waiting={pool.get('waiting')}")
+                  f"pool_in_use={pool.get('in_use')} waiting={pool.get('waiting')} "
+                  f"cpu={'NA' if cpu is None else f'{cpu:.1f}%'}")
             if not active:
                 print(f"[OK] {args.mode} 已到期自动恢复")
-                return 0
+                break
         except Exception as e:
             print(f"[WARN] 轮询失败: {e}")
-    print("[FAIL] 等待超时,注入未如期恢复——请人工检查")
-    return 1
+    else:
+        print("[FAIL] 等待超时,注入未如期恢复——请人工检查")
+        return 1
+    print(f"[cpu] cpu_peak={'NA' if cpu_peak is None else f'{cpu_peak:.1f}%'} "
+          f"(来源: {base}/metrics 的 process_cpu_percent,轮询期采样取最大)")
+    return 0
 
 
 if __name__ == "__main__":
