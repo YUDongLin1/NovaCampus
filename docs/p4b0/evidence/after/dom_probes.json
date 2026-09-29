@@ -1,0 +1,158 @@
+{
+  "01_login_page": {
+    "heading": "智枢 Agent",
+    "sub": "NovaCampus 校园智能体 · 自研 v0.5",
+    "demo_cred": "演示账号 admin/admin123 · counselor/counselor123 · student/student123",
+    "user_default": "counselor",
+    "login_box_visible": "block",
+    "seal": "智",
+    "css_applied": "rgba(0, 0, 0, 0)",
+    "btn_bg_image": "linear-gradient(150deg, rgb(43, 65, 105), rgb(22, 35, 61))",
+    "login_box_style": "22px"
+  },
+  "01_login_fail": {
+    "login_err": "用户名或密码错误",
+    "login_box_still_visible": "flex"
+  },
+  "02_student_main": {
+    "acct_name": "student",
+    "acct_role": "学生",
+    "role_badge": "student · 学生",
+    "tabs": [
+      "知识库(active)[vis=shown]",
+      "工作记录[vis=none]",
+      "周报[vis=none]"
+    ],
+    "kb_rows": 42,
+    "upload_row_vis": "none",
+    "import_row_vis": "none",
+    "body_font": "\"PingFang SC\", \"HarmonyOS Sans SC\", \"Microsoft YaHei\", \"Noto",
+    "body_bg": "rgb(244, 239, 228)",
+    "toast": "",
+    "msg_total": 31,
+    "bot_msgs": 16
+  },
+  "10_counselor_main": {
+    "acct_name": "counselor",
+    "acct_role": "辅导员",
+    "role_badge": "counselor · 辅导员",
+    "tabs": [
+      "知识库(active)[vis=shown]",
+      "工作记录[vis=shown]",
+      "周报[vis=shown]"
+    ],
+    "kb_rows": 63,
+    "upload_row_vis": "flex",
+    "import_row_vis": "flex",
+    "body_font": "\"PingFang SC\", \"HarmonyOS Sans SC\", \"Microsoft YaHei\", \"Noto",
+    "body_bg": "rgb(244, 239, 228)",
+    "toast": "",
+    "msg_total": 62,
+    "bot_msgs": 32
+  },
+  "03_chat_sources": {
+    "bot_msgs": 33,
+    "last_text_head": "研究生申请休学需提交以下材料：本人书面申请、二级甲等以上医院诊断证明（因病休学）、导师意见 。\n引用来源\n[1] 《EVAL-研究生学籍管理规定》 · 相关度 0.9971",
+    "sources_blocks": [
+      "引用来源 | [1] 《EVAL-研究生学籍管理规定》 · 相关度 0.9971"
+    ],
+    "streaming_left": 0
+  },
+  "07_refusal_template": {
+    "question_id": "rind-04",
+    "last_bot_head": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+    "has_exit_block": false,
+    "exits": [
+      "。"
+    ],
+    "has_citation": false
+  },
+  "04_kb_filter": {
+    "filter_value": "政策文件",
+    "rows": [
+      "西南交通大学2026年收费公示 | 政策文件 counselor · 2026-09-29\t全体\t6\t查看 删除",
+      "大学生医保假期使用的温馨提示 | 政策文件 counselor · 2026-09-29\t全体\t2\t查看 删除",
+      "关于2026年度大学生医疗保险缴费的通知 | 政策文件 counselor · 2026-09-29\t全体\t3\t查看 删除"
+    ]
+  },
+  "04_kb_modal": {
+    "modal_title": "《西南交通大学2026年收费公示》",
+    "modal_visible": "flex",
+    "modal_body_head": "分类\n政策文件\n可见级别\n学生及以上\n上传\ncounselor · 2026-09-29\n分块数\n6\nAI 摘要\n本公示为西南交通大学2026年收费项目及标准，适用于全日制本科生、研究生、留学生、成人教育学员等。涵盖学费、住宿费、考试考务费、服务性收费及代收费，其中硕士学费最高25000元/生·学年"
+  },
+  "05_settings": {
+    "modal_title": "设置",
+    "modal_head": "对话模型\\nqwen-flash(默认 · 快速经济)\\nqwen3.7-plus(推理 · 高质量)\\n使用自定义 API（OpenAI 兼容）\\n模型名称\\nBase URL\\nAPI Key （已保存，留空则沿用）\\n测试连接\\n",
+    "model_radios": [
+      "qwen-flash",
+      "qwen3.7-plus",
+      "on",
+      "",
+      "",
+      ""
+    ],
+    "has_custom_form": true
+  },
+  "06_weekly_tab": {
+    "pane_active": true,
+    "w_cat": "谈心谈话",
+    "expand_btn_label": "✨ AI 扩充",
+    "archive_disabled": true,
+    "archived": [
+      "📄 辅导员工作周报 2026-09-21~2026-09-27 查看",
+      "📄 P1 冒烟测试(StreamableHTTP) 2026-09-21~2026-09-27 查看",
+      "📄 P1 冒烟测试(SSE) 2026-09-21~2026-09-27 查看",
+      "📄 P1 冒烟测试周报 2026-09-21~2026-09-27 查看"
+    ]
+  },
+  "06_weekly_expand": {
+    "expanded_head": "1. 了解学生近期学习情况，重点询问补考准备进展及心理状态；  \n2. 建议学生合理规划复习时间，分阶段完成知识点梳理与真题练习；  \n3. 提醒学生关注教务系统补考安排信息，确保按时参加考试；  \n4. 鼓励学生正视压力，保持积极心态，必"
+  },
+  "06_weekly_report": {
+    "weekly_out_visible": "block",
+    "weekly_out_head": "# 辅导员工作周报(2026-09-21 ~ 2026-09-27)\n\n## 本周概览\n- 共记录 16 条工作事项:谈心谈话 16 条\n\n## 谈心谈话\n- [09-25] 与姓名1同学谈话,反馈补考压力,已转介心理中心\n- [09-25] 与姓名1同学谈话,反馈补考压力,已转介心理中心\n- [09-25] 与姓名1",
+    "archive_btn_enabled": true
+  },
+  "08_rendermeta_synthetic": {
+    "renderMeta_trace_sample": "引用来源 | [undefined] 《SAMPLE-TITLE-A》 · 相关度 0.9 | [undefined] 《SAMPLE-TITLE-B》 · 相关度 0.8 | 已调用工具 add_fragment"
+  },
+  "12_login_visible_text": "智\n智枢 Agent\n\nNovaCampus 校园智能体 · 自研 v0.5\n\n  登 录\n\n演示账号 admin/admin123 · counselor/counselor123 · student/student123",
+  "11_assets": [
+    {
+      "url": "/css/theme.css",
+      "status": 200,
+      "ct": "text/css; charset=utf-8",
+      "bytes": 22102
+    },
+    {
+      "url": "/js/api.js",
+      "status": 200,
+      "ct": "application/javascript; charset=utf-8",
+      "bytes": 1519
+    },
+    {
+      "url": "/js/ui.js",
+      "status": 200,
+      "ct": "application/javascript; charset=utf-8",
+      "bytes": 4893
+    },
+    {
+      "url": "/js/chat.js",
+      "status": 200,
+      "ct": "application/javascript; charset=utf-8",
+      "bytes": 3633
+    },
+    {
+      "url": "/js/kb.js",
+      "status": 200,
+      "ct": "application/javascript; charset=utf-8",
+      "bytes": 3724
+    },
+    {
+      "url": "/js/weekly.js",
+      "status": 200,
+      "ct": "application/javascript; charset=utf-8",
+      "bytes": 4893
+    }
+  ]
+}
