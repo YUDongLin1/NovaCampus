@@ -1,0 +1,23 @@
+[P4b 第 0 步] 前端 API 调用点(去重集合,含反引号模板串) — 20 个
+2026-09-30 00:36:45
+--------------------------------------------------
+  api('/api/chat
+  api('/api/conversations?limit=30
+  api('/api/kb/documents
+  api('/api/kb/import_url
+  api('/api/kb/upload
+  api('/api/login
+  api('/api/me
+  api('/api/me/settings
+  api('/api/me/settings/test
+  api('/api/weekly/archive
+  api('/api/weekly/expand
+  api('/api/weekly/fragments
+  api('/api/weekly/fragments?
+  api('/api/weekly/report
+  api('/api/weekly/reports
+  api(`/api/kb/documents/${id}
+  api(`/api/kb/documents/${id}/chunks
+  api(`/api/weekly/fragments/${id}
+  api(`/api/weekly/reports/${id}
+  fetch('/api/chat/stream
