@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
-from . import config, db, llm, rag
+from . import config, db, llm, rag, refusal
 from .weekly_client import WeeklyMCP
 
 logger = logging.getLogger(__name__)
@@ -103,6 +104,64 @@ EXPAND_PROMPT = """你是高校辅导员的谈心谈话记录助手。把辅导�
 """
 
 
+class _StreamRefFilter:
+    """P4a C2:流式路径的引用越界过滤。
+
+    逐段喂入 delta 文本,缓冲疑似 "[12" 的未完片段;补全为 "[n]" 后按 n_sources
+    判定保留或丢弃;无法构成引用的方括号原样放行。flush 处理流末尾残片。
+    """
+
+    _MAX_PENDING = 8  # "[12]" 全长 4;超出即判非引用
+
+    def __init__(self, n_sources: int):
+        self.n_sources = n_sources
+        self.pending = ""
+        self.stripped: list[int] = []
+
+    def _decide(self, token: str) -> str:
+        m = re.fullmatch(r"\[(\d{1,2})\]", token)
+        if not m:
+            return token
+        n = int(m.group(1))
+        if 1 <= n <= self.n_sources:
+            return token
+        self.stripped.append(n)
+        return ""
+
+    def feed(self, chunk: str) -> str:
+        self.pending += chunk
+        out: list[str] = []
+        while self.pending:
+            i = self.pending.find("[")
+            if i < 0:
+                # 无 "[":除末尾可能截断的 "[" 外全部放行
+                keep = 1 if self.pending.endswith("[") else 0
+                out.append(self.pending[: len(self.pending) - keep] if keep else self.pending)
+                self.pending = self.pending[len(self.pending) - keep:] if keep else ""
+                break
+            out.append(self.pending[:i])
+            self.pending = self.pending[i:]
+            j = self.pending.find("]")
+            if j < 0:
+                if len(self.pending) <= self._MAX_PENDING:
+                    break  # 可能是未完的引用片段,等下一个 delta
+                out.append(self.pending[0])  # "["
+                self.pending = self.pending[1:]
+                continue
+            token, rest = self.pending[: j + 1], self.pending[j + 1:]
+            if re.fullmatch(r"\[\d{1,2}\]", token):
+                out.append(self._decide(token))
+                self.pending = rest
+            else:  # 形如 "[abc]" 不是引用标注,放行首个字符防止死循环
+                out.append(self.pending[0])
+                self.pending = self.pending[1:]
+        return "".join(out)
+
+    def flush(self) -> str:
+        rest, self.pending = self.pending, ""
+        return rest
+
+
 class AgentService:
     """持有周报 MCP 长连接,提供检索增强对话与周报工具直调。"""
 
@@ -152,10 +211,17 @@ class AgentService:
     async def chat_for(self, user_id: int, username: str, role: str, question: str) -> dict[str, Any]:
         eff = self.effective_llm(user_id)
         min_rank = db.config.ROLE_RANK[role]
-        sources = await rag.search(question, min_rank)
+        sources, quality = await rag.search_with_quality(question, min_rank)
+        # P4a C1 拒答硬门控:无来源/相关度不足 → 确定性模板(代码拼装,不经 LLM)
+        do_refuse, reason = refusal.should_refuse(sources, quality)
+        if do_refuse:
+            return {"answer": refusal.build_refusal(question, reason), "sources": [], "tool_trace": []}
+        stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
         context = "\n\n".join(
             f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
         ) or "(本角色可见范围内未检索到相关资料)"
+        if stage_note:
+            context = f"{stage_note}\n\n{context}"
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT.format(context=context)},
             {"role": "user", "content": question},
@@ -180,6 +246,10 @@ class AgentService:
                 )
         else:
             answer = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
+        # P4a C2 引用硬校验:越界 [n] 代码剥离并记 fabricated_ref badcase
+        answer, stripped = refusal.strip_invalid_refs(answer, len(sources))
+        if stripped:
+            refusal.record_fabricated_ref(question, stripped, len(sources))
         return {"answer": answer, "sources": sources, "tool_trace": tool_trace}
 
     async def chat_stream_for(self, user_id: int, username: str, role: str, question: str):
@@ -189,20 +259,32 @@ class AgentService:
           {"type": "delta", "content": str}              正文增量(逐 token)
           {"type": "tools", "trace": [...]}              工具执行记录
           {"type": "done", "answer": str, "sources": [...], "tool_trace": [...]}
+        P4a: 拒答硬门控(无来源/相关度不足→确定性模板,不经 LLM)+ 流式引用越界过滤 + 学段声明注入。
         """
         eff = self.effective_llm(user_id)
         min_rank = db.config.ROLE_RANK[role]
-        sources = await rag.search(question, min_rank)
+        sources, quality = await rag.search_with_quality(question, min_rank)
+        do_refuse, reason = refusal.should_refuse(sources, quality)
+        if do_refuse:  # P4a C1: 确定性拒答模板直接作为流式输出
+            text = refusal.build_refusal(question, reason)
+            yield {"type": "sources", "sources": []}
+            yield {"type": "delta", "content": text}
+            yield {"type": "done", "answer": text, "sources": [], "tool_trace": []}
+            return
         yield {"type": "sources", "sources": sources}
+        stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
         context = "\n\n".join(
             f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
         ) or "(本角色可见范围内未检索到相关资料)"
+        if stage_note:
+            context = f"{stage_note}\n\n{context}"
         messages = [
             {"role": "system", "content": SYSTEM_PROMPT.format(context=context)},
             {"role": "user", "content": question},
         ]
         tool_trace: list[dict] = []
         answer_parts: list[str] = []
+        ref_filter = _StreamRefFilter(len(sources))  # P4a C2 流式引用越界过滤
         for _ in range(4):  # 工具轮 + 最终流式轮
             round_text: list[str] = []
             calls: dict[int, dict] = {}
@@ -210,9 +292,11 @@ class AgentService:
                                             model=eff["model"], base_url=eff["base_url"],
                                             api_key=eff["api_key"]):
                 if ev["type"] == "delta":
-                    yield {"type": "delta", "content": ev["content"]}
-                    round_text.append(ev["content"])
-                    answer_parts.append(ev["content"])
+                    safe = ref_filter.feed(ev["content"])
+                    if safe:
+                        yield {"type": "delta", "content": safe}
+                        round_text.append(safe)
+                        answer_parts.append(safe)
                 elif ev["type"] == "tool_delta":
                     slot = calls.setdefault(ev["index"], {"id": "", "name": "", "args": ""})
                     if ev["id"]:
@@ -243,6 +327,12 @@ class AgentService:
             timeout_msg = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
             answer_parts.append(timeout_msg)
             yield {"type": "delta", "content": timeout_msg}
+        tail = ref_filter.flush()
+        if tail:
+            yield {"type": "delta", "content": tail}
+            answer_parts.append(tail)
+        if ref_filter.stripped:  # P4a C2: 流中剥离的越界引用记 badcase
+            refusal.record_fabricated_ref(question, ref_filter.stripped, len(sources))
         yield {"type": "done", "answer": "".join(answer_parts), "sources": sources, "tool_trace": tool_trace}
 
     # 周报 REST 直调(供前端周报页与评测脚本确定性使用,不依赖 LLM 决策)

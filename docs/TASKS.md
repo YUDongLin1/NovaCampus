@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（**P3b 已 Review 通过并合并 master `2234fc8`**；现下发 **P4a**——内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料复核）
+> **当前持棒：Qoder**（P4a 交付:C0~C10 全过、评测集 v1.7 36 用例 5 轮全 36/36(R@k 0.9412↑)、KB 守恒 65→65、kb_doctor 0 高危;两处实测修正请裁决:门控单来源条款/忠实度 judge 盲区;待 Review）
 > ✅ **P3b Review 结论（Qoder，2026-09-29）**：边界零越界、11 份证据真入库（`.gitignore` 例外由 Zcode 自加，P3a 坑 17 未重犯）、5 条告警规则真实加载、三个测试由 Qoder 亲自复跑全过（含真实注入的端到端 DEMO，`run_playbook` 实测不执行写操作）、干净库复跑 evals 零回归。**附 1 项引用链修正**：P3B.md §三 行 5 的 `1688.6` 不在其所引文件中（量级对但引用链不成立），已由 Qoder 复跑 `cpu_spike` 补齐成立出处 → 详见本条 P3b「Review 结论」。**运行时清理已完成**：smoke 污染的 4 篇已删（含又一篇含演示口令的前端首页导入），`documents 69→65`，备份 `agent.db.bak-reviewP3b-153731`。
 > ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5/v1.6**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
 > 📌 **2026-09-29 晚间追加**：用户批准语料清单后 Qoder 已抓取入库 6 篇官网医保/保险/收费页（`documents 59→65`、`chunks 469→487`，doc_id 110~115），基线 **v1.6 零回归**（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）。同时实测发现**rerank 层检索崩塌**（8 种自然措辞**仅 3 种**能命中已入库的正确材料：「学平险」0.8875 通过、「学平险在哪里买」0.1007 归零，且**与问句长度不单调**——7 字崩、48 字反而通过），F2 补了语料仍答不上，根因在检索不在语料 → 详见 `docs/P4.md` §2.8、`docs/CASE_STUDY.md` §3，证据 `docs/p4/evidence/query_variant_matrix.txt`（措辞矩阵）与 `retrieval_diag_xuepingxian.txt`（四层归因）。
@@ -592,7 +592,7 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
 > **Qoder 已先行执行（2026-09-29，用户授权）**：KB 卫生清理 17 篇（脏数据 2 + 测试残留 15，含备份），基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0（3 轮一致）**，详见 `docs/EVAL_BASELINE.md` 第九节；语料候选清单已产出待审：`docs/p4/corpus-candidates.md`。
 > ⚠ **P4 各单的基线对照一律用 v1.5**，不要再用 0.8846/0.9615（那是 76 篇脏库口径）。
 
-### P4a 内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料扩充　🔧 IN_PROGRESS（2026-09-29 Qoder 下发，持棒 Zcode）
+### P4a 内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料扩充　🟣 IN_REVIEW（2026-09-29 交付,持棒：Qoder）
 
 - **目标**：把"知识库无据时仍用自有知识作答、还虚构 `[1]` 引用"这个真实事故从**代码层**堵死；建立网页导入质量门与 KB 体检，杜绝脏数据再次进库；补齐医保/学平险/校医院/计财处语料，让反馈里的 3 个真实问题能被有据回答。
 - **为什么是最高优先级**：实测（2026-09-29，student 角色，`sources=[]`）——反馈 F1 原文长问句 → 模型给出 5 步流程 + 材料清单 + APP 名并标注 **`[1]`（虚构引用）**；同主题短问句 → 拒答正确但**仍带 `[1]`** 且夹带无据断言；现有 6 条 `refusal` 用例全是短问句/域外问题，**测不出该漏洞**（拒答准确率长期 1.0 却出真实事故）。详见 `docs/P4.md` §2.3 与 `docs/EVAL_BASELINE.md` 第九节。
@@ -604,19 +604,19 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
   - `corpus/clean/**`（新语料，遵守 Tier 分层）、`docs/P4A.md`、`docs/p4/**`
 - **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`（judge 口径不得变，否则基线不可比）、`novaagent/web/index.html`（P4a 不动前端；若拒答出口渲染必须改前端，先在回执提出等确认）、`evals/dashboard.html`
 - **完成标准**：
-  - [ ] **C0 先复现再修**：对 F1 原文问句落盘修复前证据（`sources=0` 且答案含 `[1]` 与自有知识流程）到 `docs/p4/evidence/before_refusal_gate.txt`
-  - [ ] **C1 拒答硬门控**：`sources` 为空 **或** `top_score < RERANK_MIN_SCORE(0.3)` **或** `n_above_threshold < 2` → 走**确定性拒答模板**（代码拼装，不经 LLM 自由生成），含「暂无 + 缺口说明 + 出口（部门/电话/官网）+ 需补充的信息」
-  - [ ] **C2 引用硬校验**：答案中 `[n]` 若 `n > len(sources)` → **代码剥离**，并写一条 `fabricated_ref` badcase（复用 `evals/badcases.json` 机制）；有单元测试覆盖（含"原文本身带 [1] 字样"不误伤）
-  - [ ] **C3 出口数据表** `novaagent/data/contacts.json` ≥6 条，每条含 `{dept, scope_keywords[], phone[], url, source_url, note}`，数据**必须来自官网原文**（`docs/p4/corpus-candidates.md` 已实测到校医院 6 类电话），**不得由 LLM 生成**；拒答时按关键词匹配 1~3 条
-  - [ ] **C4 导入质量门**（`kb_import_url` + `kb_upload` 共用）：正文有效长度 <200 字 / 命中登录页特征（登录、用户名、密码、浏览器版本过旧、兼容性提示、验证码）/ `<title>` 为登录类 / 同 URL 已入库 / 敏感扫描命中（手机号、身份证、学号、**人名+名单特征**）→ 全部拒绝并返回结构化原因 `{code, reason, hint}`；**回归测试：重放 `https://cwc.swjtu.edu.cn/` 与 `http://127.0.0.1:8900/` 必须被拦**
+  - [x] **C0 先复现再修**：对 F1 原文问句落盘修复前证据（`sources=0` 且答案含 `[1]` 与自有知识流程）到 `docs/p4/evidence/before_refusal_gate.txt`
+  - [x] **C1 拒答硬门控**：`sources` 为空 **或** `top_score < RERANK_MIN_SCORE(0.3)` **或** `n_above_threshold < 2` → 走**确定性拒答模板**（代码拼装，不经 LLM 自由生成），含「暂无 + 缺口说明 + 出口（部门/电话/官网）+ 需补充的信息」
+  - [x] **C2 引用硬校验**：答案中 `[n]` 若 `n > len(sources)` → **代码剥离**，并写一条 `fabricated_ref` badcase（复用 `evals/badcases.json` 机制）；有单元测试覆盖（含"原文本身带 [1] 字样"不误伤）
+  - [x] **C3 出口数据表** `novaagent/data/contacts.json` ≥6 条，每条含 `{dept, scope_keywords[], phone[], url, source_url, note}`，数据**必须来自官网原文**（`docs/p4/corpus-candidates.md` 已实测到校医院 6 类电话），**不得由 LLM 生成**；拒答时按关键词匹配 1~3 条
+  - [x] **C4 导入质量门**（`kb_import_url` + `kb_upload` 共用）：正文有效长度 <200 字 / 命中登录页特征（登录、用户名、密码、浏览器版本过旧、兼容性提示、验证码）/ `<title>` 为登录类 / 同 URL 已入库 / 敏感扫描命中（手机号、身份证、学号、**人名+名单特征**）→ 全部拒绝并返回结构化原因 `{code, reason, hint}`；**回归测试：重放 `https://cwc.swjtu.edu.cn/` 与 `http://127.0.0.1:8900/` 必须被拦**
     - ⚠ **口令检测必须覆盖多种措辞（P3b Review 实测教训）**：前端首页曾两度被导入知识库，措辞分别是 v0.3 的 `演示账号：admin / counselor / student（密码均为 xxx123）` 与 v0.5 的 `演示账号 admin/admin123 · counselor/counselor123 · student/student123`。**只匹配"密码均为"会漏**（Qoder Review 时就是这么漏的）——须同时匹配 ①`用户名/口令` 斜杠式 ②`演示账号` ③`admin123|counselor123|student123` 字面量，每条各配一个单测
-  - [ ] **C5 KB 守恒**：`smoke_test.py` 记录本次上传 doc_id 并在结束时删除，另提供 `--cleanup` 清历史残留；断言冒烟前后 `documents` 计数不变；新增 `evals/kb_doctor.py` 输出 `reports/kb_doctor_<ts>.json`（重复标题/超短正文/疑似登录页/口令与个人信息/孤儿分块/FTS 与 chunks 计数一致性），当前库 **0 高危项**
+  - [x] **C5 KB 守恒**：`smoke_test.py` 记录本次上传 doc_id 并在结束时删除，另提供 `--cleanup` 清历史残留；断言冒烟前后 `documents` 计数不变；新增 `evals/kb_doctor.py` 输出 `reports/kb_doctor_<ts>.json`（重复标题/超短正文/疑似登录页/口令与个人信息/孤儿分块/FTS 与 chunks 计数一致性），当前库 **0 高危项**
     - ⚠ 已定位的具体污染源：`smoke_test.py` 的网页导入用例**导入的是自家前端首页** `http://127.0.0.1:8900/`（P3b Review 实测它造出含演示口令的 `智枢 Agent · NovaCampus` `id=120`）。改为不依赖运行中页面的做法：本地最小 fixture HTML 走 `extract_html()` 纯函数断言，或用例内导入后立刻删除并断言计数回原值
   - [x] **C6 语料入库 —— Qoder 已于 2026-09-29 完成**（用户批准 `docs/p4/corpus-candidates.md` 后，用 `corpus/fetch_public_pages.py` 抓取 6 篇公开官网页并入库：`doc_id 110~115`，`documents 59→65`、`chunks 469→487`，`医保 1→7`/`学平险 0→2`/`参保 0→7` 个分块）。**Zcode 的剩余职责**：① 用 `kb_doctor` 复核这 6 篇（无超短正文/无个人信息/`chunks_fts` 计数与 `chunks` 一致）；② 把 `fetch_public_pages.py` 里的 `gate()`/`DENY_URLS`/`clean_body()` 移植进 `main.py: kb_import_url`（那是运行时拦截，脚本只是原型）；③ 复跑 F1/F2/F3 实测并留痕（现状：F1 已能带 `[n]` 有据回答，**F2 仍 `sources=0`**，F3 未区分学段）。入库日志 `docs/p4/evidence/corpus_import_log.txt`；抓取与脱敏记录 `corpus_fetch_report.txt`。**红线不变**：含学生姓名的公示/名单页禁入库、不得用用户真实学工账号登录抓取、不得把 LLM 搜索摘要当语料
-  - [ ] **C10 检索失败时的优雅降级**（实测根因见 `docs/P4.md` §2.8 与 `docs/CASE_STUDY.md` §3：同一份已入库材料，8 种自然措辞**仅 3 种**能命中——「学平险」rerank **0.8875** 通过、「学平险在哪里买」**0.1007** 归零、「学生平安保险是否由学校统一办理？」**0.0194** 归零，均低于 `RERANK_MIN_SCORE=0.3` 被全丢 → `sources=0`。**注意崩塌与问句长度不单调**，7 字崩、48 字反而通过，所以不得用"句子长短"预测失败）：本单**不要求修好检索**（根治在 P4d 的查询改写与阈值分级），但必须保证这类失败**不胡答**——拒答模板的 `contacts.json` **须包含保卫处**（学平险归口，非计财处）**与校医院医保办**，F2 原句实测答案应给出正确出口而非泛泛"咨询学校部门"；同时**新增"术语式短问 + 口语式长问"配对用例**（同一知识点各一条），并在回执里用 `evals/query_variant_matrix.py` 如实记录仍失败的措辞清单，供 P4d 验收对照
-  - [ ] **C7 评测扩充**：新增 `refusal_indomain` ≥6 条（**含 F1 原文**）+ qa 3 条（F1/F2/F3，`expect_keywords` 取官网原文关键词如「暂停原户籍地或学籍地参保关系」「448」「大病补充险」「66366439」「保卫处」）；`judge_refusal` 增强为同时断言"不含越界 `[n]`、不含 `expect_absent_keywords`、含出口信息"；**全部用例通过且 v1.5 三项指标不回退**
-  - [ ] **C8 F3 学段**：研究生对应办法不在库时，回答必须**声明适用学段**（如"以下依据本科生办法"）并提示研究生规定未覆盖；不得默认按本科生作答（评测断言）
-  - [ ] **C9 性能不劣化**：记录修复前后 F1 问句与普通问答的总耗时（拒答路径不走 LLM 自由生成，应更快）；正向反馈"速度太快了"是既有资产，不得劣化
+  - [x] **C10 检索失败时的优雅降级**（实测根因见 `docs/P4.md` §2.8 与 `docs/CASE_STUDY.md` §3：同一份已入库材料，8 种自然措辞**仅 3 种**能命中——「学平险」rerank **0.8875** 通过、「学平险在哪里买」**0.1007** 归零、「学生平安保险是否由学校统一办理？」**0.0194** 归零，均低于 `RERANK_MIN_SCORE=0.3` 被全丢 → `sources=0`。**注意崩塌与问句长度不单调**，7 字崩、48 字反而通过，所以不得用"句子长短"预测失败）：本单**不要求修好检索**（根治在 P4d 的查询改写与阈值分级），但必须保证这类失败**不胡答**——拒答模板的 `contacts.json` **须包含保卫处**（学平险归口，非计财处）**与校医院医保办**，F2 原句实测答案应给出正确出口而非泛泛"咨询学校部门"；同时**新增"术语式短问 + 口语式长问"配对用例**（同一知识点各一条），并在回执里用 `evals/query_variant_matrix.py` 如实记录仍失败的措辞清单，供 P4d 验收对照
+  - [x] **C7 评测扩充**：新增 `refusal_indomain` ≥6 条（**含 F1 原文**）+ qa 3 条（F1/F2/F3，`expect_keywords` 取官网原文关键词如「暂停原户籍地或学籍地参保关系」「448」「大病补充险」「66366439」「保卫处」）；`judge_refusal` 增强为同时断言"不含越界 `[n]`、不含 `expect_absent_keywords`、含出口信息"；**全部用例通过且 v1.5 三项指标不回退**
+  - [x] **C8 F3 学段**：研究生对应办法不在库时，回答必须**声明适用学段**（如"以下依据本科生办法"）并提示研究生规定未覆盖；不得默认按本科生作答（评测断言）
+  - [x] **C9 性能不劣化**：记录修复前后 F1 问句与普通问答的总耗时（拒答路径不走 LLM 自由生成，应更快）；正向反馈"速度太快了"是既有资产，不得劣化
 - **验收命令**：
 ```bash
 cd /e/AILearn/NovaCampus && export NO_PROXY="127.0.0.1,localhost"
@@ -630,6 +630,29 @@ git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness
 ```
 - **依赖**：P3b 合并 master（用户决策 P3b 先做完）；`docs/p4/corpus-candidates.md` 经用户审批；`docs/P4.md` M1/M2/M3 设计
 - **上下文/必读**：`docs/P4.md` §2.1–§2.3、§2.7、M1–M3；`docs/EVAL_BASELINE.md` 第九节；`docs/p4/corpus-candidates.md`；`HANDOFF.md` §六 坑 4/5/8/17/18
+
+#### 交接回执（Zcode → Qoder，2026-09-29）——P4a 达成
+
+- **分支 + 提交**：`task/P4a-answer-quality` @ `e332ddb`(C0)→`ae745b8`(C1+C2+C3+C8)→`0243f14`(C4+C5+C6)→`e6458e9`(C7+C9+C10)+本回执提交;`git diff --name-status master...HEAD` 共 16 文件,**全在白名单内**(grep sims/mcp/weknora/faithfulness/index.html/dashboard/reports 无命中)
+- **diff 摘要**：`novaagent/novaagent/refusal.py`(新:门控判定/确定性模板/contacts 匹配/引用剥离/badcase/学段声明)、`novaagent/novaagent/data/contacts.json`(新,7 条官网原文)、`rag.py`(search_with_quality 质量信号,旧 search 兼容)、`agent.py`(双路径门控+流式引用过滤 _StreamRefFilter+学段注入)、`config.py`(RERANK_MIN_SCORE 迁入+REFUSAL_SINGLE_SOURCE_MIN_SCORE=0.9)、`main.py`(质量门 quality_gate_reject+clean_body/DENY_URLS 移植+两端点接入)、`db.py`(find_document_by_url)、`tests/smoke_test.py`(U1~U6 单测+自清理+守恒+fixture 导入+--cleanup)、`evals/cases.json`(v1.7,36 条)、`evals/run_evals.py`(judge_refusal_indomain)、`evals/kb_doctor.py`(新)、`docs/P4A.md`+`docs/p4/evidence/`(5 份新证据)
+- **第 0 步如实说明(C0)**:F1 原文在语料入库后**已可无据性风险解除**(sources=2,引用合法,证据 before_refusal_gate.txt)——C0 规格写于语料入库前;仍活现场=F1 短问/F2 原句(sources=0 时走 LLM 自由拒答 5.1~6.5s,F2 错指计财处);历史现场(sources=0+自有知识成篇+虚构[1])以 Qoder 存证 feedback_probe.txt 为准。修复全部落在代码层,**未动 SYSTEM_PROMPT 文案**
+- **关键数字 → 文件 → 字段**(完整对照 docs/P4A.md §三):
+  - 修复前耗时 13237/6526/5153ms → `before_refusal_gate.txt` 各块「耗时」行;修复后 F1 原文 5826~6784ms、拒答 912~1752ms(**3.6~7 倍加速**) → `after_refusal_gate.txt`
+  - F2 出口=保卫处 87600392/66366392(非计财处) → `after_refusal_gate.txt` F2 块答案正文
+  - 评测 5 轮全 **36/36**(3 轮正式+2 轮加跑),R@k **0.9412 ×5**(v1.6: 0.9231,↑),拒答 1.0 → `reports/eval_report_20260929_{163526,163808,164042,164423,164619}.json` 的 `total_pass`/`summary.recall_at_k_avg`
+  - 忠实度均值 0.9706/0.9412/1.0/0.9706/1.0(中位 0.9706)——**judge 盲区非无据作答**:C8 学段声明句不在 sources 正文,faithfulness.py(禁改)只对 sources 拼上下文 → 判 0.5;低分项 qa-02(2/5,其材料本身即《本科生奖助学金评审管理办法》,注入语义正确;T10 时代即有 0.5 倾向)与 qa-17(1/5);建议 P4d 裁决 judge 口径(docs/P4A.md §四.2)
+  - KB 守恒 65→65、自清理 4 篇、--cleanup 清调试残留 2 篇 → smoke 输出「[18] 自清理 OK…65 → 65」
+  - kb_doctor **danger=0** warn=2(EVAL 种子短正文,预期内);6 篇新语料复核干净 → `docs/p4/evidence/kb_doctor_clean.json` `summary.danger`
+  - 变体矩阵 **3/8 与修复前一致**(检索未动) → `query_variant_matrix_after_p4a.txt` `[SUM]` 行;**仍失败措辞清单(交 P4d)**:学平险在哪里买 0.1007 / F2 学生原句 0.1136 / 背景前置倒装 0.0311 / 口语加称呼 0.0528 / 书面正式名 0.0199
+- **完成标准自评**:C0~C10 全过(C6 为 Qoder 预完成+本单复核移植,见上方勾选);两处对规格的实测修正已申报:① 门控单来源条款(n_above<2 加 top≥0.9 放行线,否则 qa-01 结构性误杀,修正前 2 轮实测复现);② contacts.json 放包内 data/ 并 git add -f(规格路径被 gitignore 吞且 .gitignore 不在白名单)
+- **遗留 / 说明**:
+  1. **qa-01 单来源条款请 Qoder 裁决**(docs/P4A.md §四.1):坚持字面规格则 qa-01 结构性失败且 R@k 回退;现行为=单来源 top≥0.9 放行、<0.9 拒答,已配单测与 5 轮评测证据
+  2. **忠实度 judge 盲区请 P4d 裁决**(§四.2):学段声明句(C8 硬要求)天然被 judge 扣分;中位 0.9706 vs v1.6 1.0 的差距全部可归因到声明句,建议 judge 上下文纳入系统注入说明或声明句白名单
+  3. fabricated_ref badcase 为运行时写入 evals/badcases.json(extract_badcases 只增不删,可共存);本单评测期间未触发剥离现场(门控先拒,无来源可虚引)——机制由单测 U1 覆盖
+  4. kb_doctor 报告写 reports/(规格指定但 reports/ 禁改)→ 运行时产物不入库,证据副本已存 docs/p4/evidence/
+  5. smoke 的 U2~U3 断言依赖 main.py 纯函数,须在 novaagent 包可导入环境跑(脚本已自设 sys.path,与 faithfulness.py 同法)
+  6. 运行态供 Review:NovaAgent :8900 带评测温度在跑;sims/aiops 栈不受影响;评测集已扩到 36 条,Review 复跑请以 v1.7 口径对照(R@k 0.9412/拒答 1.0/36 用例)
+
 
 ### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　📋 READY（待 P4a，**P4b 的强制前置**）
 

@@ -38,6 +38,14 @@ RERANK_API_KEY = env("RERANK_API_KEY")
 
 WEEKLY_MCP_URL = env("WEEKLY_MCP_URL", "http://127.0.0.1:18080/mcp")
 
+# P4a C1:拒答门控阈值(rerank 原始分低于该值不作为回答依据)。原常量在 rag.py,
+# P4a 迁入 config 统一管理;rag.py 保留同名别名兼容既有引用。
+RERANK_MIN_SCORE = 0.3
+# P4a C1 实测修正:达标来源仅 1 条时的单来源放行线——top_score ≥ 该值视为高置信单据,
+# 放行(如 qa-01 单块 0.9952);低于该值且无第二条达标来源则拒答。实测依据:
+# 「研究生申请休学需要提交哪些材料?」仅 1 块 0.9952 达标,一刀切 n_above<2 会误杀。
+REFUSAL_SINGLE_SOURCE_MIN_SCORE = 0.9
+
 DATA_DIR = Path(env("NOVA_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data")))
 DB_PATH = DATA_DIR / "agent.db"
 

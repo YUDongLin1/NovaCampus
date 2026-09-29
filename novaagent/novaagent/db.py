@@ -244,6 +244,14 @@ def delete_document(doc_id: int) -> bool:
     return cur.rowcount > 0
 
 
+def find_document_by_url(url: str) -> dict | None:
+    """P4a C4:按 filename(URL)查文档,导入质量门用于同 URL 去重。"""
+    row = _conn.execute(
+        "SELECT id, title, filename FROM documents WHERE filename = ? LIMIT 1", (url,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def list_documents(min_rank: int, category: str = "") -> list[dict]:
     allowed = [r for r, rank in config.ROLE_RANK.items() if rank <= min_rank]
     q = ",".join("?" * len(allowed))
