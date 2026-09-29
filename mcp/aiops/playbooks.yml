@@ -1,0 +1,119 @@
+# P3b 只读取证预案(与 corpus/clean/ops/《模拟系统运维手册》骨架对齐)
+# 红线:steps 只允许只读工具(get_service_status/query_metrics/query_logs/query_changes/list_alerts);
+#       mitigation 仅文字建议,run_playbook 不执行任何写操作。
+# 注:含冒号/引号的标量一律加引号(单引号外层+双引号内层),兼容 pyyaml 与 server 内置迷你解析器。
+playbooks:
+  pool_exhaust:
+    title: 连接池耗尽显场处置(ykt 高发:支付对账持连接 0.3~0.6s)
+    applies_to: [ykt, jiaowu]
+    signals:
+      - expr: 'app_db_pool_in_use{job="ykt"} / app_db_pool_size{job="ykt"} >= 0.999'
+        desc: 池利用率 100%(SimsDbPoolSaturated 对应)
+      - expr: 'sum(rate(http_requests_total{job="ykt",status=~"5.."}[30s])) > 0.05'
+        desc: 5xx(503 db pool busy)速率抬升
+      - expr: 'histogram_quantile(0.95, sum by(le)(rate(app_db_pool_wait_seconds_bucket{job="ykt"}[30s]))) > 2'
+        desc: 获取连接等待 P95 超过池等待超时(2s)
+    steps:
+      - tool: get_service_status
+        args:
+          service: ykt
+        why: 确认池利用率/排队/CPU 全局位面,排除多故障叠加
+      - tool: list_alerts
+        args:
+          state: firing
+        why: 收当前 firing 告警(应见 SimsDbPoolSaturated/SimsHttp5xxRateHigh)
+      - tool: query_metrics
+        args:
+          promql: 'app_db_pool_in_use{job="ykt"} / app_db_pool_size{job="ykt"}'
+        why: 池利用率即时值(100% 即饱和)
+      - tool: query_logs
+        args:
+          service: ykt
+          keyword: "503"
+          minutes: 10
+          tail: 300
+        why: 捞 503(db pool busy)日志行佐证用户侧真实报错
+      - tool: query_changes
+        args:
+          service: ykt
+          minutes: 60
+        why: 判断 503 抬升是否与故障注入演练窗口吻合
+    root_cause_hints:
+      - '"/api/card/pay 持连接 0.3~0.6s(模拟对账写库),支付高峰并发下池(size=10)被长时间事务占满"'
+      - '"query_changes 若见 fault_active[type=pool_exhaust] 窗口 → 判定为注入演练,非真实故障"'
+      - '"若 query_logs 见大量 pay 慢请求且无注入窗口 → 真实容量问题,考虑扩池或缩短持锁事务"'
+    mitigation: '建议命令(需人工执行): 1) 临时缓解——重启 nova-sims-ykt-1 释放连接: docker restart nova-sims-ykt-1; 2) 根治——评估调大 POOL_SIZE 或把对账写库改异步批处理; 本工具不会替你执行。'
+
+  cpu_spike:
+    title: 进程 CPU 飙高处置(多核口径,100%=单核)
+    applies_to: [ykt, jiaowu]
+    signals:
+      - expr: 'process_cpu_percent{job="ykt"} > 800'
+        desc: 进程 CPU 超 800%(SimsCpuSpike 对应)
+      - expr: 'sum(rate(http_requests_total{job="ykt"}[30s])) > 2'
+        desc: 请求速率异常抬升(计算型请求风暴线索)
+    steps:
+      - tool: get_service_status
+        args:
+          service: ykt
+        why: 确认 CPU 与其他指标(池/5xx)是否同时异常
+      - tool: list_alerts
+        args:
+          state: firing
+        why: 应见 SimsCpuSpike
+      - tool: query_metrics
+        args:
+          promql: 'max_over_time(process_cpu_percent{job="ykt"}[5m])'
+        why: 取窗口内 CPU 峰值(注入峰值约 1600%~1700%)
+      - tool: query_logs
+        args:
+          service: ykt
+          minutes: 10
+          tail: 300
+        why: 看请求构成(是否报表/重计算端点被打)
+      - tool: query_changes
+        args:
+          service: ykt
+          minutes: 60
+        why: 区分 cpu_spike 注入演练与真实流量
+    root_cause_hints:
+      - '"query_changes 若见 fault_active[type=cpu_spike] 窗口 → 注入演练(business busy-loop),非真实"'
+      - '"若无注入窗口且 /api/reports 类端点被打 → 计算型请求风暴,考虑限流/缓存"'
+      - '"CPU 高但 5xx 不涨 → 服务仍在正常吞吐;CPU 高且延迟 P95 抬升 → 事件循环被挤压"'
+    mitigation: '建议命令(需人工执行): 1) 定位热点线程后重启进程: docker restart nova-sims-ykt-1; 2) 根治——为重计算端点加并发上限/异步队列; 本工具不会替你执行。'
+
+  service_down:
+    title: 服务不可达处置(up==0)
+    applies_to: [ykt, jiaowu]
+    signals:
+      - expr: 'up{job="ykt"} == 0'
+        desc: Prometheus 抓取失败(SimsServiceDown 对应)
+    steps:
+      - tool: get_service_status
+        args:
+          service: ykt
+        why: 确认 up=0 与最后已知 uptime
+      - tool: list_alerts
+        args:
+          state: firing
+        why: 应见 SimsServiceDown
+      - tool: query_logs
+        args:
+          service: ykt
+          minutes: 30
+          tail: 300
+        why: 容器退出前的最后日志(崩溃原因常在末尾)
+      - tool: query_changes
+        args:
+          service: ykt
+          minutes: 60
+        why: 看是否有重启记录(重启循环)或注入窗口
+      - tool: query_metrics
+        args:
+          promql: 'time() - process_start_time_seconds{job="ykt"}'
+        why: 进程已运行秒数——刚重启过则 uptime 很小
+    root_cause_hints:
+      - '"up==0 且 logs 为空 → 容器未启动或刚被停止,查 docker ps(人工)"'
+      - '"up==0 且 logs 末尾有 traceback → 进程崩溃,按栈修复后人工重启"'
+      - '"抓取失败但容器健康 → 检查 prometheus.yml 抓取目标与容器网络(compose 内网)"'
+    mitigation: '建议命令(需人工执行): 1) docker ps -a | grep nova-sims 看容器状态; 2) docker compose -f docker-compose.sims.yml up -d ykt 重建服务; 本工具不会替你执行。'
