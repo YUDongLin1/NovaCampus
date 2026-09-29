@@ -88,6 +88,7 @@
 | 8 | kb_doctor danger=0 warn=2 | `docs/p4/evidence/kb_doctor_clean.json` | `summary.danger`(warn=2 均为 EVAL 种子短正文,预期内) |
 | 9 | 变体矩阵 3/8 | `docs/p4/evidence/query_variant_matrix_after_p4a.txt` | `[SUM]` 行 |
 | 10 | 评测集 v1.7=36 条 | `evals/cases.json` | `version`/`cases[].type` 计数 |
+| 11 | **C2 机制实弹验证:5 轮评测剥离 12 次真实越界引用** | `evals/badcases.json` | `fabricated_ref.history[]`:qa-01 同题 `[3]`(sources=1)×6、请假超7天 `[3]`(sources=2)×5、本科生离校请假 `[7,8,9]`(sources=5)×1——即 §2.3「句末仍带 [n]」现象在 v1.6 时代每轮都在发生,无人查证;剥离后关键词断言仍全 PASS,服务端 WARNING 日志同步留痕 |
 
 ## 四、已知限制与说明(如实)
 
