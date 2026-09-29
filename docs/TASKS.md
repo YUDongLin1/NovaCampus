@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（P3a 已 Review 通过并合并 master;Docker Desktop 未常驻,实时复跑并入 P3b 第一步）
+> **当前持棒：Zcode**（P3b AIOps MCP Server 已下发 2026-09-29;第 0 步实时复跑为强制前置;Qoder 预检 daemon/sims/targets 均可用）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -446,9 +446,95 @@
   3. `app_db_pool_wait_seconds` 含注入器自身获取等待,注入起始短暂高 P95 属真实数据（P3A.md §六.3）;构建期修复过两缺陷(CMD SERVICE 空/PoolTimeout 逃逸为 500),纪要在 §六.1
   4. **P3b 未开**（遵守"别自行开 P3b"）;服务栈保持运行(:9090/:3000/:9101/:9102)供 Review,NovaAgent/WeKnora 未受影响
 
-### P3b AIOps MCP Server（mcp/aiops）　📋 READY（待下发）
-- **前置第 0 步（必做）**：确认 Docker Desktop 在跑 → `docker compose -f docker-compose.sims.yml up -d` → 实测 `:9090/api/v1/targets` 双 up、`:9102/metrics` 可抓，**顺带补 P3a 的实时复跑**（含 `fault_inject.py` 抓 CPU 峰值的小改动）。环境输出与 P3a 证据不符时**硬停上报**，不得沿用旧截图下结论。
-- 仿 `mcp/weekly`：Python MCP，工具 `query_metrics(promql)`/`query_logs(service,keyword)`/`query_changes()`/`get_service_status()`/`list_alerts()`/`run_playbook(name)`，读 Prometheus HTTP API + docker logs。禁改 novaagent。
+### P3b AIOps MCP Server（`mcp/aiops`）　🔧 IN_PROGRESS（2026-09-29 Qoder 下发）
+
+- **目标**：把 P3a 监控栈包成 Agent 能调用的**只读取证工具集**（收告警→查指标→捞日志→查变更→跑预案），并让"注入现场"能被 MCP 客户端以**文本证据**复现。做完什么样：`mcp/aiops` 起来后 `tests/smoke_test.py` 双传输全过；在 ykt 池耗尽注入期间，`list_alerts` 返回 `firing` 告警、`query_metrics` 返回 100% 池利用率、`query_logs` 捞到真实 503 行、`run_playbook` 输出带出处的根因候选。它是 P3c 诊断链的工具底座，**简历第二亮点的"手"**。
+
+#### 第 0 步（强制：先验环境，再写代码）
+
+1. `docker ps` 确认 daemon 活着。报 `dockerDesktopLinuxEngine` 找不到 → **停手上报**，不得在 daemon 挂的情况下"验证"任何东西，更不得沿用 P3a 旧截图下结论。
+2. `docker compose -f docker-compose.sims.yml up -d` → 实测 `:9090/api/v1/targets` 双 `up`、`:9102/metrics` 可抓。
+3. **实时复跑 `pool_exhaust 60s` + `cpu_spike 30s`**（补 P3a 因 daemon 停机欠的实时验证），CLI 留痕 + promql 逐项落盘到 `docs/p3b/evidence/step0_*`，数字必须来自本次运行。
+4. **实测部署形态约束**：`docker exec NovaCampus-weekly-mcp sh -c "which docker"` → Qoder 2026-09-29 实测结果 `NO_DOCKER_CLI`（容器内无 docker CLI）。把你对 aiops 容器内能否取 `docker logs` 的实测结论写进回执（见「环境决策」）。
+5. 环境输出与下面「预检基线」量级不符 → **硬停上报**，不要自行解释过去。
+
+**Qoder 预检基线（2026-09-29 宿主机直跑，仅供你比对量级，不得当作你的证据）**
+- ykt `pool_exhaust 40s`：CLI `[poll]` 连续 `pool_in_use=10 waiting=0`、`t+40s active=False pool_in_use=0`（到期自动恢复）；同窗 promql `app_db_pool_in_use{job="ykt"}=10`、`rate(http_requests_total{job="ykt",status=~"5.."}[30s])` 出现 `status="503"` 分支 **0.0579/s**、`app_db_pool_waiting=1`。
+- ykt `cpu_spike 25s`：注入中 `process_cpu_percent{job="ykt"}=1638.3`，`max_over_time(process_cpu_percent{job="ykt"}[40s])=1657`，恢复后 **0.5**。
+- **已实测确认**：现有 CLI `[poll]` 行只有 `active/pool_in_use/waiting`，**确无 CPU 字段**（P3a 修正 2 的根因）→ 见 C2。
+- **已实测确认**：`/api/v1/rules`、`/api/v1/alerts` 当前均为**空**（无任何告警规则）→ `list_alerts` 若无 C1 就没有真实数据源，见 C1。
+- **已实测确认**：`fault_active{type}` 注入后**留存为 0**（不是消失），`http_requests_total{path="/debug/fault/{mode}"}` 计数器随注入次数累加 → 二者可作 `query_changes` 的成立出处；注意容器重启后到首次注入前 `fault_active` 序列不存在，须在文档写明该限制。
+
+- **允许改（白名单）**
+  - `mcp/aiops/**`（新建：`server.py`、`playbooks.yml`、`requirements.txt`、`Dockerfile`(可选)、`README.md`、`tests/**`）
+  - `docker-compose.aiops.yml`（新，仓库根；若选容器形态）
+  - `sims/fault_inject.py`（**仅限 C2 的 CPU 取证改造**，不改注入触发/恢复逻辑）
+  - `sims/prometheus/**`（新增 `alerts.yml`；`prometheus.yml` 仅追加 `rule_files`）
+  - `docker-compose.sims.yml`（仅新增 `alerts.yml` 挂载一行）
+  - `.gitignore`（**仅允许**新增 `!docs/p3b/evidence/*.log` 例外行）
+  - `docs/P3B.md`、`docs/p3b/evidence/**`
+- **禁改（黑名单）**：`novaagent/**`（P3b 与它无关，接入是 P3c）、`corpus/**`、`evals/**`、`reports/**`、`web/**`、`weknora/**`、`mcp/weekly/**`、`sims/common.py`、`sims/jiaowu/**`、`sims/ykt/**`、`sims/Dockerfile`、`sims/requirements.txt`、`sims/grafana/**`
+  > 指标层已具备 `process_cpu_percent` / `fault_active` / `app_db_pool_*`，**无需改服务代码**；Grafana 告警面板留 P3c/P3d。越界即打回。
+
+- **工具契约**（全部**只读**；返回统一 `_ok(**kw)` / `_err(msg)` JSON 字符串；docstring 用中文写清"何时调用、入参含义、返回字段"——P3c 的 ReAct 靠 docstring 选工具，这段质量直接决定演示效果）
+
+| 工具 | 入参 | 数据源（必须可追出处） | 要点 |
+|------|------|------------------------|------|
+| `get_service_status` | `service?`（缺省全部） | `/api/v1/query`：`up`、`app_db_pool_size/in_use/waiting`、`process_cpu_percent`、`process_start_time_seconds` | 一眼看全局；每服务返回 `pool_utilization_pct`、`uptime_seconds` |
+| `list_alerts` | `state?`=all/firing/pending | Prometheus `/api/v1/alerts` + `/api/v1/rules` | **依赖 C1**；规则为空时如实返回"无告警规则"并提示，**禁止编造告警** |
+| `query_metrics` | `promql`、`start?`/`end?`/`step_s?`(默认 15s)、`window_s?`(默认 300) | `/api/v1/query` 与 `/api/v1/query_range` | **只读防护**：只允许打 `/api/v1/query*`，拒绝 admin/写类路径与多语句；超时 10s、series 与点数上限(各约 200)并在返回里显式声明截断；时间输出 `YYYY-MM-DD HH:MM:SS+0800`、数值 4 位有效，保证 LLM 友好 |
+| `query_logs` | `service`、`keyword?`、`minutes?`(默认 10)、`tail?`(默认 200) | `docker logs --since --tail`（只读取容器 stdout/stderr） | 返回命中行 + 状态码分布统计（如 503 计数）；取不到日志时按「环境决策」如实报错，不得返回空列表冒充"无异常" |
+| `query_changes` | `service?`、`minutes?`(默认 60) | `changes/process_start_time_seconds`(重启) + `max_over_time(fault_active[window])`(注入/演练窗口) + `increase(http_requests_total{path="/debug/fault/{mode}"}[window])`(触发次数) | 每条变更**必须带出处字段**；无来源的推断不得出现在返回里 |
+| `run_playbook` | `name`、`service?`、`dry_run?`(默认 false) | `mcp/aiops/playbooks.yml`（步骤=**只读取证序列**） | **红线：不得执行 restart / rm / exec / 任何写操作**。需要恢复动作时只输出"建议命令 + 需人工执行"标注；`dry_run=true` 仅返回步骤清单 |
+| `gather_diagnosis`（建议增设，P3c 落点） | `service`、`minutes?` | 串起 status→alerts→metrics→logs→changes | 一次返回结构化诊断素材，**每条结论可回溯到"哪个工具的哪个字段"**；优先保证它字段完整 |
+
+- **预案内容**：至少 3 条，与 `corpus/clean/ops/` 已入库的《模拟系统运维手册》骨架对齐（T1 建的）：`pool_exhaust`（连接池耗尽）、`cpu_spike`（CPU 飙高）、`service_down`（服务不可达）。每条含 `signals`(promql) / `steps`(取证顺序) / `root_cause_hints` / `mitigation`(仅文字建议)。
+
+- **完成标准（逐条可验收）**
+  - [ ] **C0** 第 0 步实时复跑留痕齐全（建议 `step0_targets.json`、`step0_pool_exhaust.log`、`step0_pool_exhaust_promql.txt`、`step0_cpu_spike.log`、`step0_cpu_spike_promql.txt`），数字来自本次运行；回执逐条写"数字→文件→字段"
+  - [ ] **C1** `sims/prometheus/alerts.yml` ≥5 条规则（池利用率=100%、5xx 速率>0、池等待 P95>2s、`process_cpu_percent`>800%、`up==0`），`for:` ≤30s 适配演示；`/api/v1/rules` 非空，注入现场 `/api/v1/alerts` 出现 `firing`（落盘留痕）
+  - [ ] **C2** `sims/fault_inject.py` 轮询行同时打印 `cpu=NNN.N%`：从 `{base}/metrics` 纯文本解析 `process_cpu_percent`（**纯标准库**，该指标无 label），结束时打印 `cpu_peak=`；解析失败降级 `cpu=NA` 且**不得改变退出码**；两次注入日志里都能看到 CPU 数值（让 CPU 注入自留文本证据）
+  - [ ] **C3** 6(+1) 工具在 `/sse` 与 `/mcp` 双传输下均可见可调用，`tests/smoke_test.py` 输出 `SMOKE TEST PASSED`（仿 `mcp/weekly/tests/smoke_test.py` 写法）
+  - [ ] **C4** `query_metrics` 只读防护有测试覆盖：非法/写类 promql 被拒、超 window/超点数被截断并声明、错误路径返回 `ok=false`
+  - [ ] **C5** 端到端现场演示 `tests/aiops_demo.py`：触发 ykt `pool_exhaust 45s` → 轮询 `list_alerts(firing)` → `query_metrics` 取池利用率/5xx 速率 → `query_logs` 捞 503 → `query_changes` 认到注入事件 → `run_playbook pool_exhaust` → 打印"根因候选 + 证据链"，跑通并落盘 `evidence/demo_pool_exhaust.txt`
+  - [ ] **C6 证据入库对账**（P3a 教训 17，必做）：文档引用的每个 evidence 文件都出现在 `git diff --name-status master...HEAD` 里；`git check-ignore -v docs/p3b/evidence/*.log` 必须返回"未被忽略"（`.gitignore` 有全局 `*.log`，需加例外并入库）
+  - [ ] **C7** `docs/P3B.md`：架构图 / 工具契约表 / **每个关键数字的出处（文件→字段）** / 部署形态决策依据（C0.4 实测）/ P3c 接入点（URL、传输、角色可见性）/ `fault_active` 重启后序列缺失等已知限制
+  - [ ] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（基线 26 用例 / R@k 0.8846 / 忠实度 0.9615 / 拒答 1.0）+ `novaagent/tests/smoke_test.py`；起不来（注：2026-09-29 Qoder 自检时 `:8900/api/health` 不可达，NovaAgent 未运行）则在回执写明原因，由 Qoder Review 时复跑
+
+- **验收命令**
+```bash
+cd /e/AILearn/NovaCampus
+export NO_PROXY="127.0.0.1,localhost"          # 坑 8：系统代理会 502 掉 localhost
+
+# C0 环境 + 实时复跑
+docker ps
+curl -s "http://127.0.0.1:9090/api/v1/targets" | grep -o '"health":"[a-z]*"' | sort | uniq -c
+/d/anaconda3/python.exe sims/fault_inject.py --target ykt --mode pool_exhaust --duration 60 | tee docs/p3b/evidence/step0_pool_exhaust.log
+/d/anaconda3/python.exe sims/fault_inject.py --target ykt --mode cpu_spike   --duration 30 | tee docs/p3b/evidence/step0_cpu_spike.log
+
+# C1 告警规则
+curl -s "http://127.0.0.1:9090/api/v1/rules"  | head -c 400
+curl -s "http://127.0.0.1:9090/api/v1/alerts" | head -c 400
+
+# C2/C3/C5 aiops MCP（宿主机 venv 形态）
+cd mcp/aiops && uv venv .venv && uv pip install "mcp==2.2.0"
+PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe server.py   # 期望 :18081
+NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe tests/smoke_test.py http://127.0.0.1:18081
+NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe tests/aiops_demo.py
+
+# C6 对账（在仓库根）
+git diff --name-status master...HEAD
+git check-ignore -v docs/p3b/evidence/step0_pool_exhaust.log
+
+# C8 边界
+git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|mcp/weekly|sims/common.py|sims/ykt|sims/jiaowu|sims/grafana" && echo "[FAIL] 越界" || echo "[PASS] 未越界"
+/d/anaconda3/python.exe -m py_compile sims/fault_inject.py mcp/aiops/server.py
+```
+
+- **环境决策（须在回执给出结论）**：aiops 跑**宿主机 venv** 还是**容器**。weekly 的既例是容器 `NovaCampus-weekly-mcp` + 宿主 18080。aiops 的 `query_logs` 依赖 docker CLI/socket，而 **2026-09-29 实测 weekly 容器内 `NO_DOCKER_CLI`**。默认取向：**宿主机 venv 运行，暴露 `http://127.0.0.1:18081/{sse,mcp}`**（P3c NovaAgent 将以 `AIOPS_MCP_URL` 连接，对齐现有 `WEEKLY_MCP_URL=http://127.0.0.1:18080/mcp`）；容器形态可作可选项，若做则须实测说明如何取日志（挂 socket + 装 CLI）并在 P3B.md 记取舍。**不得为凑容器形态去改 `mcp/weekly/**`。**
+- **上下文 / 必读**：`docs/P3A.md`（§二指标清单、§三注入原理、§四镜像与环境注记）、`mcp/weekly/`（仿写对象：`MCPServer(...)` + `@mcp.tool()`、`__main__` 双传输挂载与 lifespan、`tests/smoke_test.py` 结构、README 排错段）、`sims/common.py`（指标 / `SimPool` / `FaultManager`，只读）、`HANDOFF.md` 第六节坑 4/5/8/17/18/19。
+- **依赖**：Docker Desktop 在跑（2026-09-29 Qoder 自检：daemon 29.8.0、sims 四容器 Up、targets 双 up）；`mcp==2.2.0`（与 weekly 同版本）；sims 栈已 `up -d`；`NO_PROXY`；`uv` 在 PATH（`/c/Users/<user>/.local/bin/uv`）。
+- **纪律**：每完成一个可验证单元就 commit（`P3b: …`）；完成或阻塞即回填「交接回执」并置状态 `IN_REVIEW`、`当前持棒=Qoder`；**不要自行开 P3c、不要合并 master、不要动 WorkBuddy 工作树**。
 
 ### P3c NovaAgent 接入 AIOps + 诊断链　📋 READY（待 P3b）
 - 仿 `weekly_client`：admin 角色注册 AIOps MCP；ReAct 循环「告警→取证(查指标/日志/变更)→根因→中文诊断报告」。仅 admin 可见。
