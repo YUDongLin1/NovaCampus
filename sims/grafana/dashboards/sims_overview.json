@@ -1,0 +1,215 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prom-sims" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" },
+          "unit": "percent",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "process_cpu_percent{job=~\"ykt|jiaowu\"}",
+          "legendFormat": "{{job}} CPU%",
+          "refId": "A"
+        }
+      ],
+      "title": "进程 CPU 使用率(psutil)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prom-sims" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.8 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "id": 2,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "app_db_pool_in_use{job=~\"ykt|jiaowu\"} / app_db_pool_size{job=~\"ykt|jiaowu\"}",
+          "legendFormat": "{{job}} 池利用率",
+          "refId": "A"
+        }
+      ],
+      "title": "连接池利用率(in_use / size)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prom-sims" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" },
+          "unit": "reqps",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "id": 3,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "sum by(job)(rate(http_requests_total{job=~\"ykt|jiaowu\",status=~\"5..\"}[30s]))",
+          "legendFormat": "{{job}} 5xx/s",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "sum by(job)(rate(http_requests_total{job=~\"ykt|jiaowu\"}[30s]))",
+          "legendFormat": "{{job}} 全部/s",
+          "refId": "B"
+        }
+      ],
+      "title": "HTTP 错误率(5xx/s)与总请求速率",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prom-sims" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "id": 4,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "histogram_quantile(0.95, sum by(job, le)(rate(http_request_duration_seconds_bucket{job=~\"ykt|jiaowu\"}[30s])))",
+          "legendFormat": "{{job}} P95",
+          "refId": "A"
+        }
+      ],
+      "title": "请求延迟 P95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prom-sims" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" },
+          "unit": "s",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "id": 5,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "sum by(job)(rate(app_db_pool_wait_seconds_sum{job=~\"ykt|jiaowu\"}[30s]))",
+          "legendFormat": "{{job}} 等待时间速率",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "histogram_quantile(0.95, sum by(job, le)(rate(app_db_pool_wait_seconds_bucket{job=~\"ykt|jiaowu\"}[30s])))",
+          "legendFormat": "{{job}} 获取连接等待 P95",
+          "refId": "B"
+        }
+      ],
+      "title": "连接池等待(pool_wait_seconds)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prom-sims" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "id": 6,
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "app_db_pool_waiting{job=~\"ykt|jiaowu\"}",
+          "legendFormat": "{{job}} 排队数",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prom-sims" },
+          "expr": "fault_active{job=~\"ykt|jiaowu\"}",
+          "legendFormat": "{{job}} 故障注入({{type}})",
+          "refId": "B"
+        }
+      ],
+      "title": "连接池排队深度 / 故障注入窗口",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["sims", "p3a"],
+  "templating": { "list": [] },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "SIMS 校园模拟系统总览(P3a)",
+  "uid": "sims-overview",
+  "version": 1,
+  "weekStart": ""
+}

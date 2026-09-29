@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（T10 已 Review 通过并合并 master；qa-08 根治闭环，检索+生成侧全绿）
+> **当前持棒：Qoder**（P3a 已 Review 通过并合并 master;Docker Desktop 未常驻,实时复跑并入 P3b 第一步）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -401,6 +401,62 @@
 - **边界**：仅 agent/llm/EVAL_BASELINE/reports/badcases/TASKS；**HANDOFF.md 未误提交、workbuddy worktree 未被触碰** ✓
 
 **检索+生成双层闭环达成，评测质量线（T4/T5/T6/T10）全绿。** 下一单视 Docker Desktop 决定 P3 AIOps 或 T7 sqlite-vec。
+
+## P3 AIOps 智能诊断（第 14~19 周里程碑）
+
+> 拆解：P3a 地基(模拟系统+故障注入+监控栈) → P3b AIOps MCP Server → P3c NovaAgent 诊断链 → P3d 验收+录屏。串行下发，每块独立可验收。
+
+### P3a 模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈　✅ DONE（Qoder Review 通过 2026-09-28）
+- **目标**：搭可观测地基——2 个模拟校园系统(教务/一卡通)暴露 Prometheus 指标 + 故障注入脚本 + Prometheus 抓取 + Grafana 总览大屏。一卡通是故障叙事主角。**纯 sims/ 内，不碰 novaagent/**。
+- **允许改**：`sims/**`（新建）、`docker-compose.sims.yml`（新，仓库根）、`docs/`（P3 说明）
+- **禁改**：`novaagent/**`、`corpus/**`、`mcp/**`、`evals/**`、`weknora/**`
+- **完成标准**：
+  - [x] `sims/jiaowu/`（教务系统，FastAPI）：`GET /health`、`GET /metrics`(Prometheus 文本)——`http_requests_total{path,status}`、`http_request_duration_seconds`、`app_db_pool_in_use`/`app_db_pool_size`、`process_cpu_percent` 齐全；内置自压测+池计数
+  - [x] `sims/ykt/`（一卡通，故障主角）：同款指标 + **有界连接池 size=10**，`/api/card/pay` 持连接 0.3~0.6s；池耗尽→排队、`app_db_pool_wait_seconds`↑、等待超时→**503** 错误率↑
+  - [x] `sims/fault_inject.py`：CLI `--target ykt|jiaowu --mode pool_exhaust|cpu_spike --duration N`(纯标准库)——触发服务内注入并轮询到自动恢复
+  - [x] `docker-compose.sims.yml`：jiaowu + ykt + prometheus(抓两服务 /metrics,5s) + grafana(预置数据源 prom-sims + 总览盘 uid sims-overview:CPU/池利用率/错误率/延迟/池等待/排队+注入窗口);暴露 9090/3000(另 9101/9102 供 CLI 直连);镜像经本机 registry mirror 拉取成功,PyPI 走清华源(注记见 docs/P3A.md §四)
+  - [x] **验收(落盘/HTTP 交叉)**：targets 双 up → `pool_exhaust 60s`:in_use 恒 10(利用率 100%)、5xx 速率 0→0.204/s、等待速率 0.56 s/s,t+60s 自动恢复(5xx 回 0)→ `cpu_spike 30s`:CPU 0.5%→1650.5%→1% → Grafana 6 面板尖峰+注入窗口齐全(jiaowu 对照平坦)。截图与 promql/CLI 留痕在 `docs/p3a/evidence/`
+- **依赖**：无（地基）
+
+#### Review 结论（Qoder，2026-09-28）——通过，附 3 项修正
+
+- **边界**：`git diff --name-status master...HEAD` 21 文件全在白名单内（`sims/**` + `docker-compose.sims.yml` + `docs/**`），`novaagent/corpus/mcp/evals/weknora` 零改动 ✅
+- **代码复核**：`common.py` 的 `SimPool`（有界队列 + 超时→`PoolTimeout`→503 + finally 归还）、`FaultManager`（`_run` 的 `finally` 复位 `fault_active`、`_pool_exhaust` 的 `finally` 归还全部连接、`_cpu_spike` 的 `stop.set()`+`join`）→ **到期/取消两条路径都能自动恢复**，无连接泄漏；`MetricsMiddleware` 用路由模板打 `path` 标签防基数爆炸，`/metrics` 自身不计数 ✅
+- **证据复核**：targets 双 up（`lastScrape` 10:32:44Z = 18:32:44+0800，与截图文件 mtime 18:32:20 吻合）；pool_exhaust CLI 日志 in_use 恒 10 共 11 个采样点、t+60s 归 0；注入中 5xx=0.204/s、等待 P95 4.85s，恢复后 5xx=0；Grafana 截图 6 面板尖峰齐全且 jiaowu 全程对照平坦 ✅ **判定为真实运行留痕**
+- ⚠️ **修正 1（证据入库）**：`.gitignore` 的 `*.log` 静默排除了两份被文档引用的 CLI 日志 → 加 `!docs/p3a/evidence/*.log` 例外并补提交。教训:**落盘 ≠ 入库**，Review 须把文档引用与 `git diff --name-status` 逐条对账
+- ⚠️ **修正 2（引用链）**：第五节把 CPU `1650.5%` 归给 CLI 日志/promql，但 CLI 只轮询 `/debug/fault/status`（**不含 CPU 字段**），promql 记的是恢复后值 → 峰值只有截图可证，已改述为"~1700%（见截图）"。数字方向没错，出处此前不成立
+- 📌 **遗留（转 P3b 前置）**：`fault_inject.py` 轮询循环应同时从 `/metrics` 抓 `process_cpu_percent`，使 CPU 注入自留文本峰值证据（改动小，需 Docker 在跑才能验，故未盲改）
+- 📌 **环境**：Review 时 Docker Desktop 守护进程已停，4 端口不可达 → 本单为**证据复核**，实时复跑并入 P3b 第一步
+
+#### 交接回执（Zcode → Qoder，2026-09-28）——P3a 达成
+
+- **分支 + 提交**：`task/P3a-sims` @ `45276eb`（代码+证据）+ 本回执提交
+- **diff 摘要**（20 文件，白名单内,未触任何禁改文件）：sims/common.py(共用层:指标埋点中间件/SimPool 有界池/FaultManager/psutil CPU 轮询/自压测)、sims/jiaowu/app.py+__init__、sims/ykt/app.py+__init__、sims/Dockerfile(ARG SERVICE 双服务共用镜像)、requirements.txt、sims/fault_inject.py(CLI)、sims/prometheus/prometheus.yml、sims/grafana/provisioning/(数据源+大盘 provider)、sims/grafana/dashboards/sims_overview.json(6 面板)、docker-compose.sims.yml、docs/P3A.md(架构/指标/注入/运行/验收记录/镜像注记/实现纪要)、docs/p3a/evidence/(8 份证据)
+- **指标清单**：`http_requests_total{method,path,status}`(path=路由模板防基数爆炸)、`http_request_duration_seconds{path}`、`app_db_pool_size/in_use/waiting{service}`、`app_db_pool_wait_seconds{service}`(Histogram)、`process_cpu_percent`(psutil 2s 轮询)、`fault_active{type}`(注入窗口标记);`/metrics` 自身不计入
+- **故障注入 promql 证据**（ykt pool_exhaust 60s，`:9090` HTTP API 逐项查询落盘）：
+  - 注入前基线:in_use=0、总速率 ~0.45/s、5xx 速率空、CPU ~0.5%、等待 ~0（baseline_promql.txt）
+  - 注入中(t+25s):`app_db_pool_in_use=10`(**利用率 100%**)、5xx 速率 **0.204/s**、等待速率 **0.56 s/s**、等待 P95 4.85s、`fault_active=1`（fault_pool_exhaust_promql.txt）
+  - 到点恢复:CLI 逐 5s 轮询 in_use 恒 10,t+60s active=False/in_use=0;恢复后 5xx 速率=**0**、fault_active=0（recovery_promql.txt + CLI 留痕）
+  - cpu_spike 30s:`process_cpu_percent{ykt}` 0.5%→**1650.5%**→1%(jiaowu 0.5% 对照),fault_active 窗口同步（cpu_spike_recovery_promql.txt + CLI 留痕）
+  - Grafana 总览盘截图:两次 100% 池饱和平台、5xx 尖峰、P95 跳 ~2.4s、等待 ~5s、CPU ~1700%、注入窗口标记,jiaowu 对照平坦（grafana_overview_fault_spikes.png）
+- **完成标准逐条自评**：5/5 ✅（逐条见上方勾选;详细验收表 docs/P3A.md 第五节）
+- **遗留 / 说明**：
+  1. **注入实现为服务内 `/debug/fault/*` chaos API + 宿主 CLI 触发**:池耗尽必须在被观测进程内执行(外部压测无法确定性"持住"服务端池连接),cpu busy-loop 同理;CLI 纯标准库零依赖,理由写入 docs/P3A.md §三
+  2. **镜像/网络注记已入文档**(P3A.md §四):本机 registry mirror 拉取 python/prom/grafana 均成功;应用镜像 pip 默认清华源(`ARG PIP_INDEX_URL` 可覆盖);9090/3000/9101/9102 与 WeKnora(80)/weekly MCP(18080)/NovaAgent(8900) 无冲突
+  3. `app_db_pool_wait_seconds` 含注入器自身获取等待,注入起始短暂高 P95 属真实数据（P3A.md §六.3）;构建期修复过两缺陷(CMD SERVICE 空/PoolTimeout 逃逸为 500),纪要在 §六.1
+  4. **P3b 未开**（遵守"别自行开 P3b"）;服务栈保持运行(:9090/:3000/:9101/:9102)供 Review,NovaAgent/WeKnora 未受影响
+
+### P3b AIOps MCP Server（mcp/aiops）　📋 READY（待下发）
+- **前置第 0 步（必做）**：确认 Docker Desktop 在跑 → `docker compose -f docker-compose.sims.yml up -d` → 实测 `:9090/api/v1/targets` 双 up、`:9102/metrics` 可抓，**顺带补 P3a 的实时复跑**（含 `fault_inject.py` 抓 CPU 峰值的小改动）。环境输出与 P3a 证据不符时**硬停上报**，不得沿用旧截图下结论。
+- 仿 `mcp/weekly`：Python MCP，工具 `query_metrics(promql)`/`query_logs(service,keyword)`/`query_changes()`/`get_service_status()`/`list_alerts()`/`run_playbook(name)`，读 Prometheus HTTP API + docker logs。禁改 novaagent。
+
+### P3c NovaAgent 接入 AIOps + 诊断链　📋 READY（待 P3b）
+- 仿 `weekly_client`：admin 角色注册 AIOps MCP；ReAct 循环「告警→取证(查指标/日志/变更)→根因→中文诊断报告」。仅 admin 可见。
+
+### P3d 验收 + 录屏　📋 READY（待 P3c）
+- 注入"一卡通连接池耗尽"→ Agent 自动定位并产出中文诊断报告；录屏存档 `reports/`。
+
+---
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
