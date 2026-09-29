@@ -1,0 +1,34 @@
+{
+  "generated_at": "2026-09-29 16:19:48",
+  "db": "E:\\AILearn\\NovaCampus\\novaagent\\data\\agent.db",
+  "documents": 65,
+  "chunks": 487,
+  "summary": {
+    "danger": 1,
+    "warn": 3
+  },
+  "danger": [
+    {
+      "kind": "fts_broken",
+      "doc_id": null,
+      "detail": "chunks_fts MATCH 恒 0(索引空),like 命中 441"
+    }
+  ],
+  "warn": [
+    {
+      "kind": "short_body",
+      "doc_id": 10,
+      "detail": "《EVAL-学生请假管理办法》正文仅 153 字"
+    },
+    {
+      "kind": "short_body",
+      "doc_id": 11,
+      "detail": "《EVAL-辅导员内部工作备忘》正文仅 138 字"
+    },
+    {
+      "kind": "idcard",
+      "doc_id": 115,
+      "detail": "《关于西南交通大学2016年度新生学平险保险的通知》疑似含身份证号"
+    }
+  ]
+}
