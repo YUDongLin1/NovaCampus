@@ -1,25 +1,39 @@
 # HANDOFF · NovaCampus 会话交接文档
 
-> 写于 2026-09-28,供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
+> 初版 2026-09-28(Zcode,T10 期);**2026-09-28 由 Qoder 更新到 P3a 合并后状态**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
+> **配合 `docs/NEXT_SESSION_PROMPT.md` 使用**:那份给"你是谁、先做什么"的开场指令,本文给事实与教训。
 > 你(Zcode/实现者)与 Qoder(负责人/Review)按 `docs/COLLAB.md` 协同:**单一事实源 TASKS.md、串行持棒、白名单禁改、Review 闸门**。
+
 
 ---
 
 ## 一、我们在做什么
 
-**NovaCampus(智枢 Agent)**——个人简历项目,目标 AI 产品方向。双轨:
+**NovaCampus(智枢 Agent)**——用户的简历项目(用户=某高校辅导员，个人项目)。三轨:
 - **NovaAgent**(自研,`novaagent/`):FastAPI + SQLite 的校园智能体,三角色 RBAC(学生/辅导员/管理员)、RAG 问答(混合检索+rerank+拒答阈值)、流式 SSE、会话持久化、周报助手(经 MCP 调用)。
 - **WeKnora**(腾讯开源,`weknora/`,git 忽略):评测基线,已部署但不开发。
+- **P3 AIOps**(`sims/` + `mcp/aiops/`,进行中):模拟校园系统 + 故障注入 + Prometheus/Grafana,让 Agent 能"收到告警→查指标→定位根因→出中文诊断报告"。**这是简历第二亮点。**
 
 **协作模式**:Qoder 下发任务规格到 `docs/TASKS.md` → Zcode 在 `task/T*` 分支实现 → 自测 → 回填交接回执 → IN_REVIEW 等 Qoder Review → 合并。**同一时刻只有持棒者能写工作区。**
+
+## ⚠ 硬约束(违反即事故,不可协商)
+
+1. **真实学工数据严禁入库/外发**:`E:\<internal-affairs-dir>\` 下的 Tier B 材料(一人一策帮扶台账、含真实姓名的申报书/发言稿/推荐表)**永不进 corpus、永不提交、永不上传**任何外部服务/知识库/网络。只允许已脱敏的 Tier A 政策文件入库。
+2. **`corpus/raw/affairs/`、`corpus/clean/affairs/` 已 gitignore**(第三方「萌哥说案例」):只本地导入 KB 撑 demo,**不得提交、不得公开发布**。
+3. **写权限**:TASKS.md 头部"当前持棒"不是你 → 只读不写。任务白名单外的文件(尤其 `novaagent/**`)一律不碰。
+4. **不要动** `C:/Users/<user>/WorkBuddy/Worktrees/NovaCampus/`(用户另开的 workbuddy 工作树)和别人的未合并分支。
+5. **操作用户真实学工账号**(CDP/浏览器登录爬取)有封号风险 → 动手前必须先给"温馨提示"并等用户确认。
+6. 演示口令固定 `admin123 / counselor123 / student123`;Grafana 是 `admin/simsadmin123`。**均为本地演示用,不得用于任何真实系统。**
 
 ## 二、必读文件(按序)
 
 1. `docs/COLLAB.md` —— 协同规约(持棒/白名单/Review 闸门)
-2. `docs/TASKS.md` —— 任务板(唯一事实源;含 T1-T10 全部条目与回执)
-3. `docs/EVAL_BASELINE.md` —— 评测基线演进(v1.0→v1.4)
+2. `docs/TASKS.md` —— 任务板(唯一事实源;含 T1-T10 + P3a 全部条目与回执、Review 结论)
+3. `docs/EVAL_BASELINE.md` —— 评测基线演进(v1.0→v1.4.1)
 4. `docs/BADCASES.md` —— bad case 档案机制
-5. `corpus/MANIFEST.md` —— 语料合规分层(Tier A/B;**严禁引入 E:\<internal-affairs-dir>\ 的 Tier B 真实数据**)
+5. `docs/P3A.md` —— **P3 地基**:模拟系统架构/指标清单/故障注入原理/验收证据(§七是 Review 修正记录)
+6. `corpus/MANIFEST.md` —— 语料合规分层(Tier A/B;**严禁引入 E:\<internal-affairs-dir>\ 的 Tier B 真实数据**)
+
 
 ## 三、运行状态(接手先验)
 
@@ -32,31 +46,43 @@
 | 演示账号 | admin / counselor / student,密码均 xxx123 |
 | DB | `novaagent/data/agent.db`(SQLite);WeKnora 库 `novaagent/data/` 无关 |
 | 模型 | 百炼 qwen-flash(内置默认)+ qwen3.7-plus(UI 配),key 在 `novaagent/.env` 与 `weknora/.env`(均 gitignore) |
+| **P3a 模拟栈** | `docker compose -f docker-compose.sims.yml up -d --build` → jiaowu :9101 / ykt :9102 / Prometheus :9090 / Grafana :3000(admin/simsadmin123,匿名 Viewer 也开) |
+| ⚠️ Docker Desktop | **不常驻!** 2026-09-28 Review 时守护进程已停(pipe 不存在、4 端口全不可达)。任何 sims/P3b 工作**第一步先 `docker ps` 确认 daemon 活着**,别在 daemon 挂的情况下"验证"任何东西 |
+| ⚠️ sims 依赖 | `prometheus_client`+`psutil` 只在 anaconda base 有、`fastapi`+`uvicorn` 只在 `novaagent/.venv` 有 → **宿主机直跑 sims 目前起不来**,须建 `sims/.venv` 装 `sims/requirements.txt`(未装,别静默改别人的 venv) |
+
 
 ## 四、任务台账(截至交接)
 
 | 任务 | 内容 | 状态 |
 |------|------|------|
-| T1 | 语料库 75 篇(政策 32+事务 20+运维 2)+脱敏+导入 | ✅ DONE 合并 |
-| T2 | bad case 档案机制(extract_badcases.py) | ✅ DONE 合并 |
-| T3 | 前端校园化(水墨主题/登录页/三角色 UI) | ✅ DONE 合并 |
-| T4 | 评测深化(Recall@k/忠实度 LLM-judge/26 用例) | ✅ DONE 合并 |
-| T5 | 评测闭环整包(检索调优/对比/看板) | ✅ DONE 合并 |
-| T6 | FTS5 检索层 + 措辞加固(any-of) | ✅ DONE 合并 |
-| T8+T9 | 流式 SSE + 会话持久化 | ✅ DONE 合并 |
-| **T10** | **检索相关性根治(qa-08 稳定性)** | **🟣 IN_REVIEW,部分达成——见下节** |
-| T7/T11+ | 技术债(FTS5 已做)/看板等 | 未下发 |
+| T1 | 语料库 75 篇(政策 32+事务 20+运维 2)+脱敏+导入 | ✅ DONE 合并 `ec1588e` |
+| T2 | bad case 档案机制(extract_badcases.py) | ✅ DONE 合并 `58615f9` |
+| T3 | 前端校园化(水墨主题/登录页/三角色 UI) | ✅ DONE 合并 `2f94a65` |
+| T4 | 评测深化(Recall@k/忠实度 LLM-judge/26 用例) | ✅ DONE 合并 `ba3f031` |
+| T5 | 评测闭环整包(检索调优/对比/看板) | ✅ DONE 合并 `a15281e` |
+| T6 | FTS5 检索层 + 措辞加固(any-of) | ✅ DONE 合并 `170ee8d` |
+| T8+T9 | 流式 SSE + 会话持久化 | ✅ DONE 合并 `4f2a6ce` |
+| T10 | 检索相关性根治(FTS blend+TOP_K7)+生成侧规则9+评测温度开关 | ✅ DONE 合并 `1328168` |
+| **P3a** | **模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈** | **✅ DONE 合并 `b8245c2`** |
+| **P3b** | **AIOps MCP Server(mcp/aiops)** | **📋 READY —— 下一单,待 Qoder 下发规格** |
+| P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
+| T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
 
-## 五、T10 当前状态(交接重点)
+## 五、当前状态与下一步(交接重点)
 
-**做了**:`rag.py` 落地杠杆 ③(RERANK_BLEND=0.6,rerank 分+RRF 秩 blend)+ ② (FINAL_TOP_K 7);杠杆 ① (MAX_PER_DOC=1) 实测有害已回退。检索诊断证明:"复学一周"块**确定性稳定 rank 2**(41号 rank 1 为真实相关度),检索层无波动。评测 6 轮:qa-08 逐轮 [T,T,F,T,F,T,T,F] 混合波动,中位 R@k 0.8846(↑)、忠实 0.9538、拒答 1.0、kb_hidden/refusal 全过。提交 `9f9bf94` + 回执 `59c45f9`,TASKS.md 状态 IN_REVIEW。
+**质量线已闭环**:评测 26 用例、R@k 0.8846、忠实度中位 0.9615(LLM-judge)、拒答 1.0、kb_hidden 3/3;qa-08 经 T10 后 7/7 稳定。看板 `evals/dashboard.html` 单页自包含。**P1/P2 全部完成。**
 
-**卡点**:qa-08("休学期满怎么申请复学"答案漏"期满前一周")残余是 **LLM temperature 0.3 采样**(检索已确定性最优,上下文必含该细节)。根治需改 `llm.py`(评测路径 temperature=0)或 `agent.py`(答案构成指引)——**两者在 T10 均为禁改**,已在回执"遗留"向 Qoder 报批。
+**P3 AIOps 是简历第二亮点**,拆为 P3a(地基,已完成)→ P3b(MCP Server)→ P3c(NovaAgent 诊断链)→ P3d(注入→自动定位+录屏)。
 
-**下一步(按序)**:
-1. 等 Qoder 对 T10 的 Review 裁决(通过合并 / 打回)。
-2. 若批准越界修 qa-08:改 `llm.py` 评测路径 temperature=0(1 行)或 agent.py 答案指引,重跑 3 轮验证后合并。
-3. 之后按 TASKS.md 技术债清单推进(T7 sqlite-vec / T8 已做 / T9 已做 / 看板聚合)。
+**P3a 交付**:`sims/`(common 共用层:MetricsMiddleware / SimPool 有界池 / FaultManager / psutil CPU 轮询 / 自压测)+ jiaowu/ykt 两服务 + `fault_inject.py` CLI + `docker-compose.sims.yml` + Grafana 总览盘(uid `sims-overview`,6 面板)。验收证据在 `docs/p3a/evidence/`(targets 双 up、池耗尽 in_use 恒 10→5xx 0.204/s→自动恢复、CPU ~1700%、Grafana 截图)。
+
+**下一步 = 下发 P3b**,规格要点:
+1. **第 0 步(强制)**:`docker ps` 确认 daemon → `up -d` → 实时复跑一次 pool_exhaust,**补 P3a 欠的实时验证**(P3a 只做了证据复核)。
+2. 顺手补 P3a 遗留:`fault_inject.py` 轮询循环同时从 `/metrics` 抓 `process_cpu_percent`,让 CPU 注入自留文本峰值证据。
+3. 主体:仿 `mcp/weekly` 建 `mcp/aiops`,工具 `query_metrics(promql)`/`query_logs`/`query_changes`/`get_service_status`/`list_alerts`/`run_playbook`,读 Prometheus HTTP API(:9090)+ docker logs。**禁改 `novaagent/**`**。
+
+**用户侧待反馈**:用户用 WorkBuddy 跑了真实问题测评,反馈尚未给到;若反馈到达优先处理它。
+
 
 ## 六、踩坑清单(绝对不能再踩,全部真实发生过)
 
@@ -91,7 +117,15 @@
 15. **每完成一个可验证单元就 commit**;提交信息 `T<id>: 开头`;**提交前用语义通道核对**(暂存区文件列表、路径集合比对——别信带前导空格的渲染)。
 16. **qa-08 类边界用例会轮换波动**(LLM temperature 0.3):单轮 FAIL 先查 badcases history 与检索诊断(本地调 rag.search 打印来源排序),确认是检索问题还是采样问题——采样问题检索侧无解,别瞎调。
 
+### 证据与 Review 纪律(P3a Review 时新踩,2026-09-28)
+
+17. **落盘 ≠ 入库**:Zcode 的 `docs/p3a/evidence/` 有 8 份证据、文档逐条引用,但 `.gitignore` 的 `*.log` 让其中 2 份 CLI 日志**只在工作区、从未进 commit**——新克隆仓库会缺证据。铁律:凡文档引用的证据文件,必须 `git diff --name-status master...HEAD` 与引用清单**逐条对账**,并 `git check-ignore -v` 排查静默排除。已加 `!docs/p3a/evidence/*.log` 例外。
+18. **数字要有成立的出处**:验收表把 CPU `1650.5%` 归给 CLI 日志 + promql 文件,但 CLI 只轮询 `/debug/fault/status`(**响应里根本没有 CPU 字段**),promql 记的是**恢复后**值——峰值只有 Grafana 截图能证。结论方向没错,但引用链不成立。**Review 要顺着"claim → 该文件是否真含此字段"追一遍**,不能只看文件在不在。
+19. **daemon 挂了不能假装复跑**:P3a Review 时 Docker Desktop 已停、4 端口不可达 → 明确定性为**证据复核**,写进文档,并把实时复跑推给 P3b 第 0 步。**别用旧截图冒充本次实测**。
+20. **时间戳交叉是判真伪的利器**:`prometheus_targets.json` 的 `lastScrape` 10:32:44Z(+0800=18:32:44)与截图文件 mtime 18:32:20 吻合、与 CLI 日志采样窗口吻合 → 三方一致才判"真实运行留痕"。
+
 ## 七、快速验证命令(接手自检)
+
 
 ```bash
 cd /e/AILearn/NovaCampus
@@ -99,4 +133,12 @@ git branch --show-current && git log --oneline -3   # 分支与最近提交
 NO_PROXY="127.0.0.1,localhost" curl -s http://127.0.0.1:8900/api/health
 PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py
 python evals/extract_badcases.py
+
+# ---- P3 sims 栈(先确认 daemon 活着,再谈验证)----
+docker ps                        # 报 dockerDesktopLinuxEngine 找不到 = Desktop 没开,停手上报
+NO_PROXY="127.0.0.1,localhost" curl -s "http://127.0.0.1:9090/api/v1/targets" | grep -o '"health":"[a-z]*"'
+NO_PROXY="127.0.0.1,localhost" curl -s http://127.0.0.1:9102/metrics | grep -E 'app_db_pool_(size|in_use)|process_cpu'
+/d/anaconda3/python.exe sims/fault_inject.py --target ykt --mode pool_exhaust --duration 30
+# 语法自检(不需要依赖):/d/anaconda3/python.exe -m py_compile sims/common.py sims/*/app.py sims/fault_inject.py
 ```
+
