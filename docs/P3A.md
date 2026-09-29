@@ -69,7 +69,7 @@ curl http://127.0.0.1:9090/api/v1/targets                  # jiaowu/ykt 应均 u
 | 注入 `ykt pool_exhaust 60s` | CLI 逐 5s 轮询:in_use **恒 10**、waiting 0/1 交替,t+60s active=False、in_use=0 **自动恢复** | `fault_inject_ykt_pool_exhaust_60s.log` |
 | 注入中 promql(t+25s) | `app_db_pool_in_use=10`(利用率 **100%**)、5xx 速率 **0.204/s**、等待速率 **0.56 s/s**、等待 P95 4.85s、`fault_active=1` | `fault_pool_exhaust_promql.txt` |
 | 恢复后 promql | `fault_active=0`、in_use=0、**5xx 速率=0**、等待速率回落 ~0 | `recovery_promql.txt` |
-| 注入 `ykt cpu_spike 30s` | `process_cpu_percent{ykt}`=**1650.5%**(jiaowu 0.5% 对照),`fault_active=1`;t+30s 恢复至 1% | `fault_inject_ykt_cpu_spike_30s.log`、`cpu_spike_recovery_promql.txt` |
+| 注入 `ykt cpu_spike 30s` | CLI 留痕证明注入窗口:`active=True` 持续 t+3s~t+27s、**t+30s active=False 自动恢复**;CPU 峰值见 Grafana 截图 `process_cpu_percent{ykt}` 升至 **~1700%**(jiaowu 全程 ~0.5% 对照),恢复后回落 ~1% | `fault_inject_ykt_cpu_spike_30s.log`(窗口/恢复)、`grafana_overview_fault_spikes.png`(峰值)、`cpu_spike_recovery_promql.txt`(恢复后 jiaowu 0.5 / ykt 1) |
 | Grafana 总览盘 | 6 面板全部呈现尖峰:两次 100% 池饱和平台、5xx 尖峰、P95 跳至 ~2.4s、等待 ~5s、CPU ~1700%、注入窗口标记;jiaowu 对照平坦 | `grafana_overview_fault_spikes.png` |
 | 池饱和历史(query_range 12m) | `app_db_pool_in_use` 时间线两段 10 平台,前后为 0 | `cpu_spike_recovery_promql.txt` 尾部 |
 
@@ -80,3 +80,11 @@ curl http://127.0.0.1:9090/api/v1/targets                  # jiaowu/ykt 应均 u
 3. `app_db_pool_wait_seconds` 直方图含注入器自身的获取等待(exhaust 开始时占满 10 连接的过程),故注入起始有短暂高 P95,属真实等待数据,证据注记见第五节。
 4. 自压测/指标埋点挂在 FastAPI lifespan 上(ykt/jiaowu 同构);`/metrics` 不计入请求指标以免抓取流量污染。
 5. Grafana 面板 PromQL 与本文件第五节验收查询一致(错误率面板含 5xx 速率与总速率两序列;排队深度面板叠加 `fault_active` 注入窗口)。
+
+## 七、Review 修正与已知缺口(Qoder 2026-09-28)
+
+1. **证据入库缺口(已修)**:`.gitignore` 的 `*.log` 规则会静默排除 `docs/p3a/evidence/` 下两份 CLI 注入日志——本节表格引用它们,但新克隆仓库里没有。已加 `!docs/p3a/evidence/*.log` 例外并补提交。**教训:落盘 ≠ 入库,Review 必须 `git diff --name-status` 与文档引用逐条对账。**
+2. **CPU 峰值出处修正(已改)**:原第五节把 `1650.5%` 归给 CLI 日志与 promql 文件,但该 CLI 只轮询 `/debug/fault/status`(返回池状态与 `active`,**不含 CPU**),promql 文件记的是**恢复后**值。峰值实际只有 Grafana 截图可证,故改为"~1700%(见截图)"。数字方向无误,引用链此前不成立。
+3. **工具缺口(未修,留给 P3b 前)**:`sims/fault_inject.py` 无法自证 `cpu_spike` 效果——轮询循环应同时从 `/metrics` 抓 `process_cpu_percent` 打印,使 CPU 注入留下文本峰值证据。改动小但需 Docker 在跑才能验证,故未盲改。
+4. **本机 Docker Desktop 未常驻**:Review 时守护进程已停,4 端口(9090/3000/9101/9102)不可达,故本次为**证据复核**而非实时复跑;实时复跑并入 P3b 第一步(反正要查 Prometheus)。
+

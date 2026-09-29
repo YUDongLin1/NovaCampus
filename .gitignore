@@ -21,6 +21,8 @@ data/
 logs/
 *.log
 exports/
+# 例外:验收证据留痕必须入库(否则 docs/P3A.md 第五节引用的 CLI 注入日志会静默丢失)
+!docs/p3a/evidence/*.log
 
 # 语料脱敏前原始文件(只允许入库脱敏后的版本)
 raw_docs/

@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（P3a 模拟系统+故障注入+监控栈完成待 Review;验收全过、证据在 docs/p3a/evidence/）
+> **当前持棒：Qoder**（P3a 已 Review 通过并合并 master;Docker Desktop 未常驻,实时复跑并入 P3b 第一步）
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -406,7 +406,7 @@
 
 > 拆解：P3a 地基(模拟系统+故障注入+监控栈) → P3b AIOps MCP Server → P3c NovaAgent 诊断链 → P3d 验收+录屏。串行下发，每块独立可验收。
 
-### P3a 模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈　🟣 IN_REVIEW（持棒：Qoder）
+### P3a 模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈　✅ DONE（Qoder Review 通过 2026-09-28）
 - **目标**：搭可观测地基——2 个模拟校园系统(教务/一卡通)暴露 Prometheus 指标 + 故障注入脚本 + Prometheus 抓取 + Grafana 总览大屏。一卡通是故障叙事主角。**纯 sims/ 内，不碰 novaagent/**。
 - **允许改**：`sims/**`（新建）、`docker-compose.sims.yml`（新，仓库根）、`docs/`（P3 说明）
 - **禁改**：`novaagent/**`、`corpus/**`、`mcp/**`、`evals/**`、`weknora/**`
@@ -417,6 +417,16 @@
   - [x] `docker-compose.sims.yml`：jiaowu + ykt + prometheus(抓两服务 /metrics,5s) + grafana(预置数据源 prom-sims + 总览盘 uid sims-overview:CPU/池利用率/错误率/延迟/池等待/排队+注入窗口);暴露 9090/3000(另 9101/9102 供 CLI 直连);镜像经本机 registry mirror 拉取成功,PyPI 走清华源(注记见 docs/P3A.md §四)
   - [x] **验收(落盘/HTTP 交叉)**：targets 双 up → `pool_exhaust 60s`:in_use 恒 10(利用率 100%)、5xx 速率 0→0.204/s、等待速率 0.56 s/s,t+60s 自动恢复(5xx 回 0)→ `cpu_spike 30s`:CPU 0.5%→1650.5%→1% → Grafana 6 面板尖峰+注入窗口齐全(jiaowu 对照平坦)。截图与 promql/CLI 留痕在 `docs/p3a/evidence/`
 - **依赖**：无（地基）
+
+#### Review 结论（Qoder，2026-09-28）——通过，附 3 项修正
+
+- **边界**：`git diff --name-status master...HEAD` 21 文件全在白名单内（`sims/**` + `docker-compose.sims.yml` + `docs/**`），`novaagent/corpus/mcp/evals/weknora` 零改动 ✅
+- **代码复核**：`common.py` 的 `SimPool`（有界队列 + 超时→`PoolTimeout`→503 + finally 归还）、`FaultManager`（`_run` 的 `finally` 复位 `fault_active`、`_pool_exhaust` 的 `finally` 归还全部连接、`_cpu_spike` 的 `stop.set()`+`join`）→ **到期/取消两条路径都能自动恢复**，无连接泄漏；`MetricsMiddleware` 用路由模板打 `path` 标签防基数爆炸，`/metrics` 自身不计数 ✅
+- **证据复核**：targets 双 up（`lastScrape` 10:32:44Z = 18:32:44+0800，与截图文件 mtime 18:32:20 吻合）；pool_exhaust CLI 日志 in_use 恒 10 共 11 个采样点、t+60s 归 0；注入中 5xx=0.204/s、等待 P95 4.85s，恢复后 5xx=0；Grafana 截图 6 面板尖峰齐全且 jiaowu 全程对照平坦 ✅ **判定为真实运行留痕**
+- ⚠️ **修正 1（证据入库）**：`.gitignore` 的 `*.log` 静默排除了两份被文档引用的 CLI 日志 → 加 `!docs/p3a/evidence/*.log` 例外并补提交。教训:**落盘 ≠ 入库**，Review 须把文档引用与 `git diff --name-status` 逐条对账
+- ⚠️ **修正 2（引用链）**：第五节把 CPU `1650.5%` 归给 CLI 日志/promql，但 CLI 只轮询 `/debug/fault/status`（**不含 CPU 字段**），promql 记的是恢复后值 → 峰值只有截图可证，已改述为"~1700%（见截图）"。数字方向没错，出处此前不成立
+- 📌 **遗留（转 P3b 前置）**：`fault_inject.py` 轮询循环应同时从 `/metrics` 抓 `process_cpu_percent`，使 CPU 注入自留文本峰值证据（改动小，需 Docker 在跑才能验，故未盲改）
+- 📌 **环境**：Review 时 Docker Desktop 守护进程已停，4 端口不可达 → 本单为**证据复核**，实时复跑并入 P3b 第一步
 
 #### 交接回执（Zcode → Qoder，2026-09-28）——P3a 达成
 
@@ -436,7 +446,8 @@
   3. `app_db_pool_wait_seconds` 含注入器自身获取等待,注入起始短暂高 P95 属真实数据（P3A.md §六.3）;构建期修复过两缺陷(CMD SERVICE 空/PoolTimeout 逃逸为 500),纪要在 §六.1
   4. **P3b 未开**（遵守"别自行开 P3b"）;服务栈保持运行(:9090/:3000/:9101/:9102)供 Review,NovaAgent/WeKnora 未受影响
 
-### P3b AIOps MCP Server（mcp/aiops）　📋 READY（待 P3a）
+### P3b AIOps MCP Server（mcp/aiops）　📋 READY（待下发）
+- **前置第 0 步（必做）**：确认 Docker Desktop 在跑 → `docker compose -f docker-compose.sims.yml up -d` → 实测 `:9090/api/v1/targets` 双 up、`:9102/metrics` 可抓，**顺带补 P3a 的实时复跑**（含 `fault_inject.py` 抓 CPU 峰值的小改动）。环境输出与 P3a 证据不符时**硬停上报**，不得沿用旧截图下结论。
 - 仿 `mcp/weekly`：Python MCP，工具 `query_metrics(promql)`/`query_logs(service,keyword)`/`query_changes()`/`get_service_status()`/`list_alerts()`/`run_playbook(name)`，读 Prometheus HTTP API + docker logs。禁改 novaagent。
 
 ### P3c NovaAgent 接入 AIOps + 诊断链　📋 READY（待 P3b）
