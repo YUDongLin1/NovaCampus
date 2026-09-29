@@ -151,6 +151,7 @@ def run() -> int:
         results = []
         for case in cases:
             t0 = time.time()
+            conversation_id = None  # P4b C7: qa/refusal 用例各自自动新建独立会话
             try:
                 if case["type"] == "permission_api":
                     method = case["method"]
@@ -166,6 +167,7 @@ def run() -> int:
                     r.raise_for_status()
                     d = r.json()
                     answer, sources = d.get("answer", ""), d.get("sources", [])
+                    conversation_id = d.get("conversation_id")
                     if case["type"] == "qa":
                         ok, detail = judge_qa(case, answer, sources)
                     elif case["type"] == "refusal":
@@ -183,6 +185,7 @@ def run() -> int:
             results.append({**case, "pass": ok, "detail": detail,
                             "recall_at_k": recall,
                             "faithfulness": faith, "faithfulness_method": fmethod,
+                            "conversation_id": conversation_id,
                             "latency_ms": round((time.time() - t0) * 1000)})
             mark = "[PASS]" if ok else "[FAIL]"
             extra = f" | R@k={recall} 忠实度={faith}({fmethod})" if case["type"] == "qa" else ""
@@ -199,6 +202,33 @@ def run() -> int:
         for t, s in by_type.items():
             print(f"  {t:16s} {s['pass']}/{s['total']}")
         print(f"  {'TOTAL':16s} {total_pass}/{total}({total_pass / total:.0%})")
+
+        # P4b C7: 评测隔离断言——每个用例各自独立会话;抽首末两个用例核对
+        # "会话首条 user 消息 == 该用例的问题"(无外来内容)且两会话 message id 集合交集为空。
+        try:
+            conv_cases = [(r["id"], r["question"], r["conversation_id"])
+                          for r in results if r.get("conversation_id")]
+            assert len(conv_cases) >= 2, f"带会话的用例不足: {len(conv_cases)}"
+            (id_a, q_a, cid_a), (id_b, q_b, cid_b) = conv_cases[0], conv_cases[-1]
+            assert cid_a != cid_b, "首末用例竟共用会话——评测隔离被破坏"
+            ma = c.get(f"{BASE}/api/conversations/{cid_a}/messages",
+                       headers={"Authorization": f"Bearer {tokens['student']}"}, params={"limit": 200}).json()
+            mb = c.get(f"{BASE}/api/conversations/{cid_b}/messages",
+                       headers={"Authorization": f"Bearer {tokens['student']}"}, params={"limit": 200}).json()
+            ida = {m["id"] for m in ma["messages"]}
+            idb = {m["id"] for m in mb["messages"]}
+            first_a = next((m for m in ma["messages"] if m["role"] == "user"), None)
+            first_b = next((m for m in mb["messages"] if m["role"] == "user"), None)
+            assert ida and idb and not (ida & idb), "message id 集合有交集——上下文串了"
+            assert first_a and first_a["content"] == q_a, f"会话 {cid_a} 首问不匹配(混入外来内容)"
+            assert first_b and first_b["content"] == q_b, f"会话 {cid_b} 首问不匹配(混入外来内容)"
+            print(f"\n[P4b C7 评测隔离] 首用例 {id_a}(会话 {cid_a},{len(ida)} 条)与末用例 {id_b}"
+                  f"(会话 {cid_b},{len(idb)} 条):message id 交集为空,首问逐字匹配 → 隔离成立")
+            iso_line = (f"P4b C7: 会话 {cid_a} ids={sorted(ida)} 与 会话 {cid_b} ids={sorted(idb)} "
+                        f"交集为空;首问逐字匹配")
+        except Exception as e:
+            print(f"\n[P4b C7 评测隔离] 断言失败: {e}")
+            iso_line = f"P4b C7 断言失败: {e}"
 
         recalls = [r["recall_at_k"] for r in results if r["type"] == "qa" and r.get("recall_at_k") is not None]
         faiths = [(r["faithfulness"], r["faithfulness_method"]) for r in results
@@ -217,7 +247,8 @@ def run() -> int:
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps(
             {"version": spec["version"], "base": BASE, "summary": summary,
-             "total_pass": total_pass, "total": total, "results": results},
+             "total_pass": total_pass, "total": total, "results": results,
+             "eval_isolation": iso_line},
             ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n[report] {out}")
         return 0 if total_pass == total else 1

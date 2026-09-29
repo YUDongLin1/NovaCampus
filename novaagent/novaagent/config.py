@@ -52,10 +52,11 @@ DB_PATH = DATA_DIR / "agent.db"
 ROLE_RANK = {"student": 1, "counselor": 2, "admin": 3}
 ROLE_ZH = {"student": "学生", "counselor": "辅导员", "admin": "校管理员"}
 
-# 模型候选(同 base_url/key,DashScope 兼容模式);设置页供用户切换
+# 模型候选(同 base_url/key,DashScope 兼容模式);设置页供用户切换。
+# P4b C3: ctx=模型上下文窗口(token,配置保守值);会话注入预算 = ctx*0.65。
 MODEL_CANDIDATES = [
-    {"id": "qwen-flash", "label": "qwen-flash(默认 · 快速经济)"},
-    {"id": "qwen3.7-plus", "label": "qwen3.7-plus(推理 · 高质量)"},
+    {"id": "qwen-flash", "label": "qwen-flash(默认 · 快速经济)", "ctx": 131072},
+    {"id": "qwen3.7-plus", "label": "qwen3.7-plus(推理 · 高质量)", "ctx": 131072},
 ]
 
 

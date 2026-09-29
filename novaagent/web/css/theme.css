@@ -351,3 +351,27 @@
   }
   .msg.bot.streaming::after { content: "▍"; color: var(--cinnabar); animation: blink 1s steps(2) infinite; }
   @keyframes blink { 50% { opacity: 0; } }
+
+/* ============ P4b C5: 会话栏 + 上下文占用条 ============ */
+#conv-sidebar { width: 190px; flex: 0 0 190px; border-right: 1px solid rgba(30,42,56,.12);
+  display: flex; flex-direction: column; gap: 8px; padding: 10px 8px; overflow-y: auto; }
+#conv-list { list-style: none; margin: 0; padding: 0; flex: 1; }
+#conv-list li { display: flex; align-items: center; gap: 4px; padding: 6px 6px; border-radius: 6px;
+  cursor: pointer; font-size: 12.5px; line-height: 1.35; }
+#conv-list li:hover { background: rgba(30,42,56,.06); }
+#conv-list li.sel { background: rgba(178,58,44,.10); }
+#conv-list li.arch { opacity: .55; }
+#conv-list li .ct { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#conv-list li .ops { display: none; gap: 6px; white-space: nowrap; }
+#conv-list li:hover .ops { display: inline; }
+#conv-list li .ops a { font-size: 11px; color: var(--ink-60, #5a6672); text-decoration: none; }
+#conv-list li .ops a.del { color: #b23a2c; }
+#conv-sidebar .conv-arch { font-size: 12px; color: var(--ink-60, #5a6672); display: flex; gap: 6px; align-items: center; }
+#ctx-bar { display: flex; align-items: center; gap: 8px; padding: 4px 14px; font-size: 11.5px;
+  color: var(--ink-60, #5a6672); border-bottom: 1px dashed rgba(30,42,56,.12); }
+#ctx-bar #ctx-fill-track { display: none; }
+#ctx-fill { height: 4px; border-radius: 2px; background: var(--ink, #1e2a38); width: 0; transition: width .4s; }
+#ctx-fill.compressed { background: #b26a2c; }
+#ctx-fill.truncated { background: #b23a2c; }
+#ctx-fill.hot { background: #b23a2c; }
+#ctx-text { white-space: nowrap; }
