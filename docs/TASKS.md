@@ -3,7 +3,8 @@
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
 > **当前持棒：Zcode**（P3b AIOps MCP Server 已下发 2026-09-29;第 0 步实时复跑为强制前置;Qoder 预检 daemon/sims/targets 均可用）
-> ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
+> ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5/v1.6**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
+> 📌 **2026-09-29 晚间追加**：用户批准语料清单后 Qoder 已抓取入库 6 篇官网医保/保险/收费页（`documents 59→65`、`chunks 469→487`，doc_id 110~115），基线 **v1.6 零回归**（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）。同时实测发现**长问句 rerank 崩塌**（「学平险」0.89 → 口语长句 0.11，被 0.3 阈值归零）——F2 补了语料仍答不上，根因在检索不在语料，详见 `docs/P4.md` §2.8 与 `docs/p4/evidence/retrieval_diag_xuepingxian.txt`。
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -500,7 +501,7 @@
   - [ ] **C5** 端到端现场演示 `tests/aiops_demo.py`：触发 ykt `pool_exhaust 45s` → 轮询 `list_alerts(firing)` → `query_metrics` 取池利用率/5xx 速率 → `query_logs` 捞 503 → `query_changes` 认到注入事件 → `run_playbook pool_exhaust` → 打印"根因候选 + 证据链"，跑通并落盘 `evidence/demo_pool_exhaust.txt`
   - [ ] **C6 证据入库对账**（P3a 教训 17，必做）：文档引用的每个 evidence 文件都出现在 `git diff --name-status master...HEAD` 里；`git check-ignore -v docs/p3b/evidence/*.log` 必须返回"未被忽略"（`.gitignore` 有全局 `*.log`，需加例外并入库）
   - [ ] **C7** `docs/P3B.md`：架构图 / 工具契约表 / **每个关键数字的出处（文件→字段）** / 部署形态决策依据（C0.4 实测）/ P3c 接入点（URL、传输、角色可见性）/ `fault_active` 重启后序列缺失等已知限制
-  - [ ] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（**基线 v1.5：26 用例 / R@k 0.9231 / 忠实度 1.0 / 拒答 1.0**，2026-09-29 KB 清理后 3 轮一致；**不要再用 0.8846/0.9615，那是 76 篇脏库口径**）+ `novaagent/tests/smoke_test.py`；起不来（注：2026-09-29 Qoder 自检时 `:8900/api/health` 不可达，NovaAgent 未运行）则在回执写明原因，由 Qoder Review 时复跑。**注意 smoke_test 会往 KB 塞测试文档且不清理（已知问题，P4a 修）**，跑完请复核 `documents` 计数并在回执说明。
+  - [ ] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（**基线 v1.6：26 用例 / R@k 0.9231 / 忠实度中位 1.0 / 拒答 1.0，语料 65 篇**，2026-09-29 KB 清理 + 6 篇官网语料入库后 3 轮验证；**不要再用 0.8846/0.9615，那是 76 篇脏库口径**）+ `novaagent/tests/smoke_test.py`；起不来（注：Qoder 自检时 `:8900` 默认未运行，需自己起：`cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900`）则在回执写明原因，由 Qoder Review 时复跑。**注意 smoke_test 会往 KB 塞测试文档且不清理（已知问题，P4a 修）**，跑完请复核 `documents` 计数（当前基线 65）并在回执说明。
 
 - **验收命令**
 ```bash
@@ -548,7 +549,7 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
 ## P4 用户反馈驱动的产品升级（2026-09-29 立项，设计方案见 `docs/P4.md`）
 
 > 来源：用户转来的辅导员实测反馈 `docs/使用反馈.txt`（3 条真实问答反馈 + 1 条周报 UI + 5 条功能调整）。
-> **排期（用户 2026-09-29 决策）**：`P3b 先做完` → P4a → P4b → P4c → P4d → P4e → P4f → P4g，串行持棒、一次一单。
+> **排期（用户 2026-09-29 决策）**：`P3b 先做完` → P4a → **P4b-0（前端拆分，P4b 强制前置）** → P4b → P4c → P4d → P4e → P4f → P4g，串行持棒、一次一单。
 > **Qoder 已先行执行（2026-09-29，用户授权）**：KB 卫生清理 17 篇（脏数据 2 + 测试残留 15，含备份），基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0（3 轮一致）**，详见 `docs/EVAL_BASELINE.md` 第九节；语料候选清单已产出待审：`docs/p4/corpus-candidates.md`。
 > ⚠ **P4 各单的基线对照一律用 v1.5**，不要再用 0.8846/0.9615（那是 76 篇脏库口径）。
 
@@ -570,7 +571,8 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
   - [ ] **C3 出口数据表** `novaagent/data/contacts.json` ≥6 条，每条含 `{dept, scope_keywords[], phone[], url, source_url, note}`，数据**必须来自官网原文**（`docs/p4/corpus-candidates.md` 已实测到校医院 6 类电话），**不得由 LLM 生成**；拒答时按关键词匹配 1~3 条
   - [ ] **C4 导入质量门**（`kb_import_url` + `kb_upload` 共用）：正文有效长度 <200 字 / 命中登录页特征（登录、用户名、密码、浏览器版本过旧、兼容性提示、验证码）/ `<title>` 为登录类 / 同 URL 已入库 / 敏感扫描命中（手机号、身份证、学号、**人名+名单特征**）→ 全部拒绝并返回结构化原因 `{code, reason, hint}`；**回归测试：重放 `https://cwc.swjtu.edu.cn/` 与 `http://127.0.0.1:8900/` 必须被拦**
   - [ ] **C5 KB 守恒**：`smoke_test.py` 记录本次上传 doc_id 并在结束时删除，另提供 `--cleanup` 清历史残留；断言冒烟前后 `documents` 计数不变；新增 `evals/kb_doctor.py` 输出 `reports/kb_doctor_<ts>.json`（重复标题/超短正文/疑似登录页/口令与个人信息/孤儿分块/FTS 与 chunks 计数一致性），当前库 **0 高危项**
-  - [ ] **C6 语料入库（须先经用户审批 `docs/p4/corpus-candidates.md`）**：≥4 篇入库并通过 C4 质量门；入库前后 `kb_doctor` 对账；F1/F2 抽查命中且带 `[n]` 引用；**红线**：含学生姓名的公示/名单页禁入库、不得用用户真实学工账号登录抓取、不得把 LLM 搜索摘要当语料
+  - [x] **C6 语料入库 —— Qoder 已于 2026-09-29 完成**（用户批准 `docs/p4/corpus-candidates.md` 后，用 `corpus/fetch_public_pages.py` 抓取 6 篇公开官网页并入库：`doc_id 110~115`，`documents 59→65`、`chunks 469→487`，`医保 1→7`/`学平险 0→2`/`参保 0→7` 个分块）。**Zcode 的剩余职责**：① 用 `kb_doctor` 复核这 6 篇（无超短正文/无个人信息/`chunks_fts` 计数与 `chunks` 一致）；② 把 `fetch_public_pages.py` 里的 `gate()`/`DENY_URLS`/`clean_body()` 移植进 `main.py: kb_import_url`（那是运行时拦截，脚本只是原型）；③ 复跑 F1/F2/F3 实测并留痕（现状：F1 已能带 `[n]` 有据回答，**F2 仍 `sources=0`**，F3 未区分学段）。入库日志 `docs/p4/evidence/corpus_import_log.txt`；抓取与脱敏记录 `corpus_fetch_report.txt`。**红线不变**：含学生姓名的公示/名单页禁入库、不得用用户真实学工账号登录抓取、不得把 LLM 搜索摘要当语料
+  - [ ] **C10 长问句失败的优雅降级**（实测根因见 `docs/P4.md` §2.8：同一材料「学平险」rerank **0.8875**，换成口语长句崩到 **0.1136**，低于 `RERANK_MIN_SCORE=0.3` 被全丢 → `sources=0`）：本单**不要求修好检索**（根治在 P4d 的查询改写），但必须保证这类失败**不胡答**——拒答模板的 `contacts.json` **须包含保卫处**（学平险归口，非计财处）**与校医院医保办**，F2 原句实测答案应给出正确出口而非泛泛"咨询学校部门"；同时**新增一条"短问句/口语长问句"配对用例**（同一知识点各一条），并在回执里如实记录长问句仍失败的用例清单，供 P4d 验收对照
   - [ ] **C7 评测扩充**：新增 `refusal_indomain` ≥6 条（**含 F1 原文**）+ qa 3 条（F1/F2/F3，`expect_keywords` 取官网原文关键词如「暂停原户籍地或学籍地参保关系」「448」「大病补充险」「66366439」「保卫处」）；`judge_refusal` 增强为同时断言"不含越界 `[n]`、不含 `expect_absent_keywords`、含出口信息"；**全部用例通过且 v1.5 三项指标不回退**
   - [ ] **C8 F3 学段**：研究生对应办法不在库时，回答必须**声明适用学段**（如"以下依据本科生办法"）并提示研究生规定未覆盖；不得默认按本科生作答（评测断言）
   - [ ] **C9 性能不劣化**：记录修复前后 F1 问句与普通问答的总耗时（拒答路径不走 LLM 自由生成，应更快）；正向反馈"速度太快了"是既有资产，不得劣化
@@ -588,7 +590,33 @@ git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness
 - **依赖**：P3b 合并 master（用户决策 P3b 先做完）；`docs/p4/corpus-candidates.md` 经用户审批；`docs/P4.md` M1/M2/M3 设计
 - **上下文/必读**：`docs/P4.md` §2.1–§2.3、§2.7、M1–M3；`docs/EVAL_BASELINE.md` 第九节；`docs/p4/corpus-candidates.md`；`HANDOFF.md` §六 坑 4/5/8/17/18
 
-### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　📋 READY（待 P4a，设计见 `docs/P4.md` M4）
+### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　📋 READY（待 P4a，**P4b 的强制前置**）
+
+- **背景与决策**：用户 2026-09-29 明确要求「在 P4b 开工前先拆分」。现状 `novaagent/web/index.html` 是 **887 行单文件**（HTML+CSS+JS 混写），而 P4b（会话栏）/P4c（文件夹树）/P4e（联网开关与来源分区）/P4f（辅导员入口）/P4g（文本框）**每一单都要改它**——不拆就会连续在同一文件上冲突，Review 也难定位。
+- **目标**：拆成可维护的多文件结构，**保持零构建、单页体验与视觉完全不变**（不引 React/Vite/打包器，与现有 FastAPI 静态托管方式一致）。
+- **建议结构**（Zcode 可调整，但须在回执说明理由）：`web/index.html`（骨架）+ `web/css/theme.css`（水墨主题变量与样式）+ `web/js/{api.js, chat.js, kb.js, weekly.js, ui.js}`；`main.py` 只需新增静态资源挂载（现有 `WEB_DIR` + `FileResponse` 已托管 `index.html`）。
+- **允许改**：`novaagent/web/**`、`novaagent/novaagent/main.py`（**仅限静态资源路由这一处**，已显式授权的最小范围）、`docs/P4B0.md`
+- **禁改**：`novaagent/novaagent/{agent.py,rag.py,db.py,llm.py,config.py}`、`evals/**`、`corpus/**`、`sims/**`、`mcp/**`、`weknora/**`（碰 `main.py` 其他行即视为越界打回）
+- **完成标准**：
+  - [ ] **C1 行为零变化**：登录 / 问答（SSE 流式 + 来源渲染 + 工具轨迹）/ KB 上传与网页导入 / 周报记录·AI 扩充·生成·归档 / 模型与自定义 API 设置 **五条路径**改动前后逐条一致，留 before/after 截图或 DOM 断言
+  - [ ] **C2 三角色走查**：student / counselor / admin 可见范围不变（RBAC 由后端保证，**前端不得新增任何权限判断**）
+  - [ ] **C3 零新依赖**：不引入前端框架/构建工具/**公网 CDN**（本机断网也要可用）
+  - [ ] **C4 可核对**：拆分后各文件行数与字节数列表落盘，`index.html` 只剩骨架；功能不减（`grep` 对比 API 调用点清单一致）
+  - [ ] **C5 零回归**：v1.6 基线不回退（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）
+  - [ ] **C6 冒烟守恒**：`novaagent/tests/smoke_test.py` 全过，且跑完 `documents` 计数不变
+- **验收命令**：
+```bash
+cd /e/AILearn/NovaCampus && export NO_PROXY="127.0.0.1,localhost"
+find novaagent/web -type f | sort | xargs wc -l          # 拆分后的文件清单
+# 起服务后逐路径走查(截图存 docs/p4/evidence/p4b0_*.png),再跑评测
+PYTHONIOENCODING=gbk novaagent/.venv/Scripts/python.exe evals/run_evals.py
+PYTHONIOENCODING=gbk novaagent/.venv/Scripts/python.exe novaagent/tests/smoke_test.py
+git diff --name-only master...HEAD | grep -vE "^novaagent/(web/|novaagent/main\.py)|^docs/" && echo "[FAIL] 越界" || echo "[PASS] 仅在白名单内"
+git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资源路由这一处改动
+```
+- **依赖**：P4a 合并。**⚠ 串行提醒**：P4a 与本单都会触碰 `main.py`（前者改导入质量门、后者加静态路由），**绝不能并行开**；本单完成后 P4b 才允许开工。
+
+### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　📋 READY（待 P4b-0，设计见 `docs/P4.md` M4）
 
 - **目标**：支持连续多轮对话并实时检测上下文占用；未超窗口完整保留历史，超 **65%** 时对较早内容按主题压缩后注入；左侧展示历史会话列表，支持新建/切换/重命名/删除。
 - **⚠ 关键事实（别当"调整"做）**：现状 `agent.py` 的 `chat_for()`/`chat_stream_for()` 构造的 `messages` **只有 system + 当前问题，从不注入历史**；`messages` 表**无 `conversation_id`**（实测 user_id=3 累积 754 条混在一起）→ 本单是**从零建**。
@@ -630,6 +658,8 @@ git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness
   - [ ] `rag.search` 返回质量信号 `{top_score, n_above_threshold, fused_candidates}`；`grade` 判定 `top_score≥0.3 且 n_above_threshold≥2`（可配）
   - [ ] 改写策略含"去情境噪声"（直接对应 F1 长问句失守场景）、同义扩展、学段限定；`retrieval_trace` 落 `conversations`
   - [ ] 新增评测类型 `intent`（断言 `retrieval_trace.skipped=true`）与 `rewrite`（口语化长问句断言发生改写且最终命中）；**给出实测毫秒数**：闲聊路径首字延迟显著低于检索路径，普通问答不劣化
+  - [ ] **必须修好 F2 长问句**（本单的硬指标）：用 F2 原句「我们学校有学平险吗，我看我们计财处只有医保这项」断言 `rag.search` 返回含学平险文档。现状是向量已排到第 2/3 位、融合也进 top8，但 **rerank 从短问句的 0.8875 崩到 0.1136、低于 0.3 阈值被全丢**（`docs/P4.md` §2.8、`docs/p4/evidence/retrieval_diag_xuepingxian.txt`）；诊断工具 `evals/diag_retrieval.py` 可直接复跑
+  - [ ] 评估并**书面记录**两项：① `RERANK_MIN_SCORE` 是否改分级阈值（如 top1 单判 / top1 与 top2 差值判定）；② `db.fts_search()` 整句短语匹配失败后回退的 2-gram 计次是否加停用词过滤（现状"学校/我们/这项"等通用词把教育部令 5 个分块顶上榜单）。**禁止单独调 `MAX_PER_DOC`**（T10 已实测 =1 会挤出关键块）
   - [ ] 顺带处理遗留：`qa-09`（离校请销假）R@k 长期 0.0
 - **依赖**：P4c 合并；PyPI 可达（已实测清华源/官方源 langgraph 均 200）
 

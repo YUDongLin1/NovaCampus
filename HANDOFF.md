@@ -46,8 +46,8 @@
 | weekly MCP | docker 容器(18080)或本地 `python mcp/weekly/server.py`;NovaAgent 启动时会连它,**连不上则服务起不来**(lifespan 致命) |
 | WeKnora | docker compose,http://localhost(评测基线,不动它) |
 | 演示账号 | admin / counselor / student,密码均 xxx123 |
-| DB | `novaagent/data/agent.db`(SQLite);**2026-09-29 清理后 documents=59 / chunks=469**(清理前 76/486,备份 `agent.db.bak-20260929-104207`);WeKnora 库 `novaagent/data/` 无关 |
-| **评测基线** | **v1.5(2026-09-29)**:26/26、R@k **0.9231**、忠实度 **1.0**、拒答 1.0(3 轮完全一致)。**P4 各单对照一律用 v1.5**,别再用 0.8846/0.9615(76 篇脏库口径);引用忠实度必须注明"3 轮中位"还是"单轮均值" |
+| DB | `novaagent/data/agent.db`(SQLite);**2026-09-29 KB 清理+语料增补后 documents=65 / chunks=487**(清理前 76/486,备份 `agent.db.bak-20260929-104207`);WeKnora 库 `novaagent/data/` 无关 |
+| **评测基线** | **v1.6(2026-09-29 晚)**:26/26、R@k **0.9231**、忠实度 **中位 1.0**(逐轮 1.0/1.0/0.9615)、拒答 1.0;v1.5=清理后 59 篇同指标。**P3b/P4 对照一律用 v1.6**,不要再用 0.8846/0.9615(76 篇脏库口径);引用忠实度必须注明"3 轮中位"还是"单轮均值" |
 | 模型 | 百炼 qwen-flash(内置默认)+ qwen3.7-plus(UI 配),key 在 `novaagent/.env` 与 `weknora/.env`(均 gitignore) |
 | **P3a 模拟栈** | `docker compose -f docker-compose.sims.yml up -d --build` → jiaowu :9101 / ykt :9102 / Prometheus :9090 / Grafana :3000(admin/simsadmin123,匿名 Viewer 也开) |
 | ⚠️ Docker Desktop | **不常驻!** 2026-09-28 Review 时守护进程已停(pipe 不存在、4 端口全不可达)。任何 sims/P3b 工作**第一步先 `docker ps` 确认 daemon 活着**,别在 daemon 挂的情况下"验证"任何东西 |
@@ -69,7 +69,7 @@
 | **P3a** | **模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈** | **✅ DONE 合并 `b8245c2`** |
 | **P3b** | **AIOps MCP Server(mcp/aiops)** | **🔧 IN_PROGRESS —— 2026-09-29 已下发,持棒 Zcode,分支 `task/P3b-aiops-mcp`** |
 | P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
-| **P4a~P4g** | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
+| **P4a~P4g**(含 **P4b-0** 前端拆分) | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → **前端拆分** → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
 | T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
 
 ## 五、当前状态与下一步(交接重点)
@@ -84,7 +84,7 @@
 
 **P3b 之后 = P4**(用户反馈驱动的产品升级,设计与拆分已入库):`docs/P4.md`(模块 M1~M9 + 实测证据)+ `docs/TASKS.md` 的 P4a~P4g。**用户 2026-09-29 决策:P3b 先做完,P4 排其后串行下发。**
 
-**用户侧反馈已到达并已处理(2026-09-29)**:辅导员实测反馈原文在 WorkBuddy 工作树 `C:\Users\<user>\WorkBuddy\Worktrees\NovaCampus\task-t10-retrieval-d910a267\docs\使用反馈.txt`(**只读,本仓库不复制原文**;结论已归入 `docs/P4.md` §一)。Qoder 已做:①按用户授权清理 KB 脏数据 17 篇(含 `id=109` 登录页 student 可见、`id=22` 自家前端首页**含演示口令**、15 篇 smoke_test 残留)→ 基线升 v1.5;②实测出**拒答门控是软约束**:F1 长问句在 `sources=[]` 时仍用自有知识作答并**虚构 `[1]` 引用**,而现有 6 条 refusal 用例全是短问句,**测不出该漏洞**→ 立为 P4a 头号修复项(代码级硬门控 + 引用越界剥离 + 新增 `refusal_indomain` 用例);③语料候选清单 `docs/p4/corpus-candidates.md` **待用户审批后入库**(红线:含学生姓名的公示/名单页禁抓禁入库、不得用真实学工账号登录抓取)。
+**用户侧反馈已到达并已处理(2026-09-29)**:辅导员实测反馈原文在 WorkBuddy 工作树 `C:\Users\<user>\WorkBuddy\Worktrees\NovaCampus\task-t10-retrieval-d910a267\docs\使用反馈.txt`(**只读,本仓库不复制原文**;结论已归入 `docs/P4.md` §一)。Qoder 已做:①按用户授权清理 KB 脏数据 17 篇(含 `id=109` 登录页 student 可见、`id=22` 自家前端首页**含演示口令**、15 篇 smoke_test 残留)→ 基线升 v1.5;②实测出**拒答门控是软约束**:F1 长问句在 `sources=[]` 时仍用自有知识作答并**虚构 `[1]` 引用**,而现有 6 条 refusal 用例全是短问句,**测不出该漏洞**→ 立为 P4a 头号修复项(代码级硬门控 + 引用越界剥离 + 新增 `refusal_indomain` 用例);③语料候选清单 `docs/p4/corpus-candidates.md` **已获用户批准,Qoder 已抓取并入库 6 篇公开官网页**(`corpus/fetch_public_pages.py`,`doc_id 110~115`,`documents 59→65`)→ 基线 **v1.6 零回归**;红线:含学生姓名的公示/名单页禁抓禁入库(已写入脚本 `DENY_URLS`)、不得用真实学工账号登录抓取、不得把 LLM 搜索摘要当语料;④学生原话按用户要求**已匿名化**(本仓库文档与证据统一写作「某市」,两份实测证据已加匿名化标注);⑤实测发现**长问句检索崩塌**——F2 补齐语料后仍 `sources=0`,根因是 rerank 从短问句 0.8875 崩到长问句 0.1136 被 0.3 阈值全丢,不在语料(见 `docs/P4.md` §2.8 与 `docs/p4/evidence/retrieval_diag_xuepingxian.txt`,诊断工具 `evals/diag_retrieval.py` 可复跑)→ P4a 只做优雅降级,**根治归 P4d**。
 
 
 ## 六、踩坑清单(绝对不能再踩,全部真实发生过)
@@ -136,6 +136,8 @@
 25. **DashScope 兼容模式拿不到联网来源**:`enable_search=true` 在 OpenAI 兼容模式下只回 `usage.plugins.search.count`,**没有 `search_info`**;要 title/url/角标必须走原生协议 `POST /api/v1/services/aigc/text-generation/generation` + `search_options{forced_search, search_strategy, enable_source, enable_citation, citation_format}`(2026-09-29 已实测可用,复用同一 `LLM_API_KEY`,turbo 策略不额外计费)。
 26. **基线口径必须标清**:`EVAL_BASELINE.md` 历史行混用"3 轮中位"与"单轮均值"(v1.4.1 中位 0.9615 / 单轮均值 0.9231)。引用任何基线数字都要注明**口径 + 语料篇数**,否则验收对账会把改善误判成回归。
 
+27. **真实问法会把检索打崩,而评测用例测不出来**:同一份"学平险"材料,短问句「学平险」rerank **0.8875** 能命中,换成带情境的口语长句「我们学校有学平险吗,我看我们计财处只有医保这项」rerank **0.1136** → 低于 `RERANK_MIN_SCORE=0.3` 被全丢,`sources=0`;同时 `fts_search()` 整句短语匹配失败回退 2-gram 计次,被"学校/我们/这项"等通用词顶榜(教育部令 5 个分块霸榜)。**向量层其实已把它排到第 2/3 位**——所以别一失败就怀疑语料。铁律:① 新知识点必须**短问句 + 口语长问句配对建案**;② 检索异常先用 `evals/diag_retrieval.py` 逐层打印(向量/关键词/融合/rerank)再下结论;③ **不要单独调 `MAX_PER_DOC`**(T10 实测 =1 会挤出关键块)。这与坑 22(拒答软门控长问句失守)同源:**评测集是干净短问句,真实用户是长口语句**。
+
 ## 七、快速验证命令(接手自检)
 
 
@@ -153,9 +155,9 @@ NO_PROXY="127.0.0.1,localhost" curl -s http://127.0.0.1:9102/metrics | grep -E '
 /d/anaconda3/python.exe sims/fault_inject.py --target ykt --mode pool_exhaust --duration 30
 # 语法自检(不需要依赖):/d/anaconda3/python.exe -m py_compile sims/common.py sims/*/app.py sims/fault_inject.py
 
-# ---- KB 卫生(2026-09-29 清理后基线,新语料入库前应为 59/469)----
+# ---- KB 卫生与规模(2026-09-29 清理+语料增补后应为 documents 65 / chunks 487)----
 /d/anaconda3/python.exe -c "import sqlite3;c=sqlite3.connect('novaagent/data/agent.db');print('documents',c.execute('select count(*) from documents').fetchone()[0],'chunks',c.execute('select count(*) from chunks').fetchone()[0]);print('dup_titles',c.execute('select count(*) from (select title from documents group by title having count(*)>1)').fetchone()[0]);print('dirty',c.execute(\"select count(*) from documents where title in ('登录') or filename like 'http%'\").fetchone()[0])"
-# 期望:documents 59 / chunks 469 / dup_titles 0 / dirty 0;不符先查是否有人跑过 smoke_test 未清理
+# 期望:documents 65 / chunks 487 / dup_titles 0 / dirty 0;不符先查是否有人跑过 smoke_test 未清理(坑 23)
 # 评测(须先起服务,且必须带评测温度开关):
 #   cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900
 #   PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py   # v1.5: 26/26 R@k 0.9231 忠实度 1.0
