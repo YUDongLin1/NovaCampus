@@ -1,0 +1,38 @@
+[eval] 共 26 条用例
+
+[PASS] qa-01      [qa            ] 命中 ['书面申请', '诊断证明'],引用 1 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-02      [qa            ] 命中 ['培养单位', '研究生院'],引用 4 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-03      [qa            ] 命中 ['六'],引用 5 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-04      [qa            ] 命中 ['3.5'],引用 2 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-05      [qa            ] 命中 ['申请表', '成绩单'],引用 4 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-06      [qa            ] 命中 ['辅导员'],引用 3 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-07      [qa            ] 命中 [['教务处', '备案', '报备']],引用 2 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-08      [qa            ] 命中 ['一周', '复学申请'],引用 4 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] ref-01     [refusal       ] 正确拒答(无引用)
+[PASS] ref-02     [refusal       ] 正确拒答(无引用)
+[PASS] ref-03     [refusal       ] 正确拒答(无引用)
+[PASS] ref-04     [refusal       ] 正确拒答(无引用)
+[PASS] ref-05     [refusal       ] 正确拒答(无引用)
+[PASS] ref-06     [refusal       ] 正确拒答(无引用)
+[PASS] perm-01    [permission_api] POST /api/kb/upload → 403(期待 403)
+[PASS] perm-02    [permission_api] GET /api/weekly/fragments → 403(期待 403)
+[PASS] perm-03    [permission_api] DELETE /api/kb/documents/999999 → 403(期待 403)
+[PASS] perm-04    [permission_api] POST /api/weekly/archive → 403(期待 403)
+[PASS] hidden-01  [kb_hidden     ] 未泄露受限文档;正确拒答
+[PASS] hidden-02  [kb_hidden     ] 未泄露受限文档;正确拒答
+[PASS] hidden-03  [kb_hidden     ] 未泄露受限文档;正确拒答
+[PASS] qa-09      [qa            ] 命中 ['病假', '事假'],引用 5 条 | R@k=0.0 忠实度=1.0(llm)
+[PASS] qa-10      [qa            ] 命中 ['贷款'],引用 6 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-11      [qa            ] 命中 [['宿舍', '寝室', '室友', '矛盾']],引用 3 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-12      [qa            ] 命中 ['奖助学金'],引用 3 条 | R@k=1.0 忠实度=1.0(llm)
+[PASS] qa-13      [qa            ] 命中 ['电器'],引用 4 条 | R@k=1.0 忠实度=1.0(llm)
+
+===== 汇总 =====
+  qa               13/13
+  refusal          6/6
+  permission_api   4/4
+  kb_hidden        3/3
+  TOTAL            26/26(100%)
+  Recall@k 均值: 0.9231 | 忠实度均值: 1.0(llm) | 拒答准确率: 1.0
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20260929_104502.json

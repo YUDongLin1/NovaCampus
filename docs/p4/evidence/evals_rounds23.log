@@ -1,0 +1,14 @@
+=== round 2 ===
+  permission_api   4/4
+  kb_hidden        3/3
+  TOTAL            26/26(100%)
+  Recall@k 均值: 0.9231 | 忠实度均值: 1.0(llm) | 拒答准确率: 1.0
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20260929_105019.json
+=== round 3 ===
+  permission_api   4/4
+  kb_hidden        3/3
+  TOTAL            26/26(100%)
+  Recall@k 均值: 0.9231 | 忠实度均值: 1.0(llm) | 拒答准确率: 1.0
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20260929_105131.json

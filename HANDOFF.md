@@ -1,6 +1,6 @@
 # HANDOFF · NovaCampus 会话交接文档
 
-> 初版 2026-09-28(Zcode,T10 期);**2026-09-28 由 Qoder 更新到 P3a 合并后状态**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
+> 初版 2026-09-28(Zcode,T10 期);2026-09-28 由 Qoder 更新到 P3a 合并后状态;**2026-09-29 由 Qoder 更新:P3b 已下发(持棒 Zcode)、P4 用户反馈包已立项设计、KB 清理 17 篇、基线升 v1.5**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
 > **配合 `docs/NEXT_SESSION_PROMPT.md` 使用**:那份给"你是谁、先做什么"的开场指令,本文给事实与教训。
 > 你(Zcode/实现者)与 Qoder(负责人/Review)按 `docs/COLLAB.md` 协同:**单一事实源 TASKS.md、串行持棒、白名单禁改、Review 闸门**。
 
@@ -29,10 +29,12 @@
 
 1. `docs/COLLAB.md` —— 协同规约(持棒/白名单/Review 闸门)
 2. `docs/TASKS.md` —— 任务板(唯一事实源;含 T1-T10 + P3a 全部条目与回执、Review 结论)
-3. `docs/EVAL_BASELINE.md` —— 评测基线演进(v1.0→v1.4.1)
+3. `docs/EVAL_BASELINE.md` —— 评测基线演进(v1.0→**v1.5**;第九节记 KB 清理与拒答门控盲区)
 4. `docs/BADCASES.md` —— bad case 档案机制
 5. `docs/P3A.md` —— **P3 地基**:模拟系统架构/指标清单/故障注入原理/验收证据(§七是 Review 修正记录)
 6. `corpus/MANIFEST.md` —— 语料合规分层(Tier A/B;**严禁引入 E:\<internal-affairs-dir>\ 的 Tier B 真实数据**)
+7. `docs/P4.md` —— **用户反馈驱动的产品升级设计**(M1~M9 模块划分、实测证据、排期、合规红线);任务规格在 `docs/TASKS.md` 的 P4a~P4g
+8. `docs/p4/corpus-candidates.md` —— 医保/学平险/校医院/计财处语料候选(**待用户审批**;含禁抓清单)
 
 
 ## 三、运行状态(接手先验)
@@ -44,7 +46,8 @@
 | weekly MCP | docker 容器(18080)或本地 `python mcp/weekly/server.py`;NovaAgent 启动时会连它,**连不上则服务起不来**(lifespan 致命) |
 | WeKnora | docker compose,http://localhost(评测基线,不动它) |
 | 演示账号 | admin / counselor / student,密码均 xxx123 |
-| DB | `novaagent/data/agent.db`(SQLite);WeKnora 库 `novaagent/data/` 无关 |
+| DB | `novaagent/data/agent.db`(SQLite);**2026-09-29 清理后 documents=59 / chunks=469**(清理前 76/486,备份 `agent.db.bak-20260929-104207`);WeKnora 库 `novaagent/data/` 无关 |
+| **评测基线** | **v1.5(2026-09-29)**:26/26、R@k **0.9231**、忠实度 **1.0**、拒答 1.0(3 轮完全一致)。**P4 各单对照一律用 v1.5**,别再用 0.8846/0.9615(76 篇脏库口径);引用忠实度必须注明"3 轮中位"还是"单轮均值" |
 | 模型 | 百炼 qwen-flash(内置默认)+ qwen3.7-plus(UI 配),key 在 `novaagent/.env` 与 `weknora/.env`(均 gitignore) |
 | **P3a 模拟栈** | `docker compose -f docker-compose.sims.yml up -d --build` → jiaowu :9101 / ykt :9102 / Prometheus :9090 / Grafana :3000(admin/simsadmin123,匿名 Viewer 也开) |
 | ⚠️ Docker Desktop | **不常驻!** 2026-09-28 Review 时守护进程已停(pipe 不存在、4 端口全不可达)。任何 sims/P3b 工作**第一步先 `docker ps` 确认 daemon 活着**,别在 daemon 挂的情况下"验证"任何东西 |
@@ -64,24 +67,24 @@
 | T8+T9 | 流式 SSE + 会话持久化 | ✅ DONE 合并 `4f2a6ce` |
 | T10 | 检索相关性根治(FTS blend+TOP_K7)+生成侧规则9+评测温度开关 | ✅ DONE 合并 `1328168` |
 | **P3a** | **模拟校园系统 + 故障注入 + Prometheus/Grafana 监控栈** | **✅ DONE 合并 `b8245c2`** |
-| **P3b** | **AIOps MCP Server(mcp/aiops)** | **📋 READY —— 下一单,待 Qoder 下发规格** |
+| **P3b** | **AIOps MCP Server(mcp/aiops)** | **🔧 IN_PROGRESS —— 2026-09-29 已下发,持棒 Zcode,分支 `task/P3b-aiops-mcp`** |
 | P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
+| **P4a~P4g** | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
 | T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
 
 ## 五、当前状态与下一步(交接重点)
 
-**质量线已闭环**:评测 26 用例、R@k 0.8846、忠实度中位 0.9615(LLM-judge)、拒答 1.0、kb_hidden 3/3;qa-08 经 T10 后 7/7 稳定。看板 `evals/dashboard.html` 单页自包含。**P1/P2 全部完成。**
+**质量线已闭环并升到 v1.5**:评测 26 用例、R@k **0.9231**、忠实度 **1.0**、拒答 1.0、kb_hidden 3/3(2026-09-29 KB 清理后 3 轮完全一致);qa-08 经 T10 后稳定。看板 `evals/dashboard.html` 单页自包含。**P1/P2 全部完成。**
 
 **P3 AIOps 是简历第二亮点**,拆为 P3a(地基,已完成)→ P3b(MCP Server)→ P3c(NovaAgent 诊断链)→ P3d(注入→自动定位+录屏)。
 
 **P3a 交付**:`sims/`(common 共用层:MetricsMiddleware / SimPool 有界池 / FaultManager / psutil CPU 轮询 / 自压测)+ jiaowu/ykt 两服务 + `fault_inject.py` CLI + `docker-compose.sims.yml` + Grafana 总览盘(uid `sims-overview`,6 面板)。验收证据在 `docs/p3a/evidence/`(targets 双 up、池耗尽 in_use 恒 10→5xx 0.204/s→自动恢复、CPU ~1700%、Grafana 截图)。
 
-**下一步 = 下发 P3b**,规格要点:
-1. **第 0 步(强制)**:`docker ps` 确认 daemon → `up -d` → 实时复跑一次 pool_exhaust,**补 P3a 欠的实时验证**(P3a 只做了证据复核)。
-2. 顺手补 P3a 遗留:`fault_inject.py` 轮询循环同时从 `/metrics` 抓 `process_cpu_percent`,让 CPU 注入自留文本峰值证据。
-3. 主体:仿 `mcp/weekly` 建 `mcp/aiops`,工具 `query_metrics(promql)`/`query_logs`/`query_changes`/`get_service_status`/`list_alerts`/`run_playbook`,读 Prometheus HTTP API(:9090)+ docker logs。**禁改 `novaagent/**`**。
+**下一步 = 等 Zcode 交回 P3b**(规格已下发,`docs/TASKS.md` P3b 条目 C0~C8 + 开单指令副本 `docs/p3b/zcode-order.md`),然后按 `docs/COLLAB.md` §5 闸门 Review。P3b 要点:第 0 步强制实时复跑(补 P3a 欠账)、C1 新增 Prometheus 告警规则(`list_alerts` 的唯一真实数据源,现实测 rules/alerts 均为空)、C2 让 `fault_inject.py` 抓 `process_cpu_percent`、主体仿 `mcp/weekly` 建 `mcp/aiops` 六个只读工具、**禁改 `novaagent/**`**。
 
-**用户侧待反馈**:用户用 WorkBuddy 跑了真实问题测评,反馈尚未给到;若反馈到达优先处理它。
+**P3b 之后 = P4**(用户反馈驱动的产品升级,设计与拆分已入库):`docs/P4.md`(模块 M1~M9 + 实测证据)+ `docs/TASKS.md` 的 P4a~P4g。**用户 2026-09-29 决策:P3b 先做完,P4 排其后串行下发。**
+
+**用户侧反馈已到达并已处理(2026-09-29)**:辅导员实测反馈原文在 WorkBuddy 工作树 `C:\Users\<user>\WorkBuddy\Worktrees\NovaCampus\task-t10-retrieval-d910a267\docs\使用反馈.txt`(**只读,本仓库不复制原文**;结论已归入 `docs/P4.md` §一)。Qoder 已做:①按用户授权清理 KB 脏数据 17 篇(含 `id=109` 登录页 student 可见、`id=22` 自家前端首页**含演示口令**、15 篇 smoke_test 残留)→ 基线升 v1.5;②实测出**拒答门控是软约束**:F1 长问句在 `sources=[]` 时仍用自有知识作答并**虚构 `[1]` 引用**,而现有 6 条 refusal 用例全是短问句,**测不出该漏洞**→ 立为 P4a 头号修复项(代码级硬门控 + 引用越界剥离 + 新增 `refusal_indomain` 用例);③语料候选清单 `docs/p4/corpus-candidates.md` **待用户审批后入库**(红线:含学生姓名的公示/名单页禁抓禁入库、不得用真实学工账号登录抓取)。
 
 
 ## 六、踩坑清单(绝对不能再踩,全部真实发生过)
@@ -124,6 +127,15 @@
 19. **daemon 挂了不能假装复跑**:P3a Review 时 Docker Desktop 已停、4 端口不可达 → 明确定性为**证据复核**,写进文档,并把实时复跑推给 P3b 第 0 步。**别用旧截图冒充本次实测**。
 20. **时间戳交叉是判真伪的利器**:`prometheus_targets.json` 的 `lastScrape` 10:32:44Z(+0800=18:32:44)与截图文件 mtime 18:32:20 吻合、与 CLI 日志采样窗口吻合 → 三方一致才判"真实运行留痕"。
 
+### 产品与评测盲区(2026-09-29 处理用户反馈时新踩,全部有实测证据)
+
+21. **拒答是软门控,长问句会失守**:SYSTEM_PROMPT 的 9 条规则挡不住"域内相关 + 情境丰富"的长问句——实测 `sources=[]` 时模型仍用自有知识给出完整流程/材料清单/APP 名,并**虚构 `[1]` 引用**;同主题短问句则拒答正确(但仍带 `[1]`)。铁律:**无据判定必须落在代码里**(sources 空 或 top_score < 阈值 → 确定性拒答模板,不经 LLM 自由生成),`[n]` 越界编号必须代码剥离并记 badcase。
+22. **评测集会给你假安全感**:6 条 `refusal` 用例全是短问句/域外问题 → 拒答准确率长期 1.0,却仍发生真实事故。铁律:**新增能力必须配"能测出它失败"的用例**(域内无据 + 长问句 + 含个人情境),指标好看 ≠ 测到了。
+23. **smoke_test 会持续污染生产库**:每跑一次冒烟上传 3~4 篇测试文档且从不清理,累积 15 篇重复标题,抢占 `MAX_PER_DOC=2` 名额稀释真实来源(`qa-03` R@k 因此只有 0.5)。铁律:**测试必须自清理 + 断言 `documents` 计数守恒**;基线异常先查库里有没有测试残留。
+24. **网页导入别抓首页/索引页**:`cwc.swjtu.edu.cn/` 首页是登录框(入库正文只有"浏览器兼容性提示"),`infpub.swjtu.edu.cn/gksx/...` 是导航索引页(只有跳转链接);更糟的是曾把自家前端首页 `http://127.0.0.1:8900/` 导入库,**正文含演示口令**。铁律:导入必须有质量门(有效长度/登录页特征/title/URL 去重/敏感扫描),**口令与个人信息永不入库**;含学生姓名的公示名单页禁抓禁入库。
+25. **DashScope 兼容模式拿不到联网来源**:`enable_search=true` 在 OpenAI 兼容模式下只回 `usage.plugins.search.count`,**没有 `search_info`**;要 title/url/角标必须走原生协议 `POST /api/v1/services/aigc/text-generation/generation` + `search_options{forced_search, search_strategy, enable_source, enable_citation, citation_format}`(2026-09-29 已实测可用,复用同一 `LLM_API_KEY`,turbo 策略不额外计费)。
+26. **基线口径必须标清**:`EVAL_BASELINE.md` 历史行混用"3 轮中位"与"单轮均值"(v1.4.1 中位 0.9615 / 单轮均值 0.9231)。引用任何基线数字都要注明**口径 + 语料篇数**,否则验收对账会把改善误判成回归。
+
 ## 七、快速验证命令(接手自检)
 
 
@@ -140,5 +152,12 @@ NO_PROXY="127.0.0.1,localhost" curl -s "http://127.0.0.1:9090/api/v1/targets" | 
 NO_PROXY="127.0.0.1,localhost" curl -s http://127.0.0.1:9102/metrics | grep -E 'app_db_pool_(size|in_use)|process_cpu'
 /d/anaconda3/python.exe sims/fault_inject.py --target ykt --mode pool_exhaust --duration 30
 # 语法自检(不需要依赖):/d/anaconda3/python.exe -m py_compile sims/common.py sims/*/app.py sims/fault_inject.py
+
+# ---- KB 卫生(2026-09-29 清理后基线,新语料入库前应为 59/469)----
+/d/anaconda3/python.exe -c "import sqlite3;c=sqlite3.connect('novaagent/data/agent.db');print('documents',c.execute('select count(*) from documents').fetchone()[0],'chunks',c.execute('select count(*) from chunks').fetchone()[0]);print('dup_titles',c.execute('select count(*) from (select title from documents group by title having count(*)>1)').fetchone()[0]);print('dirty',c.execute(\"select count(*) from documents where title in ('登录') or filename like 'http%'\").fetchone()[0])"
+# 期望:documents 59 / chunks 469 / dup_titles 0 / dirty 0;不符先查是否有人跑过 smoke_test 未清理
+# 评测(须先起服务,且必须带评测温度开关):
+#   cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900
+#   PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py   # v1.5: 26/26 R@k 0.9231 忠实度 1.0
 ```
 

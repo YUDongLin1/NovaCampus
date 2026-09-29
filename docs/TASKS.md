@@ -3,6 +3,7 @@
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
 > **当前持棒：Zcode**（P3b AIOps MCP Server 已下发 2026-09-29;第 0 步实时复跑为强制前置;Qoder 预检 daemon/sims/targets 均可用）
+> ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
 
 ## 现状快照（2026-09-27，Qoder 盘点）
@@ -499,7 +500,7 @@
   - [ ] **C5** 端到端现场演示 `tests/aiops_demo.py`：触发 ykt `pool_exhaust 45s` → 轮询 `list_alerts(firing)` → `query_metrics` 取池利用率/5xx 速率 → `query_logs` 捞 503 → `query_changes` 认到注入事件 → `run_playbook pool_exhaust` → 打印"根因候选 + 证据链"，跑通并落盘 `evidence/demo_pool_exhaust.txt`
   - [ ] **C6 证据入库对账**（P3a 教训 17，必做）：文档引用的每个 evidence 文件都出现在 `git diff --name-status master...HEAD` 里；`git check-ignore -v docs/p3b/evidence/*.log` 必须返回"未被忽略"（`.gitignore` 有全局 `*.log`，需加例外并入库）
   - [ ] **C7** `docs/P3B.md`：架构图 / 工具契约表 / **每个关键数字的出处（文件→字段）** / 部署形态决策依据（C0.4 实测）/ P3c 接入点（URL、传输、角色可见性）/ `fault_active` 重启后序列缺失等已知限制
-  - [ ] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（基线 26 用例 / R@k 0.8846 / 忠实度 0.9615 / 拒答 1.0）+ `novaagent/tests/smoke_test.py`；起不来（注：2026-09-29 Qoder 自检时 `:8900/api/health` 不可达，NovaAgent 未运行）则在回执写明原因，由 Qoder Review 时复跑
+  - [ ] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（**基线 v1.5：26 用例 / R@k 0.9231 / 忠实度 1.0 / 拒答 1.0**，2026-09-29 KB 清理后 3 轮一致；**不要再用 0.8846/0.9615，那是 76 篇脏库口径**）+ `novaagent/tests/smoke_test.py`；起不来（注：2026-09-29 Qoder 自检时 `:8900/api/health` 不可达，NovaAgent 未运行）则在回执写明原因，由 Qoder Review 时复跑。**注意 smoke_test 会往 KB 塞测试文档且不清理（已知问题，P4a 修）**，跑完请复核 `documents` 计数并在回执说明。
 
 - **验收命令**
 ```bash
@@ -541,6 +542,137 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
 
 ### P3d 验收 + 录屏　📋 READY（待 P3c）
 - 注入"一卡通连接池耗尽"→ Agent 自动定位并产出中文诊断报告；录屏存档 `reports/`。
+
+---
+
+## P4 用户反馈驱动的产品升级（2026-09-29 立项，设计方案见 `docs/P4.md`）
+
+> 来源：用户转来的辅导员实测反馈 `docs/使用反馈.txt`（3 条真实问答反馈 + 1 条周报 UI + 5 条功能调整）。
+> **排期（用户 2026-09-29 决策）**：`P3b 先做完` → P4a → P4b → P4c → P4d → P4e → P4f → P4g，串行持棒、一次一单。
+> **Qoder 已先行执行（2026-09-29，用户授权）**：KB 卫生清理 17 篇（脏数据 2 + 测试残留 15，含备份），基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0（3 轮一致）**，详见 `docs/EVAL_BASELINE.md` 第九节；语料候选清单已产出待审：`docs/p4/corpus-candidates.md`。
+> ⚠ **P4 各单的基线对照一律用 v1.5**，不要再用 0.8846/0.9615（那是 76 篇脏库口径）。
+
+### P4a 内容质量与 KB 卫生：拒答硬门控 + 导入质量门 + 语料扩充　📋 READY（待 P3b 合并后下发）
+
+- **目标**：把"知识库无据时仍用自有知识作答、还虚构 `[1]` 引用"这个真实事故从**代码层**堵死；建立网页导入质量门与 KB 体检，杜绝脏数据再次进库；补齐医保/学平险/校医院/计财处语料，让反馈里的 3 个真实问题能被有据回答。
+- **为什么是最高优先级**：实测（2026-09-29，student 角色，`sources=[]`）——反馈 F1 原文长问句 → 模型给出 5 步流程 + 材料清单 + APP 名并标注 **`[1]`（虚构引用）**；同主题短问句 → 拒答正确但**仍带 `[1]`** 且夹带无据断言；现有 6 条 `refusal` 用例全是短问句/域外问题，**测不出该漏洞**（拒答准确率长期 1.0 却出真实事故）。详见 `docs/P4.md` §2.3 与 `docs/EVAL_BASELINE.md` 第九节。
+- **允许改（跨领地，已显式授权）**：
+  - `novaagent/novaagent/agent.py`（拒答硬门控 + 引用校验 + prompt 组装）、`main.py`（导入质量门）、`rag.py`（返回 `top_score`/`n_above_threshold` 等质量信号）、`db.py`（如需存 contacts/审计字段）、`config.py`（阈值常量）
+  - `novaagent/novaagent/refusal.py`（新）、`novaagent/data/contacts.json`（新）
+  - `novaagent/tests/smoke_test.py`（自清理 + KB 计数守恒断言）
+  - `evals/cases.json`、`evals/run_evals.py`（新增 `refusal_indomain` 与新 qa 用例）、`evals/kb_doctor.py`（新）
+  - `corpus/clean/**`（新语料，遵守 Tier 分层）、`docs/P4A.md`、`docs/p4/**`
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`（judge 口径不得变，否则基线不可比）、`novaagent/web/index.html`（P4a 不动前端；若拒答出口渲染必须改前端，先在回执提出等确认）、`evals/dashboard.html`
+- **完成标准**：
+  - [ ] **C0 先复现再修**：对 F1 原文问句落盘修复前证据（`sources=0` 且答案含 `[1]` 与自有知识流程）到 `docs/p4/evidence/before_refusal_gate.txt`
+  - [ ] **C1 拒答硬门控**：`sources` 为空 **或** `top_score < RERANK_MIN_SCORE(0.3)` **或** `n_above_threshold < 2` → 走**确定性拒答模板**（代码拼装，不经 LLM 自由生成），含「暂无 + 缺口说明 + 出口（部门/电话/官网）+ 需补充的信息」
+  - [ ] **C2 引用硬校验**：答案中 `[n]` 若 `n > len(sources)` → **代码剥离**，并写一条 `fabricated_ref` badcase（复用 `evals/badcases.json` 机制）；有单元测试覆盖（含"原文本身带 [1] 字样"不误伤）
+  - [ ] **C3 出口数据表** `novaagent/data/contacts.json` ≥6 条，每条含 `{dept, scope_keywords[], phone[], url, source_url, note}`，数据**必须来自官网原文**（`docs/p4/corpus-candidates.md` 已实测到校医院 6 类电话），**不得由 LLM 生成**；拒答时按关键词匹配 1~3 条
+  - [ ] **C4 导入质量门**（`kb_import_url` + `kb_upload` 共用）：正文有效长度 <200 字 / 命中登录页特征（登录、用户名、密码、浏览器版本过旧、兼容性提示、验证码）/ `<title>` 为登录类 / 同 URL 已入库 / 敏感扫描命中（手机号、身份证、学号、**人名+名单特征**）→ 全部拒绝并返回结构化原因 `{code, reason, hint}`；**回归测试：重放 `https://cwc.swjtu.edu.cn/` 与 `http://127.0.0.1:8900/` 必须被拦**
+  - [ ] **C5 KB 守恒**：`smoke_test.py` 记录本次上传 doc_id 并在结束时删除，另提供 `--cleanup` 清历史残留；断言冒烟前后 `documents` 计数不变；新增 `evals/kb_doctor.py` 输出 `reports/kb_doctor_<ts>.json`（重复标题/超短正文/疑似登录页/口令与个人信息/孤儿分块/FTS 与 chunks 计数一致性），当前库 **0 高危项**
+  - [ ] **C6 语料入库（须先经用户审批 `docs/p4/corpus-candidates.md`）**：≥4 篇入库并通过 C4 质量门；入库前后 `kb_doctor` 对账；F1/F2 抽查命中且带 `[n]` 引用；**红线**：含学生姓名的公示/名单页禁入库、不得用用户真实学工账号登录抓取、不得把 LLM 搜索摘要当语料
+  - [ ] **C7 评测扩充**：新增 `refusal_indomain` ≥6 条（**含 F1 原文**）+ qa 3 条（F1/F2/F3，`expect_keywords` 取官网原文关键词如「暂停原户籍地或学籍地参保关系」「448」「大病补充险」「66366439」「保卫处」）；`judge_refusal` 增强为同时断言"不含越界 `[n]`、不含 `expect_absent_keywords`、含出口信息"；**全部用例通过且 v1.5 三项指标不回退**
+  - [ ] **C8 F3 学段**：研究生对应办法不在库时，回答必须**声明适用学段**（如"以下依据本科生办法"）并提示研究生规定未覆盖；不得默认按本科生作答（评测断言）
+  - [ ] **C9 性能不劣化**：记录修复前后 F1 问句与普通问答的总耗时（拒答路径不走 LLM 自由生成，应更快）；正向反馈"速度太快了"是既有资产，不得劣化
+- **验收命令**：
+```bash
+cd /e/AILearn/NovaCampus && export NO_PROXY="127.0.0.1,localhost"
+# 起服务(评测口径)
+cd novaagent && NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900 &
+cd .. && PYTHONIOENCODING=gbk novaagent/.venv/Scripts/python.exe evals/run_evals.py     # 连跑 3 轮
+PYTHONIOENCODING=gbk novaagent/.venv/Scripts/python.exe evals/kb_doctor.py
+PYTHONIOENCODING=gbk novaagent/.venv/Scripts/python.exe novaagent/tests/smoke_test.py    # 跑完 documents 计数须不变
+PYTHONIOENCODING=utf-8 novaagent/.venv/Scripts/python.exe -c "..."   # F1 原文问句手工复测:断言无 [1]、含出口电话
+git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness.py|index.html" && echo "[FAIL] 越界" || echo "[PASS] 未越界"
+```
+- **依赖**：P3b 合并 master（用户决策 P3b 先做完）；`docs/p4/corpus-candidates.md` 经用户审批；`docs/P4.md` M1/M2/M3 设计
+- **上下文/必读**：`docs/P4.md` §2.1–§2.3、§2.7、M1–M3；`docs/EVAL_BASELINE.md` 第九节；`docs/p4/corpus-candidates.md`；`HANDOFF.md` §六 坑 4/5/8/17/18
+
+### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　📋 READY（待 P4a，设计见 `docs/P4.md` M4）
+
+- **目标**：支持连续多轮对话并实时检测上下文占用；未超窗口完整保留历史，超 **65%** 时对较早内容按主题压缩后注入；左侧展示历史会话列表，支持新建/切换/重命名/删除。
+- **⚠ 关键事实（别当"调整"做）**：现状 `agent.py` 的 `chat_for()`/`chat_stream_for()` 构造的 `messages` **只有 system + 当前问题，从不注入历史**；`messages` 表**无 `conversation_id`**（实测 user_id=3 累积 754 条混在一起）→ 本单是**从零建**。
+- **允许改**：`novaagent/novaagent/{db.py,agent.py,main.py,config.py,llm.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4B.md`
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`
+- **完成标准要点**：
+  - [ ] `conversations` 表 + `messages.conversation_id` + `conversation_summary` 表；**迁移不删数据**（现有消息按 user_id + 间隔 >30min 切分，无法归属的进"历史归档"会话）
+  - [ ] 上下文预算 `CONTEXT_BUDGET = ctx * 0.65`（`MODEL_CANDIDATES` 增 `ctx` 字段）；token 估算 `ceil(chars/1.6)` **并在文档标注为估算**（不引 tokenizer 依赖）
+  - [ ] 超预算 → 较早消息按主题压缩（新增 `COMPRESS_PROMPT`，**必须保留数字/日期/条款号/未决事项/对象代称**），压缩结果落库，原文永久保留可回溯
+  - [ ] SSE 增 `{"type":"context","used","budget","compressed"}` 事件，前端显示占用条
+  - [ ] 会话 CRUD API（list/create/rename/archive/delete + messages）；删除级联；切换会话中止进行中的 SSE
+  - [ ] 新增评测类型 `multiturn`（第 2 轮用代词指代第 1 轮实体须答对）与 `context_compress`（构造超预算历史，断言 `compressed=true` 且关键数字仍在答案里）
+- **⚠ 开工前决策点**：`web/index.html` 现为 **887 行单文件**，P4b/P4c/P4e/P4f 都要改它。是否先拆成 `app.js`/`chat.js`/`kb.js`（保持单页无构建）？**下发前由 Qoder 与用户确认**，否则后续每单都在同一文件上冲突。
+- **依赖**：P4a 合并；`docs/P4.md` M4
+
+### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　📋 READY（待 P4b，设计见 M5）
+
+- **目标**：知识库界面支持用户自建文件夹，对文件分类/归类/移动；输入框支持 `@` 语法指定本次检索所用的知识库（可多选）；补 `audience`（本科生/研究生/通用）元数据以支撑反馈 F3 的学段区分。
+- **允许改**：`novaagent/novaagent/{db.py,rag.py,main.py,config.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4C.md`
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`
+- **完成标准要点**：
+  - [ ] `folders` 表（支持 parent_id 层级）+ `documents.folder_id` + `documents.audience`；文件夹与文档的 CRUD/移动/批量移动 API
+  - [ ] `rag.search(query, min_rank, scope=None)`；**RBAC 优先于 scope**：取交集，越权 folder **静默忽略**（沿用"不可见=不存在"约定，不泄露存在性）
+  - [ ] `@` 解析在**前端**完成，`question` 与 `scope` **分离传参**（`@xxx` 不得混进 question 文本污染 embedding/FTS）
+  - [ ] 删除非空文件夹**默认拒绝**并提示先移动（级联删除需显式二次确认）；`@` 指定的库为空 → 明确提示，**不得静默回落全库检索**
+  - [ ] 前端 KB 页改为「文件夹树 + 文档列表」，支持移动/归类
+  - [ ] 新增评测类型 `scoped_qa`（`@` 指定库后来源全属该库；`@` 空库返回提示）
+- **依赖**：P4b 合并；`docs/P4.md` M5
+
+### P4d LangGraph 检索编排 + 查询改写重试　📋 READY（待 P4c，设计见 M6）
+
+- **目标**：用户问题先经 LangGraph 做意图判断——闲聊、问时间等无需检索的直接回复；需检索的进检索分支，召回质量或数量不达标时自动改写关键词重检索，并设重试次数上限。
+- **允许改**：`novaagent/pyproject.toml`（新增 `langgraph`）、`novaagent/novaagent/{graph.py(新),agent.py,rag.py,config.py,db.py,main.py}`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4D.md`
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`（P4a 的硬门控只可调用、不得削弱）
+- **完成标准要点**：
+  - [ ] **只用 LangGraph 做状态机编排**：LLM 仍走 `llm.py`(httpx)、向量仍走 numpy 内存余弦，**不引入 langchain 的模型/向量/retriever 封装**（保持技术栈一致）
+  - [ ] 图：`intent →(chitchat/time/meta) direct_answer` / `→ retrieve → grade →(达标) generate` / `→(不达标) rewrite → retrieve`（`MAX_REWRITE=2`）`→ refuse_with_exit`（复用 P4a 硬门控）
+  - [ ] 问时间/日期类**不调 LLM**（正则 + `datetime` 直答）；意图判定超时/失败 → **降级为默认走检索**（路由挂了不能不答）
+  - [ ] `rag.search` 返回质量信号 `{top_score, n_above_threshold, fused_candidates}`；`grade` 判定 `top_score≥0.3 且 n_above_threshold≥2`（可配）
+  - [ ] 改写策略含"去情境噪声"（直接对应 F1 长问句失守场景）、同义扩展、学段限定；`retrieval_trace` 落 `conversations`
+  - [ ] 新增评测类型 `intent`（断言 `retrieval_trace.skipped=true`）与 `rewrite`（口语化长问句断言发生改写且最终命中）；**给出实测毫秒数**：闲聊路径首字延迟显著低于检索路径，普通问答不劣化
+  - [ ] 顺带处理遗留：`qa-09`（离校请销假）R@k 长期 0.0
+- **依赖**：P4c 合并；PyPI 可达（已实测清华源/官方源 langgraph 均 200）
+
+### P4e 联网搜索开关 + 来源分区标注　📋 READY（待 P4d，设计见 M7）
+
+- **目标**：提供联网搜索开关由用户自主决定是否启用；回答中**区分标注本地检索来源与联网来源**。
+- **允许改**：`novaagent/novaagent/{websearch.py(新),graph.py,agent.py,config.py,db.py,main.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4E.md`
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`
+- **已实测的技术前提（别走弯路）**：现有 `llm.py` 的 **OpenAI 兼容模式即使 `enable_search=true` 也不返回 `search_info`**（只回 `usage.plugins.search.count=1`）→ 必须新增 **DashScope 原生协议** `POST /api/v1/services/aigc/text-generation/generation`，`search_options={forced_search:true, search_strategy:"turbo", enable_source:true, enable_citation:true, citation_format:"[<number>]"}`，实测返回 `output.search_info.search_results[{index,site_name,title,url}]`。复用现有 `LLM_API_KEY`，turbo 不额外计费。
+- **完成标准要点**：
+  - [ ] 本地 `[1..n]` 与联网 `[W1..Wk]` **分区注入 + 分区渲染**，规则要求不得混用、联网内容须注明站点名并标注"未经本校核实"
+  - [ ] 开关**默认关闭**；用户级默认（`user_settings.web_search_enabled`）+ 单次请求覆盖
+  - [ ] 新增评测类型 `web_grounded`：开关开 → 库内无据但公网有答的问题须含 `[W1]` 且来源可点；**开关关 → 同一问题必须走 P4a 拒答模板**
+  - [ ] 搜索超时/失败 → 降级为仅本地 + 明确提示"联网搜索不可用"；引用编号越界校验同 P4a
+  - [ ] **合规红线（C 级，违反即打回）**：联网请求**只发送当前问题文本**——库内文档内容、会话历史、学生个人信息一律不出网；请求日志不得记录问题以外的敏感字段
+- **依赖**：P4d 合并；`docs/P4.md` M7、§六
+
+### P4f 辅导员定制（persona）+ 侧边栏重构　📋 READY（待 P4e，设计见 M8）
+
+- **目标**：统一左侧会话栏，账户入口移至会话栏最底部；新增"辅导员"入口，可创建并定制不同学院的 AI 辅导员（名称、人设提示词、回复风格、绑定学院专属知识库），对话中可直接调用对应辅导员作答。
+- **允许改**：`novaagent/novaagent/{db.py,agent.py,main.py,config.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4F.md`
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`
+- **完成标准要点**：
+  - [ ] `personas` 表（owner/name/college/persona_prompt/style/bound_folder_ids/bound_categories/visibility/is_default）+ `conversations.persona_id`
+  - [ ] `SYSTEM_PROMPT` 改为 `build_system_prompt(persona, ctx_local, ctx_web)`；**防幻觉规则 1–9 硬编码在模板里，persona 段不得覆盖或删改**
+  - [ ] 权限：辅导员管自己的、学生只能用 public、admin 管全部；**绑定库仍受 RBAC 交集约束，persona 不得提权**
+  - [ ] 前端：左侧会话栏统一（列表 + 新建 + 辅导员选择器），**账户入口移到会话栏最底部**；"辅导员"入口 → 创建/编辑表单；对话中可切换
+  - [ ] 新增评测类型 `persona`：同一问题在两个 persona 下断言风格差异且来源一致；**用"忽略以上规则"类注入攻击问句断言防幻觉规则未被绕过**
+  - [ ] persona 删除后其历史会话保留并标记"人设已删除"
+- **依赖**：P4c（文件夹绑定）+ P4e 合并；`docs/P4.md` M8
+
+### P4g UI 细节收尾（周报文本框等）　📋 READY（待 P4f，设计见 M9）
+
+- **目标**：修反馈 F4「谈心谈话记录文本框太小，扩充后看起来麻烦」，并统一 P4 各单新增 UI 的视觉。
+- **允许改**：`novaagent/web/index.html`、`docs/P4G.md`
+- **禁改**：其余全部（本单纯前端）
+- **完成标准要点**：
+  - [ ] `#w-content` 提升 `rows`/`min-height`、随输入自动增高（`scrollHeight`）、保留可拖拽 resize；AI 扩充结果区同样可读（长文本不挤）
+  - [ ] 会话栏 / 来源分区 / 联网开关 / 辅导员选择器样式对齐 T3 的「学术水墨 × 朱砂印」主题，**不引第三方 UI 库**
+  - [ ] 验收：改动前后截图对比（落盘 `docs/p4/evidence/`）+ 三角色手工走查记录
+- **依赖**：P4f 合并
+
+> **P4 各单通用验收口径**见 `docs/P4.md` §五（v1.5 基线不回退、性能红线、KB 守恒、证据入库对账、数字出处）；**合规红线**见 §六（真实学工数据、名单公示页、联网只发问题文本、演示口令不入库、persona 不得覆盖规则段）。
 
 ---
 

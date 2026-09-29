@@ -1,0 +1,48 @@
+清理前: documents=76 chunks=486 messages=836
+
+[待删 17 篇]
+  id=1    chunks=1   role=counselor cat=其他     title=学籍管理规定-测试 | filename=学籍管理规定-测试.md
+  id=2    chunks=1   role=student   cat=其他     title=学籍管理规定-学生版 | filename=学籍管理规定-学生版.md
+  id=3    chunks=1   role=counselor cat=其他     title=学籍管理规定-测试 | filename=学籍管理规定-测试.md
+  id=4    chunks=1   role=student   cat=其他     title=学籍管理规定-学生版 | filename=学籍管理规定-学生版.md
+  id=6    chunks=1   role=counselor cat=其他     title=学籍管理规定-测试 | filename=学籍管理规定-测试.md
+  id=7    chunks=1   role=student   cat=其他     title=学籍管理规定-学生版 | filename=学籍管理规定-学生版.md
+  id=12   chunks=1   role=counselor cat=其他     title=学籍管理规定-测试 | filename=学籍管理规定-测试.md
+  id=13   chunks=1   role=student   cat=其他     title=学籍管理规定-学生版 | filename=学籍管理规定-学生版.md
+  id=14   chunks=1   role=admin     cat=运维手册   title=分类测试-运维手册 | filename=分类测试-运维手册.md
+  id=15   chunks=1   role=counselor cat=其他     title=学籍管理规定-测试 | filename=学籍管理规定-测试.md
+  id=16   chunks=1   role=student   cat=其他     title=学籍管理规定-学生版 | filename=学籍管理规定-学生版.md
+  id=17   chunks=1   role=admin     cat=运维手册   title=分类测试-运维手册 | filename=分类测试-运维手册.md
+  id=18   chunks=1   role=counselor cat=其他     title=学籍管理规定-测试 | filename=学籍管理规定-测试.md
+  id=19   chunks=1   role=student   cat=其他     title=学籍管理规定-学生版 | filename=学籍管理规定-学生版.md
+  id=20   chunks=1   role=admin     cat=运维手册   title=分类测试-运维手册 | filename=分类测试-运维手册.md
+  id=22   chunks=1   role=counselor cat=工作制度   title=智枢 Agent · NovaCampus | filename=http://127.0.0.1:8900/
+  id=109  chunks=1   role=student   cat=其他     title=登录 | filename=https://cwc.swjtu.edu.cn/
+
+清理后: documents=59 chunks=469 chunks_fts=469 孤儿分块=0
+
+[清理后 category 分布]
+  政策文件 = 32
+  学生事务 = 20
+  其他 = 5
+  运维手册 = 2
+
+[清理后 role_min 分布]
+  admin = 2
+  counselor = 21
+  student = 36
+
+[清理后关键词覆盖]
+  医保       chunks=1
+  学平险      chunks=0
+  校医院      chunks=3
+  计财处      chunks=0
+  财务处      chunks=16
+  保险       chunks=4
+  缴费       chunks=1
+  荣誉称号     chunks=22
+  浏览器      chunks=0
+  演示账号     chunks=0
+
+[剩余重复标题]
+  无
