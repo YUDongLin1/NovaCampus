@@ -38,6 +38,10 @@ RERANK_API_KEY = env("RERANK_API_KEY")
 
 WEEKLY_MCP_URL = env("WEEKLY_MCP_URL", "http://127.0.0.1:18080/mcp")
 
+# P4a C1:拒答门控阈值(rerank 原始分低于该值不作为回答依据)。原常量在 rag.py,
+# P4a 迁入 config 统一管理;rag.py 保留同名别名兼容既有引用。
+RERANK_MIN_SCORE = 0.3
+
 DATA_DIR = Path(env("NOVA_DATA_DIR", str(Path(__file__).resolve().parent.parent / "data")))
 DB_PATH = DATA_DIR / "agent.db"
 

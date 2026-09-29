@@ -1,0 +1,61 @@
+{
+  "note": "P4a C3 拒答出口数据表。数据全部来自官网原文(doc_id 113 校医院联系方式 / 114 学平险理赔须知 / 110 医保缴费通知),不得由 LLM 生成;电话为官网原文写法。学平险归口=保卫处(bwc.swjtu.edu.cn),非计财处。",
+  "contacts": [
+    {
+      "dept": "校医院 医保办(医保咨询)",
+      "scope_keywords": ["医保", "参保", "参保地", "缴费", "报销", "异地就医", "居民医保", "大病", "停保", "转移"],
+      "phone": ["66366439", "87601522", "028-87600480(九里)", "028-66366480(犀浦)"],
+      "url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "source_url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "note": "来源:校医院《联系我们》官网页;大学生医保缴费/停保/异地就医咨询"
+    },
+    {
+      "dept": "保卫处(学平险/意外伤害保险归口)",
+      "scope_keywords": ["学平险", "平安保险", "意外伤害", "保险理赔", "保险卡", "参保证明"],
+      "phone": ["87600392(九里·行政楼1楼)", "66366392(犀浦·1号教学楼1106)"],
+      "url": "https://bwc.swjtu.edu.cn/",
+      "source_url": "https://bwc.swjtu.edu.cn/info/1018/1031.htm",
+      "note": "来源:保卫处《大学生意外伤害保险理赔须知》(2012-12-20 历史文件);学平险归口保卫处而非计财处,现行办理方式以保卫处最新通知为准"
+    },
+    {
+      "dept": "校医院 急救",
+      "scope_keywords": ["急救", "急诊", "突发疾病", "120"],
+      "phone": ["66366120", "87600120"],
+      "url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "source_url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "note": "来源:校医院《联系我们》官网页"
+    },
+    {
+      "dept": "校医院 健康体检",
+      "scope_keywords": ["体检", "入学复查"],
+      "phone": ["66368813"],
+      "url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "source_url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "note": "来源:校医院《联系我们》官网页"
+    },
+    {
+      "dept": "校医院 预防接种门诊",
+      "scope_keywords": ["疫苗", "接种", "hpv", "HPV"],
+      "phone": ["66366933"],
+      "url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "source_url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "note": "来源:校医院《联系我们》官网页"
+    },
+    {
+      "dept": "校医院 投诉与总值班",
+      "scope_keywords": ["投诉", "纠纷", "建议"],
+      "phone": ["66366480", "87600480"],
+      "url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "source_url": "https://hospital.swjtu.edu.cn/lxwm.htm",
+      "note": "来源:校医院《联系我们》官网页;邮箱 xxx@swjtu.edu.cn"
+    },
+    {
+      "dept": "计财处(收费/缴费)",
+      "scope_keywords": ["学费", "住宿费", "收费", "票据", "退费"],
+      "phone": [],
+      "url": "https://cwc.swjtu.edu.cn/",
+      "source_url": "https://cwc.swjtu.edu.cn/",
+      "note": "计财处官网首页为统一身份认证登录页,电话请登录校内门户或以计财处最新公布为准;来源:官网域名本身(公开已知入口)"
+    }
+  ]
+}

@@ -18,7 +18,7 @@ VECTOR_TOP_K = 20
 KEYWORD_TOP_K = 20
 FUSION_TOP_K = 8
 FINAL_TOP_K = 7          # T10 杠杆②: 5→7,容纳通用+专门两类来源,种子"复学一周"细节块进入上下文
-RERANK_MIN_SCORE = 0.3   # 低于该相关度的分块不作为回答依据(拒答机制)
+RERANK_MIN_SCORE = config.RERANK_MIN_SCORE  # P4a: 阈值常量迁至 config,保留别名兼容既有引用
 RERANK_BLEND = 0.6       # T10 杠杆③: 最终排序 = 0.6*rerank分 + 0.4*RRF秩归一(防单文档霸榜)
 MAX_PER_DOC = 2          # T10 修订: 维持 2——实测=1 会把种子文档的"复学一周"块挤出上下文(仅剩材料块)
 
@@ -128,15 +128,30 @@ async def rerank(query: str, documents: list[str], top_n: int = FINAL_TOP_K) -> 
 
 async def search(query: str, min_rank: int) -> list[dict]:
     """混合检索 + rerank。返回 [{ref, title, content, score, role_min}]。"""
+    sources, _ = await search_with_quality(query, min_rank)
+    return sources
+
+
+async def search_with_quality(query: str, min_rank: int) -> tuple[list[dict], dict]:
+    """混合检索 + rerank,并返回 P4a C1 拒答门控所需的质量信号。
+
+    返回 (sources, quality):
+      sources: [{ref, title, content, score, role_min}](同旧 search);
+      quality: {top_score(候选中原始 rerank 峰值,降级路径为 None),
+                n_above_threshold(候选中 rerank 分 ≥ RERANK_MIN_SCORE 的条数,
+                                 按融合候选集合统计、在 MAX_PER_DOC/FINAL_TOP_K 截断之前),
+                rerank_available(rerank 服务是否可用)}。
+    """
+    quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False}
     chunks = db.all_chunks_for_search(min_rank)
     if not chunks:
-        return []
+        return [], quality
     qvec = np.array((await embed_texts([query]))[0], dtype="float32")
     v_ranked = _vector_search(qvec, chunks, VECTOR_TOP_K)
     k_ranked = _keyword_search(query, chunks, KEYWORD_TOP_K)
     fused = _rrf_fuse(v_ranked, k_ranked)[:FUSION_TOP_K]
     if not fused:
-        return []
+        return [], quality
     idxs = [i for i, _ in fused]
     raw_rerank: dict[int, float] = {}
     try:
@@ -145,6 +160,9 @@ async def search(query: str, min_rank: int) -> list[dict]:
     except Exception:  # rerank 不可用时优雅降级到 RRF 序(此路径不做 rerank 阈值拒答,阈值语义属 rerank 分)
         raw_rerank = {}
     if raw_rerank:
+        quality["rerank_available"] = True
+        quality["top_score"] = round(max(raw_rerank.values()), 4)
+        quality["n_above_threshold"] = sum(1 for sc in raw_rerank.values() if sc >= RERANK_MIN_SCORE)
         # T10 ③: rerank 分数与 RRF 秩 blend——防止高相关但通用的单文档霸榜,
         # 让 FTS BM25+向量一致性(RRF 秩)参与最终排序,专门条款上移。
         rrf_pos = {i: p for p, (i, _) in enumerate(fused)}
@@ -161,7 +179,7 @@ async def search(query: str, min_rank: int) -> list[dict]:
     else:  # rerank 不可用的降级路径:保留 RRF 序
         picked = sorted(fused, key=lambda x: -x[1])
     if not picked:
-        return []
+        return [], quality
     # 同文档限流,保证引用来源多样性
     doc_count: dict[int, int] = {}
     final: list[tuple[int, float]] = []
@@ -173,7 +191,9 @@ async def search(query: str, min_rank: int) -> list[dict]:
         final.append((i, s))
         if len(final) >= FINAL_TOP_K:
             break
-    return [
+    if not quality["rerank_available"]:
+        quality["n_above_threshold"] = len(final)  # 降级路径无 rerank 分,以条数占位
+    sources = [
         {
             "ref": n + 1,
             "title": chunks[i]["title"],
@@ -183,3 +203,4 @@ async def search(query: str, min_rank: int) -> list[dict]:
         }
         for n, (i, s) in enumerate(final)
     ]
+    return sources, quality
