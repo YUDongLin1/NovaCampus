@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（P3b AIOps MCP Server 已下发 2026-09-29;第 0 步实时复跑为强制前置;Qoder 预检 daemon/sims/targets 均可用）
+> **当前持棒：Qoder**（P3b 交付:C0~C8 全过、双传输 SMOKE/防护测试/端到端 DEMO PASSED、evals v1.6 零回归 26/26;待 Review）
 > ⚠ **同日 Qoder 另按用户授权做了两件不占棒的事**（运行时数据 + docs，未改任何代码）：① 清理 KB 脏数据 17 篇（登录页/自家首页含口令/smoke_test 残留），`documents 76→59`、`chunks 486→469`，已备份；② 评测基线升至 **v1.5 = 26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**（3 轮一致）。**P3b 的 C8 回归对照请用 v1.5/v1.6**。另：用户反馈驱动的 **P4 已设计立项**（见本文件 P4 章节 + `docs/P4.md`），按用户决策排在 P3b 之后。
 > 📌 **2026-09-29 晚间追加**：用户批准语料清单后 Qoder 已抓取入库 6 篇官网医保/保险/收费页（`documents 59→65`、`chunks 469→487`，doc_id 110~115），基线 **v1.6 零回归**（26/26、R@k 0.9231、忠实度中位 1.0、拒答 1.0）。同时实测发现**长问句 rerank 崩塌**（「学平险」0.89 → 口语长句 0.11，被 0.3 阈值归零）——F2 补了语料仍答不上，根因在检索不在语料，详见 `docs/P4.md` §2.8 与 `docs/p4/evidence/retrieval_diag_xuepingxian.txt`。
 > 状态流转：`READY → IN_PROGRESS → IN_REVIEW → DONE`（或 `REJECTED` 回到 IN_PROGRESS）
@@ -448,7 +448,7 @@
   3. `app_db_pool_wait_seconds` 含注入器自身获取等待,注入起始短暂高 P95 属真实数据（P3A.md §六.3）;构建期修复过两缺陷(CMD SERVICE 空/PoolTimeout 逃逸为 500),纪要在 §六.1
   4. **P3b 未开**（遵守"别自行开 P3b"）;服务栈保持运行(:9090/:3000/:9101/:9102)供 Review,NovaAgent/WeKnora 未受影响
 
-### P3b AIOps MCP Server（`mcp/aiops`）　🔧 IN_PROGRESS（2026-09-29 Qoder 下发）
+### P3b AIOps MCP Server（`mcp/aiops`）　🟣 IN_REVIEW（2026-09-29 交付,持棒：Qoder）
 
 - **目标**：把 P3a 监控栈包成 Agent 能调用的**只读取证工具集**（收告警→查指标→捞日志→查变更→跑预案），并让"注入现场"能被 MCP 客户端以**文本证据**复现。做完什么样：`mcp/aiops` 起来后 `tests/smoke_test.py` 双传输全过；在 ykt 池耗尽注入期间，`list_alerts` 返回 `firing` 告警、`query_metrics` 返回 100% 池利用率、`query_logs` 捞到真实 503 行、`run_playbook` 输出带出处的根因候选。它是 P3c 诊断链的工具底座，**简历第二亮点的"手"**。
 
@@ -493,15 +493,15 @@
 - **预案内容**：至少 3 条，与 `corpus/clean/ops/` 已入库的《模拟系统运维手册》骨架对齐（T1 建的）：`pool_exhaust`（连接池耗尽）、`cpu_spike`（CPU 飙高）、`service_down`（服务不可达）。每条含 `signals`(promql) / `steps`(取证顺序) / `root_cause_hints` / `mitigation`(仅文字建议)。
 
 - **完成标准（逐条可验收）**
-  - [ ] **C0** 第 0 步实时复跑留痕齐全（建议 `step0_targets.json`、`step0_pool_exhaust.log`、`step0_pool_exhaust_promql.txt`、`step0_cpu_spike.log`、`step0_cpu_spike_promql.txt`），数字来自本次运行；回执逐条写"数字→文件→字段"
-  - [ ] **C1** `sims/prometheus/alerts.yml` ≥5 条规则（池利用率=100%、5xx 速率>0、池等待 P95>2s、`process_cpu_percent`>800%、`up==0`），`for:` ≤30s 适配演示；`/api/v1/rules` 非空，注入现场 `/api/v1/alerts` 出现 `firing`（落盘留痕）
-  - [ ] **C2** `sims/fault_inject.py` 轮询行同时打印 `cpu=NNN.N%`：从 `{base}/metrics` 纯文本解析 `process_cpu_percent`（**纯标准库**，该指标无 label），结束时打印 `cpu_peak=`；解析失败降级 `cpu=NA` 且**不得改变退出码**；两次注入日志里都能看到 CPU 数值（让 CPU 注入自留文本证据）
-  - [ ] **C3** 6(+1) 工具在 `/sse` 与 `/mcp` 双传输下均可见可调用，`tests/smoke_test.py` 输出 `SMOKE TEST PASSED`（仿 `mcp/weekly/tests/smoke_test.py` 写法）
-  - [ ] **C4** `query_metrics` 只读防护有测试覆盖：非法/写类 promql 被拒、超 window/超点数被截断并声明、错误路径返回 `ok=false`
-  - [ ] **C5** 端到端现场演示 `tests/aiops_demo.py`：触发 ykt `pool_exhaust 45s` → 轮询 `list_alerts(firing)` → `query_metrics` 取池利用率/5xx 速率 → `query_logs` 捞 503 → `query_changes` 认到注入事件 → `run_playbook pool_exhaust` → 打印"根因候选 + 证据链"，跑通并落盘 `evidence/demo_pool_exhaust.txt`
-  - [ ] **C6 证据入库对账**（P3a 教训 17，必做）：文档引用的每个 evidence 文件都出现在 `git diff --name-status master...HEAD` 里；`git check-ignore -v docs/p3b/evidence/*.log` 必须返回"未被忽略"（`.gitignore` 有全局 `*.log`，需加例外并入库）
-  - [ ] **C7** `docs/P3B.md`：架构图 / 工具契约表 / **每个关键数字的出处（文件→字段）** / 部署形态决策依据（C0.4 实测）/ P3c 接入点（URL、传输、角色可见性）/ `fault_active` 重启后序列缺失等已知限制
-  - [ ] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（**基线 v1.6：26 用例 / R@k 0.9231 / 忠实度中位 1.0 / 拒答 1.0，语料 65 篇**，2026-09-29 KB 清理 + 6 篇官网语料入库后 3 轮验证；**不要再用 0.8846/0.9615，那是 76 篇脏库口径**）+ `novaagent/tests/smoke_test.py`；起不来（注：Qoder 自检时 `:8900` 默认未运行，需自己起：`cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900`）则在回执写明原因，由 Qoder Review 时复跑。**注意 smoke_test 会往 KB 塞测试文档且不清理（已知问题，P4a 修）**，跑完请复核 `documents` 计数（当前基线 65）并在回执说明。
+  - [x] **C0** 第 0 步实时复跑留痕齐全（建议 `step0_targets.json`、`step0_pool_exhaust.log`、`step0_pool_exhaust_promql.txt`、`step0_cpu_spike.log`、`step0_cpu_spike_promql.txt`），数字来自本次运行；回执逐条写"数字→文件→字段"
+  - [x] **C1** `sims/prometheus/alerts.yml` ≥5 条规则（池利用率=100%、5xx 速率>0、池等待 P95>2s、`process_cpu_percent`>800%、`up==0`），`for:` ≤30s 适配演示；`/api/v1/rules` 非空，注入现场 `/api/v1/alerts` 出现 `firing`（落盘留痕）
+  - [x] **C2** `sims/fault_inject.py` 轮询行同时打印 `cpu=NNN.N%`：从 `{base}/metrics` 纯文本解析 `process_cpu_percent`（**纯标准库**，该指标无 label），结束时打印 `cpu_peak=`；解析失败降级 `cpu=NA` 且**不得改变退出码**；两次注入日志里都能看到 CPU 数值（让 CPU 注入自留文本证据）
+  - [x] **C3** 6(+1) 工具在 `/sse` 与 `/mcp` 双传输下均可见可调用，`tests/smoke_test.py` 输出 `SMOKE TEST PASSED`（仿 `mcp/weekly/tests/smoke_test.py` 写法）
+  - [x] **C4** `query_metrics` 只读防护有测试覆盖：非法/写类 promql 被拒、超 window/超点数被截断并声明、错误路径返回 `ok=false`
+  - [x] **C5** 端到端现场演示 `tests/aiops_demo.py`：触发 ykt `pool_exhaust 45s` → 轮询 `list_alerts(firing)` → `query_metrics` 取池利用率/5xx 速率 → `query_logs` 捞 503 → `query_changes` 认到注入事件 → `run_playbook pool_exhaust` → 打印"根因候选 + 证据链"，跑通并落盘 `evidence/demo_pool_exhaust.txt`
+  - [x] **C6 证据入库对账**（P3a 教训 17，必做）：文档引用的每个 evidence 文件都出现在 `git diff --name-status master...HEAD` 里；`git check-ignore -v docs/p3b/evidence/*.log` 必须返回"未被忽略"（`.gitignore` 有全局 `*.log`，需加例外并入库）
+  - [x] **C7** `docs/P3B.md`：架构图 / 工具契约表 / **每个关键数字的出处（文件→字段）** / 部署形态决策依据（C0.4 实测）/ P3c 接入点（URL、传输、角色可见性）/ `fault_active` 重启后序列缺失等已知限制
+  - [x] **C8** 零回归：未触任何禁改文件；NovaAgent 可起则复跑 `evals/run_evals.py`（**基线 v1.6：26 用例 / R@k 0.9231 / 忠实度中位 1.0 / 拒答 1.0，语料 65 篇**，2026-09-29 KB 清理 + 6 篇官网语料入库后 3 轮验证；**不要再用 0.8846/0.9615，那是 76 篇脏库口径**）+ `novaagent/tests/smoke_test.py`；起不来（注：Qoder 自检时 `:8900` 默认未运行，需自己起：`cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900`）则在回执写明原因，由 Qoder Review 时复跑。**注意 smoke_test 会往 KB 塞测试文档且不清理（已知问题，P4a 修）**，跑完请复核 `documents` 计数（当前基线 65）并在回执说明。
 
 - **验收命令**
 ```bash
@@ -537,6 +537,30 @@ git diff --name-status master...HEAD | grep -E "novaagent|corpus|evals|weknora|m
 - **上下文 / 必读**：`docs/P3A.md`（§二指标清单、§三注入原理、§四镜像与环境注记）、`mcp/weekly/`（仿写对象：`MCPServer(...)` + `@mcp.tool()`、`__main__` 双传输挂载与 lifespan、`tests/smoke_test.py` 结构、README 排错段）、`sims/common.py`（指标 / `SimPool` / `FaultManager`，只读）、`HANDOFF.md` 第六节坑 4/5/8/17/18/19。
 - **依赖**：Docker Desktop 在跑（2026-09-29 Qoder 自检：daemon 29.8.0、sims 四容器 Up、targets 双 up）；`mcp==2.2.0`（与 weekly 同版本）；sims 栈已 `up -d`；`NO_PROXY`；`uv` 在 PATH（`/c/Users/<user>/.local/bin/uv`）。
 - **纪律**：每完成一个可验证单元就 commit（`P3b: …`）；完成或阻塞即回填「交接回执」并置状态 `IN_REVIEW`、`当前持棒=Qoder`；**不要自行开 P3c、不要合并 master、不要动 WorkBuddy 工作树**。
+
+#### 交接回执（Zcode → Qoder，2026-09-29）——P3b 达成
+
+- **分支 + 提交**：`task/P3b-aiops-mcp` @ `968bb4c`(C0)→`dded407`(C1)→`4b4dc32`(C2)→`0dc73d1`(C3+C4)→`ef4026d`(C5)+本回执提交;`git diff --name-status master...HEAD` 共 23 文件,**全部在白名单内,零越界**(grep 黑名单无命中)
+- **diff 摘要**：`.gitignore`(仅加 `!docs/p3b/evidence/*.log` 例外)、`docker-compose.sims.yml`(仅 alerts.yml 挂载一行)、`sims/prometheus/alerts.yml`(新,5 条规则)+`prometheus.yml`(仅加 rule_files)、`sims/fault_inject.py`(仅 C2 CPU 取证:轮询行 cpu=NNN.N%+cpu_peak,纯标准库解析 /metrics)、`mcp/aiops/**`(server.py 7 工具/playbooks.yml 3 预案/requirements=mcp==2.2.0/README/tests×3)、`docker-compose.aiops.yml` 未建(宿主机 venv 形态,无需)、`docs/P3B.md`+`docs/p3b/evidence/`(11 份)
+- **部署形态决策(C0.4 实测)**:**宿主机 venv**——`docker exec NovaCampus-weekly-mcp sh -c "which docker"` 退出码 1(**NO_DOCKER_CLI**),且 `/var/run/docker.sock` 不存在;query_logs 依赖宿主 docker CLI,容器形态须挂 socket+装 CLI(攻击面大),故 aiops 跑宿主 venv 暴露 `:18081/{sse,mcp}`,P3c 以 `AIOPS_MCP_URL` 对齐 `WEEKLY_MCP_URL` 模式接入
+- **关键数字 → 文件 → 字段**(完整对照表 docs/P3B.md §三,逐条):
+  - targets 双 up → `step0_targets.json` → `data.activeTargets[].health`
+  - C1 前 rules/alerts 空 → `step0_rules_before_c1.json`/`step0_alerts_before_c1.json` → `data.groups=[]`/`data.alerts=[]`
+  - pool_exhaust 60s:in_use 恒 10、t+60s 自动恢复 → `step0_pool_exhaust.log` `[poll]` 行;503 速率 **0.240/s**、等待 0.480 s/s、利用率 1 → `step0_pool_exhaust_promql.txt`
+  - cpu_spike:注入中 **1688.6%**、恢复 **0.5** → `step0_cpu_spike_promql.txt`;CLI 自留 `cpu_peak=1712.9%` → `step2_cpu_spike_cpu.log`(C2 后字段)
+  - 告警:5 条规则加载,注入现场 3 条 firing(Saturated/WaitP95/5xxRate) → `step1_alerts_firing.json` → `data.alerts[].state`
+  - 端到端:池 100.0%、5xx 0.16/s、503 日志 16 行、注入窗口认到、预案 3 信号命中、证据链 6 条 → `demo_pool_exhaust.txt`
+- **测试结论**:双传输 `SMOKE TEST PASSED`(SSE+StreamableHTTP 各 7 工具)、`GUARD TESTS PASSED`(13 项:空/多语句/超长 promql 拒绝、admin/写类路径拒绝、service 注入拒绝、401 点截断声明、语法错误 ok=false、+0800 时间/4 位数值、mini-yaml 回退)、`AIOPS DEMO PASSED`
+- **C8 零回归**:evals 实跑 **26/26、R@k 0.9231、忠实度 1.0、拒答 1.0**(报告 `reports/eval_report_20260929_150513.json`,与 v1.6 基线完全一致);novaagent smoke 17 项 PASSED
+- **完成标准自评**:C0~C8 全过(逐条见上方勾选与 docs/P3B.md §四)
+- **遗留 / 说明**:
+  1. **smoke_test KB 污染已复现**:documents **65→69**、chunks 487→491,新增 4 篇测试文档(学籍管理规定-测试/学生版、分类测试-运维手册、智枢 Agent·NovaCampus——后者正文含演示口令,坑 24 同源);未自行清理(运行时数据处置权在 Qoder/用户),P4a 修自清理+计数守恒;**建议 Review 评测前先清回 65**
+  2. 评测报告落在 `reports/`(P3b 黑名单)未入库,数字已在上文引用文件名,可由 Qoder 复跑核验
+  3. 已知限制(工具行为,非缺陷):fault_active 序列在"容器重启后~首次注入前"不存在;`/debug/fault/{mode}` 单路由模板致 path 标签不区分注入模式,mode 归属以 fault_active{type} 为准——均写入 P3B.md §七与工具返回体
+  4. query_metrics 的 `window_s` 缺省 None(传值=区间回看,典型 300);Python 无法区分"未传/传默认",语义已在 docstring 与 P3B.md §七.3 说明
+  5. playbooks.yml 兼容性:pyyaml 可用则优先,否则走内置迷你解析器(严格子集);含冒号/引号的标量已加引号规避歧义(实测暴露过 2 个解析 bug,已修并回归)
+  6. 运行态供 Review:sims 栈 4 容器 Up、aiops server :18081 在跑、NovaAgent :8900 带评测温度开关在跑;端口 9090/3000/9101/9102/18081/18080 互不冲突
+
 
 ### P3c NovaAgent 接入 AIOps + 诊断链　📋 READY（待 P3b）
 - 仿 `weekly_client`：admin 角色注册 AIOps MCP；ReAct 循环「告警→取证(查指标/日志/变更)→根因→中文诊断报告」。仅 admin 可见。

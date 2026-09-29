@@ -1,0 +1,3 @@
+   ykt 1
+PROMQL: process_cpu_percent{job="ykt"}(恢复后)
+   ykt 0.5

@@ -1,0 +1,55 @@
+# P3b C1:SIMS 模拟校园系统告警规则(供 list_alerts / run_playbook 取证,并为 P3c 诊断链供数)
+# 设计约束:for: ≤30s 适配演示节奏;阈值与 sims 服务默认参数对齐(池等待超时 2s、CPU 注入 >800%)
+groups:
+  - name: sims-availability
+    rules:
+      - alert: SimsServiceDown
+        expr: up{job=~"ykt|jiaowu"} == 0
+        for: 5s
+        labels:
+          severity: critical
+        annotations:
+          summary: "模拟系统 {{ $labels.job }} 不可达(up==0)"
+          description: "Prometheus 抓取 {{ $labels.job }} 失败超过 5s,服务进程可能退出或网络不可达。"
+
+  - name: sims-pool
+    rules:
+      - alert: SimsDbPoolSaturated
+        expr: app_db_pool_in_use{job=~"ykt|jiaowu"} / app_db_pool_size{job=~"ykt|jiaowu"} >= 0.999
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} 连接池饱和(利用率 100%)"
+          description: "app_db_pool_in_use/app_db_pool_size ≥ 99.9% 持续 10s;新请求将排队等待,超过 POOL_WAIT_SECONDS(2s)即 503。典型根因:连接池被长时间事务占满(如 /api/card/pay 对账写库慢)或故障注入 pool_exhaust。"
+
+      - alert: SimsDbPoolWaitP95High
+        expr: histogram_quantile(0.95, sum by(job, le)(rate(app_db_pool_wait_seconds_bucket{job=~"ykt|jiaowu"}[30s]))) > 2
+        for: 10s
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 获取连接等待 P95 > 2s"
+          description: "app_db_pool_wait_seconds P95 超过池等待超时(2s),意味着大量请求正走向 503。"
+
+  - name: sims-errors
+    rules:
+      - alert: SimsHttp5xxRateHigh
+        expr: sum by(job)(rate(http_requests_total{job=~"ykt|jiaowu",status=~"5.."}[30s])) > 0.05
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} 5xx 错误率 > 0.05/s"
+          description: "30s 窗口内 5xx(含 503 db pool busy)速率超阈;结合 SimsDbPoolSaturated 判断是否池耗尽所致。"
+
+  - name: sims-resource
+    rules:
+      - alert: SimsCpuSpike
+        expr: process_cpu_percent{job=~"ykt|jiaowu"} > 800
+        for: 5s
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 进程 CPU > 800%(多核口径)"
+          description: "psutil 进程级 CPU(100%=单核),>800% 说明多核 busy——典型为计算型请求风暴或 cpu_spike 注入。"

@@ -1,0 +1,15 @@
+[inject] target=ykt mode=cpu_spike duration=30.0s base=http://127.0.0.1:9102
+[before] {"service": "ykt", "faults": {"pool_exhaust": {"active": false, "ends_at": "06:47:50"}, "cpu_spike": {"active": false, "ends_at": "06:44:05"}}, "pool": {"size": 10, "in_use": 0, "waiting": 0, "wait_timeout_s": 2.0}}
+[OK] {"started": true, "mode": "cpu_spike", "duration_s": 30.0, "note": "到期自动恢复;duration=0 表示取消"}
+[poll] t+3s active=True pool_in_use=0 waiting=0 cpu=1535.3%
+[poll] t+6s active=True pool_in_use=1 waiting=0 cpu=1635.6%
+[poll] t+9s active=True pool_in_use=0 waiting=0 cpu=1666.0%
+[poll] t+12s active=True pool_in_use=0 waiting=0 cpu=1693.6%
+[poll] t+15s active=True pool_in_use=1 waiting=0 cpu=1683.4%
+[poll] t+18s active=True pool_in_use=0 waiting=0 cpu=1712.9%
+[poll] t+21s active=True pool_in_use=0 waiting=0 cpu=1695.1%
+[poll] t+24s active=True pool_in_use=1 waiting=0 cpu=1708.5%
+[poll] t+27s active=True pool_in_use=0 waiting=0 cpu=1700.7%
+[poll] t+30s active=False pool_in_use=0 waiting=0 cpu=1695.2%
+[OK] cpu_spike 已到期自动恢复
+[cpu] cpu_peak=1712.9% (来源: http://127.0.0.1:9102/metrics 的 process_cpu_percent,轮询期采样取最大)
