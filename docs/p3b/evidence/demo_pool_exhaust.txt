@@ -1,0 +1,27 @@
+========================================================================
+AIOPS 端到端现场演示:ykt 连接池耗尽 → AIOps 工具链取证 → 根因候选
+========================================================================
+[demo 1] 触发注入: {"started":true,"mode":"pool_exhaust","duration_s":45.0,"note":"到期自动恢复;duration=0 表示取消"}
+[demo 2] list_alerts(firing): []
+[demo 2] list_alerts(firing): []
+[demo 2] list_alerts(firing): []
+[demo 2] list_alerts(firing): []
+[demo 2] list_alerts(firing): ['SimsDbPoolSaturated']
+[demo 3a] 池利用率 = 100.0%  @ 2026-09-29 15:02:02+0800
+[demo 3b] 5xx 速率 = 0.16/s  @ 2026-09-29 15:02:02+0800
+[demo 4] query_logs: 503 计数 16,样例 ['INFO:     127.0.0.1:37628 - "POST /api/card/pay HTTP/1.1" 503 Service Unavailable']
+[demo 5] query_changes: [('process_start_time', 'ykt', None), ('fault_injection_window', 'ykt', 'pool_exhaust'), ('fault_injection_trigger', 'ykt', None)]
+[demo 6] run_playbook pool_exhaust:
+    signal[命中] 池利用率 100%(SimsDbPoolSaturated 对应): 1
+    signal[命中] 5xx(503 db pool busy)速率抬升: 0.16
+    signal[命中] 获取连接等待 P95 超过池等待超时(2s): 4.363
+    root_cause_hints: ['/api/card/pay 持连接 0.3~0.6s(模拟对账写库),支付高峰并发下池(size=10)被长时间事务占满', 'query_changes 若见 fault_active[type=pool_exhaust] 窗口 → 判定为注入演练,非真实故障', '若 query_logs 见大量 pay 慢请求且无注入窗口 → 真实容量问题,考虑扩池或缩短持锁事务']
+    mitigation: 建议命令(需人工执行): 1) 临时缓解——重启 nova-sims-ykt-1 释放连接: docker restar...(仅建议命令,需人工执行;run_playbook 不执行任何写操作)
+[demo 7] gather_diagnosis 证据链 6 条:
+    get_service_status.status.ykt.pool_utilization_pct = 100.0
+    get_service_status.status.ykt.up = 1
+    query_metrics.key_metrics.pool_utilization_pct = 100.0
+    query_metrics.key_metrics.http_5xx_rate_per_s = 0.16
+    query_metrics.key_metrics.process_cpu_percent = 0.5
+    query_changes.changes = 4 条变更记录
+AIOPS DEMO PASSED

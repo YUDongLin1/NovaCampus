@@ -39,9 +39,9 @@ playbooks:
           minutes: 60
         why: 判断 503 抬升是否与故障注入演练窗口吻合
     root_cause_hints:
-      - '"/api/card/pay 持连接 0.3~0.6s(模拟对账写库),支付高峰并发下池(size=10)被长时间事务占满"'
-      - '"query_changes 若见 fault_active[type=pool_exhaust] 窗口 → 判定为注入演练,非真实故障"'
-      - '"若 query_logs 见大量 pay 慢请求且无注入窗口 → 真实容量问题,考虑扩池或缩短持锁事务"'
+      - '/api/card/pay 持连接 0.3~0.6s(模拟对账写库),支付高峰并发下池(size=10)被长时间事务占满'
+      - 'query_changes 若见 fault_active[type=pool_exhaust] 窗口 → 判定为注入演练,非真实故障'
+      - '若 query_logs 见大量 pay 慢请求且无注入窗口 → 真实容量问题,考虑扩池或缩短持锁事务'
     mitigation: '建议命令(需人工执行): 1) 临时缓解——重启 nova-sims-ykt-1 释放连接: docker restart nova-sims-ykt-1; 2) 根治——评估调大 POOL_SIZE 或把对账写库改异步批处理; 本工具不会替你执行。'
 
   cpu_spike:
@@ -77,9 +77,9 @@ playbooks:
           minutes: 60
         why: 区分 cpu_spike 注入演练与真实流量
     root_cause_hints:
-      - '"query_changes 若见 fault_active[type=cpu_spike] 窗口 → 注入演练(business busy-loop),非真实"'
-      - '"若无注入窗口且 /api/reports 类端点被打 → 计算型请求风暴,考虑限流/缓存"'
-      - '"CPU 高但 5xx 不涨 → 服务仍在正常吞吐;CPU 高且延迟 P95 抬升 → 事件循环被挤压"'
+      - 'query_changes 若见 fault_active[type=cpu_spike] 窗口 → 注入演练(business busy-loop),非真实'
+      - '若无注入窗口且 /api/reports 类端点被打 → 计算型请求风暴,考虑限流/缓存'
+      - 'CPU 高但 5xx 不涨 → 服务仍在正常吞吐;CPU 高且延迟 P95 抬升 → 事件循环被挤压'
     mitigation: '建议命令(需人工执行): 1) 定位热点线程后重启进程: docker restart nova-sims-ykt-1; 2) 根治——为重计算端点加并发上限/异步队列; 本工具不会替你执行。'
 
   service_down:
@@ -113,7 +113,7 @@ playbooks:
           promql: 'time() - process_start_time_seconds{job="ykt"}'
         why: 进程已运行秒数——刚重启过则 uptime 很小
     root_cause_hints:
-      - '"up==0 且 logs 为空 → 容器未启动或刚被停止,查 docker ps(人工)"'
-      - '"up==0 且 logs 末尾有 traceback → 进程崩溃,按栈修复后人工重启"'
-      - '"抓取失败但容器健康 → 检查 prometheus.yml 抓取目标与容器网络(compose 内网)"'
+      - 'up==0 且 logs 为空 → 容器未启动或刚被停止,查 docker ps(人工)'
+      - 'up==0 且 logs 末尾有 traceback → 进程崩溃,按栈修复后人工重启'
+      - '抓取失败但容器健康 → 检查 prometheus.yml 抓取目标与容器网络(compose 内网)'
     mitigation: '建议命令(需人工执行): 1) docker ps -a | grep nova-sims 看容器状态; 2) docker compose -f docker-compose.sims.yml up -d ykt 重建服务; 本工具不会替你执行。'
