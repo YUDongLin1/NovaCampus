@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """P4b-0 复核人独立校验(与实现者的 verify_invariants.py 相互独立,不采信其尺子)。
 
-从仓库根运行:  python docs/p4b0/review_independent_check.py
+从仓库根运行:  python docs/p4b0/review_independent_check.py [基准ref,默认 8249928=拆分前 master]
 
 判据:
-  R1 整文件逐行还原:把 css/js 按加载顺序内联回 index.html(去掉本次新增的横幅行与空行),
-     必须与 **master 的 index.html blob**(不是实现者留的快照)完全一致 —— 证明"只是搬运,没改写"。
-     这一条同时覆盖 HTML 骨架 + CSS + JS,比"分段比对"更强。
-  R2 原始行(不 strip 首尾空白)多重集比对:任何一行内部/前导缩进被改动都会被抓出来
+  R1a/R1b 骨架与 CSS 还原:去掉本次新增的资源标签后骨架逐行一致;CSS **含缩进**逐行按序一致。
+  R6  顶层块逐字比对:逐个顶层 function/const 块原文比对 —— 证明函数体内部没被打乱、没被改写
+      (实现者的"行多重集"对块内乱序是看不见的,这条才看得见)。
+  基准 = **拆分前那个 commit 的 index.html blob**(默认 8249928,不是实现者留的快照,
+     也不是合并后的 master)。
+  R2  原始行(不 strip 首尾空白)多重集比对:任何一行内部/前导缩进被改动都会被抓出来
      (模板字符串里的空格是有语义的,strip 版尺子看不见)。多出来的行必须全是空行或注释横幅。
-  R3 顶层语句全量清单:列出原脚本里所有**列 0** 的非声明语句,标出实现者尺子(TL 正则)
+  R3  顶层语句全量清单:列出原脚本里所有**列 0** 的非声明语句,标出实现者尺子(TL 正则)
      覆盖几条、漏几条,并核对新旧顺序一致 —— 判断"跨文件重排是否真安全"。
-  R4 内联处理器被调标识符去重计数:复核 P4B0.md §二 声称的"31 个全局函数"。
+  R4  内联处理器被调标识符去重计数 + 顶层 function 声明计数:复核 P4B0.md §二 的"31 个"。
+  R5  处理器引用的自定义标识符在新多文件布局下是否全部可解析;R5b 跨文件重复顶层
+     let/const(拆分才会引入的新风险,重复 = 加载期 SyntaxError = 白屏)。
 """
 import io
 import re
@@ -43,8 +47,12 @@ def drop_banner(t, max_lines):
     return "\n".join(lines[cut:]), cut
 
 
-# ---------- 基准:直接从 master commit 取 blob,绕开实现者留的快照 ----------
-orig = subprocess.check_output(["git", "show", "master:novaagent/web/index.html"],
+# ---------- 基准:从**拆分前的那个 commit** 取 blob(不是实现者留的快照) ----------
+# 注意:不能用 `master`——P4b-0 合并后 master 已含拆分结果,再跑就没有 <style> 块了。
+# 默认钉在合并前 master 的最后一个 commit;需要换基准时:
+#     python docs/p4b0/review_independent_check.py <ref>
+BASELINE_REF = sys.argv[1] if len(sys.argv) > 1 else "8249928"
+orig = subprocess.check_output(["git", "show", BASELINE_REF + ":novaagent/web/index.html"],
                                cwd=ROOT).decode("utf-8").replace("\r\n", "\n")
 new = read(ROOT + r"\novaagent\web\index.html")
 js_txt = {f: read(ROOT + "\\novaagent\\web\\js\\%s.js" % f) for f in LOAD_ORDER}

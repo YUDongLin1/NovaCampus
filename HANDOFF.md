@@ -1,6 +1,6 @@
 # HANDOFF · NovaCampus 会话交接文档
 
-> 初版 2026-09-28(Zcode,T10 期);2026-09-28 由 Qoder 更新到 P3a 合并后状态;**2026-09-29 由 Qoder 更新:P3b 已下发(持棒 Zcode)、P4 用户反馈包已立项设计、KB 清理 17 篇、基线升 v1.5**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
+> 初版 2026-09-28(Zcode,T10 期);2026-09-28 由 Qoder 更新到 P3a 合并后状态;**2026-09-29 由 Qoder 更新:P3b 已下发(持棒 Zcode)、P4 用户反馈包已立项设计、KB 清理 17 篇、基线升 v1.5**;**2026-09-30 由 Qoder 更新:P3b/P4a/P4a-1 已合并、基线 v1.7(36 用例)、P4b-0 由新会话独立复核后合并 `e947259`、P4b 已下发(持棒 Zcode)**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
 > **配合 `docs/NEXT_SESSION_PROMPT.md` 使用**:那份给"你是谁、先做什么"的开场指令,本文给事实与教训。
 > 你(Zcode/实现者)与 Qoder(负责人/Review)按 `docs/COLLAB.md` 协同:**单一事实源 TASKS.md、串行持棒、白名单禁改、Review 闸门**。
 
@@ -36,6 +36,7 @@
 7. `docs/P4.md` —— **用户反馈驱动的产品升级设计**(M1~M9 模块划分、实测证据、排期、合规红线);任务规格在 `docs/TASKS.md` 的 P4a~P4g
 8. `docs/p4/corpus-candidates.md` —— 医保/学平险/校医院/计财处语料候选(**已获批准并入库**,含禁抓清单)
 9. `docs/CASE_STUDY.md` —— **简历叙事素材**:指标 1.0 之下的三类真实失败(无据作答+虚构引用 / rerank 措辞崩塌 3-8 命中 / 测试污染生产库)、归因过程、含我自己一次过早归因被证伪的记录与复现命令
+10. `docs/P4B0.md` —— **前端拆分后的布局、静态路由规则、"行为零变化"如何做成了可机检的**,含 §八 独立复核结论(复核人自写尺子抓出实现者尺子的三处走偏);做 UI 相关单(P4b/P4c/P4e/P4f/P4g)前**必读**
 
 
 ## 三、运行状态(接手先验)
@@ -49,7 +50,8 @@
 | WeKnora | docker compose,http://localhost(评测基线,不动它) |
 | 演示账号 | admin / counselor / student,密码均 xxx123 |
 | DB | `novaagent/data/agent.db`(SQLite);**2026-09-29 KB 清理+语料增补后 documents=65 / chunks=487**(清理前 76/486,备份 `agent.db.bak-20260929-104207`);WeKnora 库 `novaagent/data/` 无关 |
-| **评测基线** | **v1.7(2026-09-29 P4a 后)**:**36 用例**(原 26 + qa 3 + `refusal_indomain` 6 新类型 + kb_hidden 等)、R@k **0.9412**、拒答 1.0、忠实度中位 0.9706。**8 轮中 7 轮 36/36**,唯一失败为 `qa-08` 关键词「一周」轮换波动(R@k/忠实度均 1.0,T10 时代即有)——引用时**勿写成无条件 36/36**。忠实度较 v1.6 的 1.0 略降**已归因到 C8 强制的"学段声明句"不在 sources 正文而被 judge 扣分**(非能力退化,见 EVAL_BASELINE 第十一节)。**对照一律用 v1.7**,历史 0.8846/0.9615/0.9231 分别对应脏库 76 篇/清理后 59 篇/增补后 65 篇 26 用例口径 |
+| **评测基线** | **v1.7(2026-09-29 P4a 后)**:**36 用例**(原 26 + qa 3 + `refusal_indomain` 6 新类型 + kb_hidden 等)、R@k **0.9412**、拒答 1.0、忠实度中位 0.9706。**11 轮中 10 轮 36/36**(P4b-0 复核又独立加跑 3 轮全过,忠实度逐轮 0.9706 / 1.0 / 0.9412),唯一失败为 `qa-08` 关键词「一周」轮换波动(R@k/忠实度均 1.0,T10 时代即有)——引用时**勿写成无条件 36/36**。忠实度较 v1.6 的 1.0 略降**已归因到 C8 强制的"学段声明句"不在 sources 正文而被 judge 扣分**(非能力退化,见 EVAL_BASELINE 第十一节)。**对照一律用 v1.7**,历史 0.8846/0.9615/0.9231 分别对应脏库 76 篇/清理后 59 篇/增补后 65 篇 26 用例口径 |
+| **前端布局(P4b-0 起)** | `novaagent/web/`:`index.html`(168 行骨架)+ `css/theme.css`(353)+ `js/{api,ui,chat,kb,weekly}.js`(29/102/92/63/95)。`main.py` 有通用只读路由 `/css/{name}`、`/js/{name}`(显式 `media_type` + 穿越/后缀校验)→ **新增 js/css 不必再改 `main.py`**,只需在骨架按依赖顺序加 `<script src>`,`api.js` 必须最先。零构建、无新增公网 CDN(T3 既存的 Google Fonts 外链仍在,本地回退链完整) |
 | 模型 | 百炼 qwen-flash(内置默认)+ qwen3.7-plus(UI 配),key 在 `novaagent/.env` 与 `weknora/.env`(均 gitignore) |
 | **P3a 模拟栈** | `docker compose -f docker-compose.sims.yml up -d --build` → jiaowu :9101 / ykt :9102 / Prometheus :9090 / Grafana :3000(admin/simsadmin123,匿名 Viewer 也开) |
 | ⚠️ Docker Desktop | **不常驻!** 2026-09-28 Review 时守护进程已停(pipe 不存在、4 端口全不可达)。任何 sims/P3b 工作**第一步先 `docker ps` 确认 daemon 活着**,别在 daemon 挂的情况下"验证"任何东西 |
@@ -72,7 +74,8 @@
 | **P3b** | **AIOps MCP Server(mcp/aiops)** | **✅ DONE —— Review 通过并合并 master `2234fc8`(2026-09-29),附 1 项引用链修正** |
 | **P4a** | **内容质量与 KB 卫生(拒答硬门控 + 导入质量门 + 语料复核)** | **✅ DONE —— Review 通过并合并 master `827e1ae`(2026-09-29),两处裁决批准,附 1 项规格缺口** |
 | **P4a-1** | **质量门补口:识别导航/索引型页面** | **✅ DONE —— Review 通过并合并 master `5399a5e`(2026-09-29),附带修复我上轮合并的 RE_IDCARD 保单号误伤** |
-| **P4b-0** | **前端模块化拆分(index.html 887 行,纯重构)** | **🟣 IN_REVIEW —— ⚠ 实现者是 Qoder 本人(Zcode 额度用尽后代做),未合并 master,待用户或 Zcode 独立复核** |
+| **P4b-0** | **前端模块化拆分(index.html 887 行,纯重构)** | **✅ DONE —— 独立复核通过并合并 master `e947259`(2026-09-30)。⚠ 实现者=上一个 Qoder 会话(Zcode 额度用尽后代做),复核由新会话做会话级独立验证并自写尺子,附 3 项措辞修正 + 2 项 BEFORE 基线缺陷** |
+| **P4b** | **会话与上下文管理(多轮 + 65% 压缩 + 左侧会话列表)** | **🔧 IN_PROGRESS —— 2026-09-30 下发,持棒 Zcode,分支 `task/P4b-conversation-context`(待其从 `e947259` 切),规格 `docs/TASKS.md` P4b C1~C10,开单指令 `docs/p4b/zcode-order.md`** |
 | P3c / P3d | NovaAgent 诊断链 / 注入→自动定位录屏 | 📋 排队(依赖前序) |
 | **P4a~P4g**(含 **P4b-0** 前端拆分) | **用户反馈驱动的产品升级**(拒答硬门控/KB 卫生/语料扩充 → **前端拆分** → 会话与上下文压缩 → 文件夹与 @ 指定库 → LangGraph 编排 → 联网搜索 → 辅导员定制 → UI 收尾) | **📋 READY —— 设计与拆分已入库(`docs/P4.md`),用户决策 P3b 先做完,故排在 P3b 之后串行下发** |
 | T7 | 向量库 sqlite → sqlite-vec | 回 backlog,**未下发**(曾误建的 `task/T7-vec` 分支已删) |
@@ -85,9 +88,9 @@
 
 **P3a 交付**:`sims/`(common 共用层:MetricsMiddleware / SimPool 有界池 / FaultManager / psutil CPU 轮询 / 自压测)+ jiaowu/ykt 两服务 + `fault_inject.py` CLI + `docker-compose.sims.yml` + Grafana 总览盘(uid `sims-overview`,6 面板)。验收证据在 `docs/p3a/evidence/`(targets 双 up、池耗尽 in_use 恒 10→5xx 0.204/s→自动恢复、CPU ~1700%、Grafana 截图)。
 
-**下一步 = P4b-0 独立复核**(⚠ **本单实现者是 Qoder 本人**——Zcode 额度用尽、用户指示代做;**实现者=审查者会失效,所以未合并 master**,分支 `task/P4b-0-frontend-split` 停在 IN_REVIEW)。**复核人=用户或 Zcode**,三条要点:① `python docs/p4b0/verify_invariants.py` 应全绿(CSS 逐行等价 / JS 行多重集 0 缺 0 多 / **顶层可执行语句 6 条顺序一致**——这是跨文件重排安全性的关键证明 / 标记等价 / 处理器 25→25 无未解析 / API 调用点 20→20);② `git diff master...HEAD -- novaagent/novaagent/main.py` 只应有 +25 行静态路由、删 0 行;③ **补拍 after 截图**与 `evidence/before/` 同名配对目视(本会话 Chrome DevTools MCP 工作区根不含 `E:` 盘,`filePath` 被拒 → after 截图缺失,是取证缺口不是没验)。通过后再开 P4b。
+**下一步 = 等 Zcode 把 P4b 交回 `IN_REVIEW`**(会话与上下文管理,分支 `task/P4b-conversation-context`,规格 `docs/TASKS.md` P4b C1~C10,开单指令 `docs/p4b/zcode-order.md`)。**Review 时把住本单特有的三处**:① **评测隔离**(C7)——注入历史后若 36 用例复用同一会话会互相污染上下文,基线立刻失去可比性,必须看到"两个用例的 message id 集合交集为空"的断言;② **迁移不删数据**(C1)——`messages` 现有 **2588 条**(counselor 独占 2374),迁移前后计数必须相等且迁移幂等,且**不许脚本改库**,只能走 `db.py` 启动迁移;③ **忠实度摆动不是回归**(C8)——v1.7 忠实度三轮实测 0.9706/1.0/0.9412(中位 0.9706),属已裁决移交 P4d 的 judge 学段声明盲区,禁止为指标删声明。照例做坑 17 证据入库对账、坑 18 claim→字段核查、坑 33 探针非空断言。
 
-**P4b-0 结果**:`index.html` 887→168 行 + `css/theme.css` + `js/{api,ui,chat,kb,weekly}.js`;评测 2 轮 36/36、R@k 0.9412、拒答 1.0;冒烟 PASSED、`documents` 65→65;`kb_doctor` 0 高危;浏览器实测控制台 **0 error 0 warn**、SSE 与来源渲染与 BEFORE **逐项同值**(bot_msgs=17、相关度 0.9971)。两条既存缺陷刻意未修(见坑 30/31)。
+**P4b-0 已完成并合并 master `e947259`**:`index.html` 887→**168 行** + `css/theme.css`(353) + `js/{api,ui,chat,kb,weekly}.js`(29/102/92/63/95);`main.py` **+25 行删 0 行**(通用只读静态路由 `/css/{name}`、`/js/{name}`,显式 `media_type` + 穿越与后缀校验)。**复核结论(新会话,2026-09-30)**:自写尺子证到**骨架逐行一致、CSS 含缩进 352 行逐行一致、36 个顶层块逐个逐字比对正文零改动、未 strip 行多重集缺 0、跨文件无重复顶层 `let/const`**;真浏览器实测 **0 error 0 warn 0 exception**、6 个资源**浏览器收到的字节数 == 磁盘字节数**;复跑 **3 轮**评测 36/36、R@k 0.9412、拒答 1.0、忠实度 0.9706/1.0/0.9412;冒烟 2 次 exit 0、`documents` 65→65、`chunks` 487、`dup_titles` 0;after 截图缺口**已补**(9 张同名配对,登录页平均绝对差 0.44/255)。**跨拆分最强的两条 UI 层证明**:`renderMeta` 合成探针同输入→逐字节同输出(含既存 `[undefined]` 缺陷),来源块文本与相关度 `0.9971` 与 BEFORE 一致。⚠ 原文把 `bot_msgs=17` 也算"逐项同值"是**错的**——该值随会话历史累积(复核实测 33),不可作为不变量(见坑 34)。两条既存缺陷刻意未修(见坑 30/31)。
 
 **P4a-1 已完成(合并 `5399a5e`)**:`index_page` 结构判据(短行占比≥50% 且长行占比<15% 且总行≥20 护栏)——**不是靠字数**,因为导航页菜单本身 1600+ 字。我独立扫 40 篇公开语料 **0 误伤**、实站四 URL 全拒、评测 5 轮全过;并顺带修掉我上一轮合并进去的 `RE_IDCARD` 保单号误伤(双向验证过:保单号放行、真身份证样式仍拦、非法出生日期不误拦)。**待办**:P4c 须用**自造合成案例文体样本**补一条放行断言——`corpus/clean/affairs/` 为守红线双方都未读取,那 20 篇案例"重导零误伤"目前**未实测**,不得为此去读真实 affairs。
 
@@ -160,6 +163,11 @@
 31. **`importUrl()` 依赖内联事件的全局 `event`**(`const btn = event.target`):从浏览器控制台/自动化脚本直接调用会 `TypeError: Cannot read properties of undefined (reading 'target')`——**这不是回归**,拆分前后一字未动。要单测或自动化驱动,需改成显式传参。做 UI 自动化前先分清"我调用方式不对"与"代码坏了"。
 32. **纯重构单的"行为零变化"要可机检,不能靠截图**:本次用六条不变量替代肉眼(CSS 逐行 / JS 行**多重集** / **顶层可执行语句相对顺序** / 去标签标记 / 内联处理器集合+标识符可解析 / API 调用点集合),工具 `docs/p4b0/verify_invariants.py`。其中**顶层语句顺序**那条最容易被忽略——函数声明有提升所以跨文件重排安全,但 `const`/`let` 初值语句重排会出事,必须单独证明。另记:我第一版校验脚本自己有两个缺陷(D 只扫骨架没扫 js、C 把骨架重复计入导致 25→42),**报 FAIL 时先怀疑尺子,再怀疑工件**。
 
+33. **实现者写的尺子会"自我高估",复核必须自带第二把尺子(2026-09-30 复核 P4b-0 时抓到)**:同一件事三种走偏都出现了——① **覆盖面漏**:尺子用 `^(const|let|var)\s|^\(async function` 抓顶层语句,自报"6 条顺序一致",实际列 0 有 **7 条**,漏掉 `$('modal').addEventListener(...)`;② **判据过弱**:"行多重集等价"对**函数块内部乱序**完全无感,而块内乱序才是真会改行为的;③ **措辞与出处错位**:"31 个被引用全局函数"里 31 的真实出处是**顶层 `function` 声明总数**,被内联处理器引用的只有 **22** 个。铁律:**复核时另写一把尺子,并且基准取"改动前那个 commit 的 blob"而不是实现者自己留的快照**(快照可能与被审对象同源)。第二把尺子应至少包含:骨架/CSS **含缩进**逐行还原、**逐个顶层块逐字比对**、未 strip 行多重集、列 0 语句**全量**清单、跨文件重复顶层 `let/const`(拆分才会引入的加载期 `SyntaxError` 白屏风险)。工具已入库:`docs/p4b0/review_independent_check.py`(默认基准钉在 `8249928`,可传 ref 覆盖——**注意合并后再用 `master` 当基准会找不到 `<style>` 块而崩**)。
+    - **同时**:Zcode 的 BEFORE 基线有两条探针**在页面渲染完成前抓了空值**(`02_student_main.json` 记 `kb_rows:0`、`04_kb_filter_chunks.json` 记 `rows:[]`,实测 **42** 与 **3**)。铁律:**探针必须"取到非空才落盘"**,先 `await` 目标元素出现、再断言条数 > 0,取不到就报错而不是写 0。P4b 第 0 步已按此下发。
+34. **MCP 截图写不进 `E:` 盘 → 用 CDP 自己驱动浏览器落盘(2026-09-30 已跑通,后续 UI 单照用)**:Chrome DevTools MCP 与 browser-use MCP 的 `take_screenshot` 都带 `filePath` 参数,但两个会话(实现与复核)都被拒:`Access denied: path ... is not within any of the configured workspace roots`——其工作区根不含 `E:` 盘。可用替代(本机实测):anaconda base 有 `websocket-client 1.8.0` + `requests` + `PIL`,Chrome/Edge 二进制在 `C:\Program Files\Google\Chrome\Application\chrome.exe` → 起 `--headless=new --remote-debugging-port --remote-allow-origins=* --no-proxy-server --user-data-dir=<TEMP 专属 profile>`,用 CDP `Runtime.evaluate`(可 `awaitPromise` 跑 async IIFE)做 DOM 断言、`Page.captureScreenshot` 自己写 PNG。**两件事必须做**:① `Emulation.setDeviceMetricsOverride` 把视口锁成与 BEFORE 同尺寸(`headless=new` 的 `--window-size` 会扣边框,几何不一致会让像素差虚高——锁前登录页 MAD 5.53/255,锁后 **0.44/255**);② **绝不用 `taskkill /F /IM chrome.exe` 收尾**——那会连用户自己的浏览器一起杀掉,用 `Browser.close` + 只回收本脚本 Popen 起的进程。参考实现:`docs/p4b0/after_evidence.py`。控制台取证要同时开 `Runtime`+`Log` 域并被动收事件(`Runtime.consoleAPICalled`/`Log.entryAdded`/`Runtime.exceptionThrown`),不 `cmd` 就收不到。
+35. **后台命令"completed exit 0"不等于拿到输出(2026-09-30 复跑评测时)**:`for` 循环连跑两轮评测,后台任务回报 exit 0,但输出文件只含第一轮,第二轮段落是空的——**报告 JSON 其实正常落盘了**(`reports/eval_report_20260930_000723.json`,36/36)。教训与坑 1 同源:**stdout 只作参考,以落盘原文为准**;遇到"回执说成功但输出缺失",先去找产物文件,再决定要不要重跑,别把已跑出来的证据浪费掉。
+
 ## 七、快速验证命令(接手自检)
 
 
@@ -182,6 +190,15 @@ NO_PROXY="127.0.0.1,localhost" curl -s http://127.0.0.1:9102/metrics | grep -E '
 # 期望:documents 65 / chunks 487 / dup_titles 0 / dirty 0;不符先查是否有人跑过 smoke_test 未清理(坑 23)
 # 评测(须先起服务,且必须带评测温度开关):
 #   cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900
-#   PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py   # v1.5: 26/26 R@k 0.9231 忠实度 1.0
+#   PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py   # v1.7: 36/36 R@k 0.9412 拒答 1.0
+
+# ---- P4b-0 复核四连(纯重构单验收 + 后续 UI 单可复用) ----
+/d/anaconda3/python.exe docs/p4b0/verify_invariants.py            # 实现者尺子(基准=before 快照)
+/d/anaconda3/python.exe docs/p4b0/review_independent_check.py     # 复核人尺子(基准钉在拆分前 commit 8249928,可传 ref)
+/d/anaconda3/python.exe docs/p4b0/after_evidence.py               # CDP 驱动 headless Chrome 落盘 after 证据(坑 34)
+/d/anaconda3/python.exe docs/p4b0/review_pair_evidence.py         # before/after 逐字段配对 + 截图客观度量 → pairing.md
+
+# ---- P4b 迁移与消息规模(2026-09-30 实测 2588 条,counselor 独占 2374) ----
+/d/anaconda3/python.exe -c "import sqlite3;c=sqlite3.connect('novaagent/data/agent.db');print('messages',c.execute('select count(*) from messages').fetchone()[0]);print('by_user',c.execute('select user_id,count(*) from messages group by user_id').fetchall());print('has_conversations_table',c.execute(\"select count(*) from sqlite_master where name='conversations'\").fetchone()[0])"
 ```
 

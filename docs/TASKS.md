@@ -2,7 +2,12 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（**P4b-0 由 Qoder 代 Zcode 实现完毕，未合并 master，待独立复核**——实现者=审查者会失效，所以这一单我不给自己过。复核要点见 P4b-0「交接回执」末段）
+> **当前持棒：Zcode**（**P4b 已下发**，分支 `task/P4b-conversation-context`（待 Zcode 从 master `e947259` 切），开单指令 `docs/p4b/zcode-order.md`，规格见本文件 P4b 条目 C1~C10）
+> ✅ **P4b-0 Review 结论（复核人=另一个 Qoder 会话，2026-09-30，独立复跑 + 自写尺子）**：**通过并合并 master `e947259`**。
+> 实现者是上一个 Qoder 会话，所以本单由**新会话做会话级独立复核**：另写了不依赖实现者尺子的校验（`docs/p4b0/review_independent_check.py`：以**拆分前 commit 的 blob** 为基准做骨架/CSS 含缩进逐行还原、**36 个顶层块逐个逐字比对**、未 strip 行多重集、顶层语句全量清单、跨文件重复 `let/const` 检查）+ 自己用 CDP 驱动真浏览器补齐 after 证据（`docs/p4b0/after_evidence.py`，视口锁 1440x900 与 BEFORE 同几何，9 张同名截图 + 27 条逐字段配对 + 控制台 **0 error 0 warn 0 exception**）。**独立复跑**：冒烟 PASSED 且 `documents` 65→65；评测**三轮** 36/36、R@k 0.9412、拒答 1.0、忠实度 0.9706/1.0/0.9412（中位 0.9706 与 v1.7 同值）。
+> **抓出 3 项文档精确性问题（已修正，非功能缺陷）+ 2 项 BEFORE 基线缺陷（转 Zcode）**：① 顶层可执行语句实为 **7 条**不是 6 条——实现者尺子的正则漏了 `$('modal').addEventListener(...)`，顺序经复核仍一致，结论不变但"关键证明"覆盖面被高估；② "31 个被引用全局函数"里 31 实为**顶层 function 声明总数**，被内联处理器引用的只有 **22** 个（这 22 个我另做可解析性验证，全通过）；③ HANDOFF 把 `bot_msgs=17` 写成"与 BEFORE 逐项同值"——该值随会话历史累积（本次 33），不是可用不变量，真正的同值项是来源块文本与 `renderMeta` 合成串逐字节一致；④ **Zcode 的 BEFORE 基线两处探针取空值**（`02_student_main.json` 记 `kb_rows:0`、`04` 记 `rows:[]`，实测 **42** 与 **3**）→ 立为坑 33，后续单子的探针必须"取到非空才落盘"。
+> **一项边界裁决**：本单 `evals/badcases.json` 落在"禁改 `evals/**`"字面黑名单内、`reports/**`+`HANDOFF.md`+`docs/NEXT_SESSION_PROMPT.md` 落在"允许改"字面白名单外。裁决**接受**：`badcases.json` 是评测运行的 append-only 档案（我核对只有 `updated_at`/`last_seen` 两行时间戳变化 + 新增条目，无手改），其余属 Qoder 领地与协议要求的回执更新。**此裁决仅因实现者=Qoder 才成立，Zcode 的单子不得援引。**
+> ⚠ **角色破例留痕**：本单实现者是 Qoder（Zcode 额度用尽、用户指示代做），复核人是**另一个** Qoder 会话——会话级独立成立，但 **agent 身份同源**，故额外做了"自己写尺子 + 真浏览器实测 + 三轮评测"三重补偿；`P4b` 起回归正常分工（Zcode 实现、Qoder 复核）。
 > ✅ **P4a-1 Review 结论（Qoder，2026-09-29，独立复跑）**：8 文件全在白名单内、`evals/**` 未动；claim→字段逐一对上（他声称 81 行/短行 61.73%/长行 9，我实算 `short_ratio=0.6173, long_lines=9` **完全吻合**）；**零误伤我扫得更广——40 篇公开语料 0 误伤、KB 六篇全放行**；实站四 URL 全拒（含我加的红线用例"含学生姓名名单页 → deny_url"）、`documents` 全程 65→65、`kb_doctor danger=0`；评测我复跑 2 轮 36/36、R@k 0.9412、拒答 1.0（加他 3 轮共 5 轮全过）。**附带修复经双向验证**：`RE_IDCARD` 保单号误伤修掉了、真身份证样式仍拦、非法出生日期不误拦——**修的是我上一轮合并进去的缺陷**。一条未覆盖面转 P4c：affairs 语料为守红线双方均未读取，其"重导零误伤"未实测 → P4c 须用**自造合成样本**补断言，不得为此读取真实 affairs。
 > ✅ **P4a Review 结论（Qoder，2026-09-29，独立复跑）**：边界 19 文件全在白名单内、`evals/faithfulness.py` 确未动；证据对账全绿（坑 17 无失守）；拒答门控实测 F2 原句 1337ms（修复前 5.1~6.5s）+ **出口正确指向保卫处**、无越界引用；`smoke_test` **自清理 + KB 守恒 65→65**、U2 口令三样式为真断言。评测我复跑 3 轮（36/36、36/36、35/36），加他 5 轮共 **8 轮 7 全过**，唯一失败项 qa-08 是 T10 时代即记录在案的轮换波动用例（R@k 与忠实度均为 1.0，非 P4a 回归）；R@k **0.9231→0.9412**。**两处裁决已批准**：① 单来源放行线 `top≥0.9`（我的 `n_above≥2` 规格过紧会结构性误杀 qa-01，属规格缺陷非实现缺陷）；② 忠实度 judge 对"系统注入的学段声明句"的盲区移交 P4d，附三条约束（禁止为指标删声明 / 改口径须记版本 / 应以合法上下文而非白名单实现）。**另发现一处规格缺口转 P4a-1**：C4 拦住了我点名的两个脏 URL，却放进一个**导航索引页**（整站菜单本身超 200 字，纯长度门无解）——责任在我未把"索引页不可入库"写成可执行判据。详见 P4a「Review 结论」。
 > ✅ **P3b Review 结论（Qoder，2026-09-29）**：边界零越界、11 份证据真入库（`.gitignore` 例外由 Zcode 自加，P3a 坑 17 未重犯）、5 条告警规则真实加载、三个测试由 Qoder 亲自复跑全过（含真实注入的端到端 DEMO，`run_playbook` 实测不执行写操作）、干净库复跑 evals 零回归。**附 1 项引用链修正**：P3B.md §三 行 5 的 `1688.6` 不在其所引文件中（量级对但引用链不成立），已由 Qoder 复跑 `cpu_spike` 补齐成立出处 → 详见本条 P3b「Review 结论」。**运行时清理已完成**：smoke 污染的 4 篇已删（含又一篇含演示口令的前端首页导入），`documents 69→65`，备份 `agent.db.bak-reviewP3b-153731`。
@@ -732,7 +737,7 @@ git diff --name-only master...HEAD | grep -E "^evals/|^corpus/|^sims/|^mcp/|^nov
 
 **一条未覆盖面（非阻断，转 P4c）**：为守红线，`corpus/clean/affairs/`（第三方案例语料，本地不入库）**双方均未读取**，因此"重导 20 篇学生事务案例时判据零误伤"**未经实测**。这类叙事体长句多、按现有判据大概率安全，但不该靠大概率。**处置**：P4c（批量归类/移动会触碰这批文档）须用**自造合成案例文体样本**补一条放行断言，**不得为此读取真实 affairs 内容**。
 
-### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　🟣 IN_REVIEW（2026-09-29，**实现者=Qoder 代 Zcode**，待独立复核后合并）
+### P4b-0 前端模块化拆分（`index.html` 887 行 → 多文件；纯重构不改行为）　✅ DONE（2026-09-30 **独立复核通过并合并 master `e947259`**；实现者=上一个 Qoder 会话，复核人=**另一个** Qoder 会话）
 
 - **背景与决策**：用户 2026-09-29 明确要求「在 P4b 开工前先拆分」。现状 `novaagent/web/index.html` 是 **887 行单文件**（HTML+CSS+JS 混写），而 P4b（会话栏）/P4c（文件夹树）/P4e（联网开关与来源分区）/P4f（辅导员入口）/P4g（文本框）**每一单都要改它**——不拆就会连续在同一文件上冲突，Review 也难定位。
 - **目标**：拆成可维护的多文件结构，**保持零构建、单页体验与视觉完全不变**（不引 React/Vite/打包器，与现有 FastAPI 静态托管方式一致）。
@@ -779,21 +784,48 @@ git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资�
   2. 学生/管理员两角色的界面只做了 API 层与代码等价推定，**未在浏览器逐一走查**（结构等价 + 无新增前端权限逻辑可推其不变，但目视确认更稳）
   3. `git diff master...HEAD -- novaagent/novaagent/main.py` 应只有新增 25 行、删 0 行
 
-### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　📋 READY（待 P4b-0，设计见 `docs/P4.md` M4）
+#### Review 结论（复核人=另一个 Qoder 会话，2026-09-30，独立复跑）
+
+**结论：通过，合并 master `e947259`，任务分支已删。** 三条要点全部成立，且我**不采信实现者写的尺子**：
+
+| 复核动作 | 我实际做的 | 结果 |
+|---|---|---|
+| 边界 | `git diff --numstat master...HEAD` 全清单逐文件判 | `main.py` **+25 / 删 0**，且 diff 里只有 `/css/{name}`、`/js/{name}` 两条只读路由；`agent/rag/db/llm/config.py` **一行未动**；`evals/**` 只有 `badcases.json`（评测运行 append-only 档案，非手改） |
+| 证据入库对账（坑 17） | 磁盘 `find` vs `git ls-tree` 逐条 diff | `docs/p4b0/` 24 份、`evidence/after/` 14 份**全对齐**，`git check-ignore -v` 无静默排除 |
+| 数字追到字段（坑 18） | 行数/字节数用 `wc` 复算；评测数字读 `reports/*.json` 原文 | 168/353/29/102/92/63/95 行、6849/22102/1519/4893/3633/3724/4893 字节**全对**；`weekly.js` 与 `ui.js` 同为 4893 字节是**巧合**（已复算确认）；`36/36、R@k 0.9412、拒答 1.0` 出自 `total_pass`/`recall_at_k_avg`/`refusal_accuracy` 字段 ✓ |
+| **自写尺子**（不信实现者的尺子） | `docs/p4b0/review_independent_check.py`，基准=**拆分前 commit `8249928` 的 blob** | R1a 骨架逐行一致 / R1b CSS **含缩进**逐行一致 / **R6 顶层块 36↔36 逐个逐字比对，同名块正文零改动**（这条实现者的"行多重集"看不见块内乱序）/ R2 未 strip 行多重集缺 0 / R5 处理器引用标识符全可解析 / R5b 跨文件无重复顶层 `let/const`（拆分才会引入的白屏风险）→ **全绿** |
+| 运行时 | 自己用 `websocket-client` + headless Chrome 走 CDP（MCP 截图写不进 E: 盘） | 6 个资源 **HTTP 200 且浏览器收到的字节数 == 磁盘字节数**、`charset=utf-8` 显式；`/js/..%2Fcss%2Ftheme.css`、`/js/main.py`、`/js/api.txt`、`/css/../novaagent/main.py` **全 404**；三角色全流程 **0 error 0 warn 0 exception** |
+| C5/C6 | 重启服务带 `NOVAAGENT_EVAL_TEMPERATURE=0`，**复跑 3 轮评测 + 2 次冒烟**（合并前后各一次） | 三轮均 **36/36、R@k 0.9412、拒答 1.0**，忠实度 0.9706 / 1.0 / 0.9412；冒烟 exit 0、`documents` **65→65**、`chunks` 487、`dup_titles` 0 |
+
+**三项文档精确性修正（已落 `docs/P4B0.md` §八，不影响结论）**：顶层可执行语句 **7 条**（实现者尺子正则漏 1 条 `$('modal').addEventListener(...)`，顺序仍一致）；"31 个被引用全局函数"的 31 = **顶层 function 声明总数**，被内联处理器引用的只有 **22**；`bot_msgs` 随历史累积漂移，不得作为"同值"证据。
+**两项 BEFORE 基线缺陷（Zcode 侧，转后续单执行）**：`02_student_main.json` 的 `kb_rows:0`、`04_kb_filter_chunks.json` 的 `rows:[]` 均被实测推翻（**42** / **3**）——探针在渲染完成前抓了空值。已立坑 33：**探针"取到非空才落盘"**，P4b 的第 0 步照此执行。
+
+### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　🔧 IN_PROGRESS（2026-09-30 下发，持棒 Zcode；设计见 `docs/P4.md` M4，开单指令 `docs/p4b/zcode-order.md`）
 
 - **目标**：支持连续多轮对话并实时检测上下文占用；未超窗口完整保留历史，超 **65%** 时对较早内容按主题压缩后注入；左侧展示历史会话列表，支持新建/切换/重命名/删除。
-- **⚠ 关键事实（别当"调整"做）**：现状 `agent.py` 的 `chat_for()`/`chat_stream_for()` 构造的 `messages` **只有 system + 当前问题，从不注入历史**；`messages` 表**无 `conversation_id`**（实测 user_id=3 累积 754 条混在一起）→ 本单是**从零建**。
-- **允许改**：`novaagent/novaagent/{db.py,agent.py,main.py,config.py,llm.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4B.md`
-- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`
-- **完成标准要点**：
-  - [ ] `conversations` 表 + `messages.conversation_id` + `conversation_summary` 表；**迁移不删数据**（现有消息按 user_id + 间隔 >30min 切分，无法归属的进"历史归档"会话）
-  - [ ] 上下文预算 `CONTEXT_BUDGET = ctx * 0.65`（`MODEL_CANDIDATES` 增 `ctx` 字段）；token 估算 `ceil(chars/1.6)` **并在文档标注为估算**（不引 tokenizer 依赖）
-  - [ ] 超预算 → 较早消息按主题压缩（新增 `COMPRESS_PROMPT`，**必须保留数字/日期/条款号/未决事项/对象代称**），压缩结果落库，原文永久保留可回溯
-  - [ ] SSE 增 `{"type":"context","used","budget","compressed"}` 事件，前端显示占用条
-  - [ ] 会话 CRUD API（list/create/rename/archive/delete + messages）；删除级联；切换会话中止进行中的 SSE
-  - [ ] 新增评测类型 `multiturn`（第 2 轮用代词指代第 1 轮实体须答对）与 `context_compress`（构造超预算历史，断言 `compressed=true` 且关键数字仍在答案里）
-- **⚠ 开工前决策点**：`web/index.html` 现为 **887 行单文件**，P4b/P4c/P4e/P4f 都要改它。是否先拆成 `app.js`/`chat.js`/`kb.js`（保持单页无构建）？**下发前由 Qoder 与用户确认**，否则后续每单都在同一文件上冲突。
-- **依赖**：P4a 合并；`docs/P4.md` M4
+- **⚠ 关键事实（2026-09-30 Qoder 实测，别当"调整"做）**：
+  - `sqlite_master` 里**没有 `conversations` 表**；`messages` 只有 `id/user_id/role/content/created_at` 五列，**没有 `conversation_id`**。
+  - `messages` 共 **2588 条**，`user_id=3`（counselor）独占 **2374 条**（历次评测与冒烟写入）→ 本单是**从零建**。
+  - `agent.py` 的 `chat_for()`(211 行) / `chat_stream_for()`(255 行) 里 `messages = [system, 当前问题]`（225 / 281 行），**从不注入历史**。
+  - `main.py:527` 的 `GET /api/conversations` 返回的是**扁平最近消息**，不是会话。`config.py:56 MODEL_CANDIDATES` **无 `ctx` 字段**。
+  - 前端已由 P4b-0 拆成 `index.html`(168 行骨架) + `css/theme.css` + `js/{api,ui,chat,kb,weekly}.js`；`main.py` 的 `/css/{name}`、`/js/{name}` 是**通用只读路由**→ **新增 js/css 不必再改 `main.py`**，只需在骨架按依赖顺序加 `<script src>`（`api.js` 必须最先）。
+- **允许改**：`novaagent/novaagent/{db.py,agent.py,main.py,config.py,llm.py}`、`novaagent/web/{index.html,js/**,css/**}`（建议新增 `web/js/conversations.js`，别把会话栏挤进 `chat.js`）、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4B.md`、`docs/p4b/evidence/**`
+- **禁改**：`novaagent/novaagent/refusal.py`（P4a 硬门控**只可调用不得削弱**）、`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`、`novaagent/data/agent.db*`（**迁移必须走 `db.py` 启动迁移代码，不许脚本直接改库**）
+- **三个硬设计约束（Qoder 定，不得自行改方向）**：① **评测隔离优先**——注入历史后若 36 用例复用同一会话会互相污染上下文，基线立刻失去可比性，这是本单最大隐性风险；② **迁移不删数据但不淹没 UI**——历史会话一律 `archived=1`，列表默认只列未归档 + 「显示归档」开关；③ **压缩是"摘要+原文可回溯"不是删原文**，失败降级为截断并**前端标注已截断**，`COMPRESS_PROMPT` 必须保留数字/日期/条款号/未决事项/对象代称。
+- **完成标准（C1~C10）**：
+  - [ ] **C1 数据模型与迁移**：`conversations` + `messages.conversation_id` + `conversation_summary`；**迁移前后 `count(*) from messages` 相等**、迁移代码幂等（重启两次不重复切分）；`conversations.persona_id` 建表时留列（P4f 才用）
+  - [ ] **C2 多轮真能用**：第 0 步"代词指代"失守问句改后第二问正确指代，before/after 同名证据配对
+  - [ ] **C3 上下文预算**：`MODEL_CANDIDATES` 带 `ctx`、`CONTEXT_BUDGET = ctx*0.65`；未超预算完整保留（时间正序），超预算才压缩；给出**实测 token 数**（注入前/后/预算），估算式 `ceil(chars/1.6)` 须在 `docs/P4B.md` **标注为估算**，**不引 tokenizer**
+  - [ ] **C4 压缩保真**：构造超预算历史，断言 `compressed=true` 且**≥3 个关键数字/日期仍出现在答案里**并逐个标注出自哪条消息 id；原文永久保留可回溯
+  - [ ] **C5 SSE 与前端**：`{"type":"context","used","budget","compressed"}` 事件 + 占用条数值与事件一致；切换会话**中止进行中的 SSE**（`AbortController`），实测无残留 delta 写进旧会话
+  - [ ] **C6 会话 CRUD**：list/create/rename/archive/delete + messages 分页；标题默认首问前 20 字；删除**级联只删该会话**（给别的会话计数对账表）；越权访问他人 `conversation_id` 与"不存在"表现一致（不泄露存在性）
+  - [ ] **C7 评测隔离**：36 用例各用独立会话，断言两个用例的 message id 集合**交集为空**
+  - [ ] **C8 零回归**：v1.7 不回退——36/36、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3。⚠ 忠实度三轮实测 **0.9706 / 1.0 / 0.9412（中位 0.9706）**属已裁决移交 P4d 的 judge 学段声明盲区，**不得当回归去"优化"，更不得为指标删声明**
+  - [ ] **C9 冒烟与 KB 守恒**：`smoke_test.py` GBK 控制台 exit 0，`documents` **65→65**、`chunks` **487→487**；新增会话/消息不得进 KB
+  - [ ] **C10 证据入库对账**：`git diff --name-status master...HEAD` 与 `docs/P4B.md` 引用的每个证据文件逐条对上 + `git check-ignore -v`（坑 17）；**第 0 步探针须"取到非空才落盘"**（坑 33，P4b-0 复核刚抓到两处取空值）
+- **验收命令**：见 `docs/p4b/zcode-order.md`（含迁移计数守恒、多轮代词指代实弹、评测/冒烟、边界自查五组）
+- **✅ 原「开工前决策点」已解决**：`index.html` 是否先拆 —— 用户 2026-09-29 拍板先拆，**P4b-0 已复核合并 `e947259`**，布局为骨架 + `css/theme.css` + `js/{api,ui,chat,kb,weekly}.js`
+- **依赖**：P4b-0 合并（已满足）；`docs/P4.md` M4
 
 ### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　📋 READY（待 P4b，设计见 M5）
 
