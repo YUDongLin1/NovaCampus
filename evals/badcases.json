@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "20260930_154314",
+  "updated_at": "20260930_161732",
   "note": "累积档案:只增不删,废弃用 wontfix 标记",
   "cases": [
     {
@@ -215,38 +215,6 @@
       "note": "P4a C2:答案引用编号越界(sources 之外)被代码剥离的现场记录",
       "first_seen": "20260929_163336",
       "history": [
-        {
-          "at": "20260930_103923",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_103928",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_103930",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_103931",
-          "question": "那它需要导师签字吗?",
-          "stripped_refs": [
-            1
-          ],
-          "sources_count": 0
-        },
         {
           "at": "20260930_103934",
           "question": "研究生申请休学需要提交哪些材料?",
@@ -617,9 +585,41 @@
             3
           ],
           "sources_count": 1
+        },
+        {
+          "at": "20260930_161407",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_161724",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_161728",
+          "question": "那它需要导师签字吗?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 0
+        },
+        {
+          "at": "20260930_161732",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
         }
       ],
-      "last_seen": "20260930_154314"
+      "last_seen": "20260930_161732"
     }
   ]
 }
