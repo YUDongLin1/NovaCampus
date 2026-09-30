@@ -1,0 +1,283 @@
+{
+  "results": {
+    "no_hook": {
+      "exit": 1,
+      "report": "eval_report_20261001_073513.json",
+      "total_pass": 54,
+      "total": 55,
+      "env_flags": {
+        "server": {
+          "grounding_gate_enabled": true,
+          "grounding_early_window_chars": 80,
+          "grounding_stream_force_ungrounded": false,
+          "web_search_enabled_default": false,
+          "web_search_timeout_s": 60.0,
+          "web_search_max_sources": 8,
+          "graph_enabled": true,
+          "max_rewrite": 2,
+          "llm_model": "qwen-flash",
+          "eval_temperature": "0"
+        },
+        "client_env": {
+          "NOVAAGENT_EVAL_TEMPERATURE": "0"
+        }
+      },
+      "grounding_gate": {
+        "total_hits": 12,
+        "total_regen_failed": 11,
+        "by_case": {
+          "qa-17": {
+            "hits": 1,
+            "regen_failed": 0,
+            "stages": [
+              {
+                "stage": "final",
+                "n_sources": 2,
+                "ok_after_regen": true,
+                "flag": null
+              }
+            ]
+          },
+          "cc-01": {
+            "hits": 11,
+            "regen_failed": 11,
+            "stages": [
+              {
+                "stage": "turn8",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn13",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn17",
+                "n_sources": 4,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn18",
+                "n_sources": 7,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn19",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn22",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn25",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn27",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn37",
+                "n_sources": 3,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn38",
+                "n_sources": 3,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn41",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              }
+            ]
+          }
+        }
+      },
+      "fails": [
+        "ss-03"
+      ],
+      "ss03_detail": "grounding_gate 未命中 → 无法验证重生通道。本用例需服务端以 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 启动才**必然**命中;canonical 命令见 docs/TASKS.md P4e 回执与 docs/EVAL_BASELINE.md §十九。当前 gate=无; 闸门命中却无 grounding_retry 事件(gate={})",
+      "summary": {
+        "recall_at_k_avg": 1.0,
+        "faithfulness_avg": 0.9444,
+        "faithfulness_method": "llm",
+        "refusal_accuracy": 1.0
+      }
+    },
+    "canonical": {
+      "exit": 0,
+      "report": "eval_report_20261001_074323.json",
+      "total_pass": 55,
+      "total": 55,
+      "env_flags": {
+        "server": {
+          "grounding_gate_enabled": true,
+          "grounding_early_window_chars": 80,
+          "grounding_stream_force_ungrounded": true,
+          "web_search_enabled_default": false,
+          "web_search_timeout_s": 60.0,
+          "web_search_max_sources": 8,
+          "graph_enabled": true,
+          "max_rewrite": 2,
+          "llm_model": "qwen-flash",
+          "eval_temperature": "0"
+        },
+        "client_env": {
+          "NOVAAGENT_EVAL_TEMPERATURE": "0",
+          "NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED": "1"
+        }
+      },
+      "grounding_gate": {
+        "total_hits": 16,
+        "total_regen_failed": 14,
+        "by_case": {
+          "cc-01": {
+            "hits": 14,
+            "regen_failed": 14,
+            "stages": [
+              {
+                "stage": "turn5",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn9",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn13",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn15",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn17",
+                "n_sources": 4,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn18",
+                "n_sources": 7,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn21",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn25",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn29",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn30",
+                "n_sources": 6,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn33",
+                "n_sources": 4,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn36",
+                "n_sources": 3,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn37",
+                "n_sources": 3,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              },
+              {
+                "stage": "turn41",
+                "n_sources": 5,
+                "ok_after_regen": false,
+                "flag": "ungrounded_after_regen"
+              }
+            ]
+          },
+          "ss-01": {
+            "hits": 1,
+            "regen_failed": 0,
+            "stages": [
+              {
+                "stage": "final",
+                "n_sources": 6,
+                "ok_after_regen": true,
+                "flag": null
+              }
+            ]
+          },
+          "ss-03": {
+            "hits": 1,
+            "regen_failed": 0,
+            "stages": [
+              {
+                "stage": "final",
+                "n_sources": 6,
+                "ok_after_regen": true,
+                "flag": null
+              }
+            ]
+          }
+        }
+      },
+      "fails": [],
+      "ss03_detail": "TTFB=2732ms, E2E=9510ms, span=6777ms, deltas=259, retry=True, gate=True",
+      "summary": {
+        "recall_at_k_avg": 1.0,
+        "faithfulness_avg": 0.9444,
+        "faithfulness_method": "llm",
+        "refusal_accuracy": 1.0
+      },
+      "smoke_exit": 0,
+      "smoke_tail": "13] 模型设置 OK(合法切换/非法拒绝)\n[14] AI 扩充 OK(草稿 177 字)\n[15] 文档摘要 OK: 本文件为学生请假管理规定，适用于在校学生。明确3天内由辅导员审批，3至7天由学院...\n[16a] 导入质量门回归 OK(cwc 首页/自家前端 → deny_url;infpub 导航索引页 → index_page)\n[16b] 网页导入 OK(本地夹具):《校园便民服务指南(测试夹具)》1 块\n[17] 自定义 API 设置 OK(启用/关闭/校验)\n[18] 自清理 OK(删除 4 篇冒烟文档),KB 计数守恒: 65 → 65\nSMOKE TEST PASSED\n"
+    },
+    "kb_doctor": "[kb_doctor] documents=65 chunks=487 danger=0 warn=2"
+  },
+  "fails": []
+}

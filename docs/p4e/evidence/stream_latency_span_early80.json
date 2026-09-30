@@ -1,0 +1,130 @@
+{
+  "mode": "span_early80",
+  "base": "http://127.0.0.1:8940",
+  "runs": 6,
+  "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+  "ttfb_ms_median": 2827.0,
+  "e2e_ms_median": 3153.1,
+  "span_ms_median": 263.1,
+  "n_delta_median": 21.0,
+  "answer_chars_median": 113.0,
+  "retrieval_ms_median": 1045.5,
+  "ttfb_ms_all": [
+    2741.9,
+    2808.8,
+    2845.2,
+    2532.4,
+    2894.9,
+    5066.3
+  ],
+  "e2e_ms_all": [
+    3309.2,
+    3053.4,
+    3119.4,
+    3159.3,
+    3146.9,
+    5278.6
+  ],
+  "span_ms_all": [
+    567.3,
+    244.6,
+    274.2,
+    626.8,
+    252.0,
+    212.3
+  ],
+  "n_delta_all": [
+    38,
+    21,
+    21,
+    29,
+    21,
+    21
+  ],
+  "gate_hit_all": [
+    false,
+    false,
+    false,
+    false,
+    false,
+    false
+  ],
+  "rows": [
+    {
+      "warm": false,
+      "ttfb_ms": 2741.9,
+      "e2e_ms": 3309.2,
+      "span_ms": 567.3,
+      "n_delta": 38,
+      "answer_chars": 208,
+      "retrieval_ms": 1044,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 2808.8,
+      "e2e_ms": 3053.4,
+      "span_ms": 244.6,
+      "n_delta": 21,
+      "answer_chars": 113,
+      "retrieval_ms": 1047,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 2845.2,
+      "e2e_ms": 3119.4,
+      "span_ms": 274.2,
+      "n_delta": 21,
+      "answer_chars": 110,
+      "retrieval_ms": 1065,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 2532.4,
+      "e2e_ms": 3159.3,
+      "span_ms": 626.8,
+      "n_delta": 29,
+      "answer_chars": 159,
+      "retrieval_ms": 1027,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 2894.9,
+      "e2e_ms": 3146.9,
+      "span_ms": 252.0,
+      "n_delta": 21,
+      "answer_chars": 113,
+      "retrieval_ms": 1000,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 5066.3,
+      "e2e_ms": 5278.6,
+      "span_ms": 212.3,
+      "n_delta": 21,
+      "answer_chars": 113,
+      "retrieval_ms": 3247,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    }
+  ],
+  "p4d_baseline": {
+    "ttfd_ms": 2161,
+    "e2e_ms": 2898
+  }
+}

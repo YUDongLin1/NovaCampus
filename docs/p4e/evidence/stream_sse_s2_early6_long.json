@@ -1,0 +1,315 @@
+{
+  "tag": "s2_early6_long",
+  "base": "http://127.0.0.1:8945",
+  "repeat": 6,
+  "cases": [
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "rep": 1,
+      "pass": true,
+      "detail": "TTFB=2840ms, E2E=6351ms, span=3511ms, deltas=167, retry=False, gate=None",
+      "answer_len": 1031,
+      "n_sources": 6,
+      "conversation_id": 1485,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 775,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生休学申请材料及审批流程,休学期满复学申请时限与经办部门"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1030,
+            "query": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+            "n_sources": 6,
+            "top_score": 0.9969,
+            "n_above_threshold": 6,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 7
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "web_enabled": false,
+        "web_called": false,
+        "web_ms": 0,
+        "web_n_sources": 0,
+        "web_error": ""
+      },
+      "ms": 6351
+    },
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "rep": 2,
+      "pass": true,
+      "detail": "TTFB=2669ms, E2E=5944ms, span=3275ms, deltas=157, retry=False, gate=None",
+      "answer_len": 950,
+      "n_sources": 6,
+      "conversation_id": 1486,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 812,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需要提交的材料及审批流程，休学期满后申请复学的材料、时限和经办部门"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1028,
+            "query": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+            "n_sources": 6,
+            "top_score": 0.9968,
+            "n_above_threshold": 6,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 7
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "web_enabled": false,
+        "web_called": false,
+        "web_ms": 0,
+        "web_n_sources": 0,
+        "web_error": ""
+      },
+      "ms": 5944
+    },
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "rep": 3,
+      "pass": true,
+      "detail": "TTFB=3214ms, E2E=7624ms, span=4410ms, deltas=153, retry=False, gate=None",
+      "answer_len": 942,
+      "n_sources": 6,
+      "conversation_id": 1487,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 726,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需提交的材料、审批流程、休学期满后申请复学的材料、时限及经办部门"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1327,
+            "query": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+            "n_sources": 6,
+            "top_score": 0.9968,
+            "n_above_threshold": 6,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 7
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "web_enabled": false,
+        "web_called": false,
+        "web_ms": 0,
+        "web_n_sources": 0,
+        "web_error": ""
+      },
+      "ms": 7624
+    },
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "rep": 4,
+      "pass": true,
+      "detail": "TTFB=2737ms, E2E=6046ms, span=3309ms, deltas=149, retry=False, gate=None",
+      "answer_len": 921,
+      "n_sources": 6,
+      "conversation_id": 1488,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 741,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生休学申请材料及审批流程,休学期满复学申请时限与经办部门"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1016,
+            "query": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+            "n_sources": 6,
+            "top_score": 0.9968,
+            "n_above_threshold": 6,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 7
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "web_enabled": false,
+        "web_called": false,
+        "web_ms": 0,
+        "web_n_sources": 0,
+        "web_error": ""
+      },
+      "ms": 6046
+    },
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "rep": 5,
+      "pass": true,
+      "detail": "TTFB=2682ms, E2E=5954ms, span=3272ms, deltas=157, retry=False, gate=None",
+      "answer_len": 950,
+      "n_sources": 6,
+      "conversation_id": 1489,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 704,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需要提交的材料、审批流程、休学期满后复学的申请流程、各环节时限及经办部门"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1015,
+            "query": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+            "n_sources": 6,
+            "top_score": 0.9968,
+            "n_above_threshold": 6,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 7
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "web_enabled": false,
+        "web_called": false,
+        "web_ms": 0,
+        "web_n_sources": 0,
+        "web_error": ""
+      },
+      "ms": 5954
+    },
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "rep": 6,
+      "pass": true,
+      "detail": "TTFB=2889ms, E2E=5933ms, span=3044ms, deltas=134, retry=False, gate=None",
+      "answer_len": 826,
+      "n_sources": 6,
+      "conversation_id": 1490,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 731,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需提交的材料、审批流程、休学期满后复学申请的时限及经办部门"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1134,
+            "query": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+            "n_sources": 6,
+            "top_score": 0.9968,
+            "n_above_threshold": 6,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 7
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "web_enabled": false,
+        "web_called": false,
+        "web_ms": 0,
+        "web_n_sources": 0,
+        "web_error": ""
+      },
+      "ms": 5933
+    }
+  ],
+  "pass": 6,
+  "total": 6
+}

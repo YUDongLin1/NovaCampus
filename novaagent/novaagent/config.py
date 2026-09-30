@@ -96,6 +96,36 @@ KEYWORD_STOPWORDS = {
 }
 KEYWORD_STOPWORDS_ENABLED = env("NOVA_KEYWORD_STOPWORDS", "1") not in ("0", "false", "False")
 
+# ---------- P4e S1: 流式 grounding 闸门的「早窗提交」 ----------
+# 背景(HANDOFF 坑 60 / TASKS P4e S1):P4e M4 为拦「有来源却零 [n] 零数字」的空话答案,
+# 把 /api/chat/stream 改成 delta **全量缓冲**、判完闸门再下发。复核方实测
+# **TTFB 2365ms / E2E 2401ms、12 个 delta 挤在最后 36ms** → 渐进显示归零,真流式被关掉。
+# S1 的解法:判定与下发解耦——delta 默认直接放行,只在「早窗」内(还没出现可核查事实
+# **且**累计生成不足 N 字)暂缓;窗口一过立刻补发。**整段生成完仍零可核查事实**才重生一次。
+#
+# 【N 为什么取 80】
+#   · 可核查事实(首个 `[n]` 引用或第一个数字)在据实作答时**几乎总在首句内**出现,
+#     实测本项目 qa 用例答案首句 40~120 字 → 80 字能让「首个事实」大概率落在窗口内,
+#     命中即放行,缓冲量通常只有十几字;
+#   · 最坏情况(整段无事实)也只憋住 80 字 ≈ 1~2 句,而不是整段 200~400 字;
+#   · 太小(如 20)会让短免责话术被提前放行、削弱闸门的"不发空话"初衷;
+#     太大(如 300)则退回近似全缓冲。故取 60~120 区间的中位。
+GROUNDING_EARLY_WINDOW_CHARS = int(env("NOVA_GROUNDING_EARLY_WINDOW_CHARS", "80"))
+# 闸门总开关:0 = 关闭(P4e M4 之前的行为),供三档延迟对照取"关闭"档
+GROUNDING_GATE_ENABLED = env("NOVA_GROUNDING_GATE", "1") not in ("0", "false", "False")
+# ⚠ 测试钩子(默认关):强制流式首版被判为「无据」,使 stream_sse 的重生通道断言
+#   **必然**被执行(否则该通道只有约 20% 概率自然命中,断言会空跑——坑 39/45)。
+#   只作用于 /api/chat/stream 的首版判定,不影响 /api/chat,重生仍走真实 LLM。
+GROUNDING_STREAM_FORCE_UNGROUNDED = env("NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED", "0") == "1"
+
+# ---------- P4e M7: 联网搜索(默认关闭) ----------
+WEB_SEARCH_ENABLED = env("NOVA_WEB_SEARCH_ENABLED", "0") not in ("0", "false", "False")
+# 默认 60s:实测强制 tool_choice 的联网检索方差极大(同一问句 12.3s / 79.4s)，
+# 20s 会把可用性打成"随缘"。超时一律走可见降级(web_error),不静默。
+WEB_SEARCH_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_TIMEOUT_S", "60"))
+WEB_SEARCH_MAX_SOURCES = int(env("NOVA_WEB_SEARCH_MAX_SOURCES", "8"))
+
+
 
 def configured() -> list[str]:
     """返回缺失的关键配置项(启动自检用)。"""

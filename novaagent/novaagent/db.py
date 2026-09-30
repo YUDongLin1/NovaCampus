@@ -81,7 +81,10 @@ def _migrate() -> None:
     )
     us_cols = [r["name"] for r in _conn.execute("PRAGMA table_info(user_settings)")]
     with _lock:
-        for col in ("custom_model", "llm_base_url", "llm_api_key"):
+        # P4e M-B: web_search_enabled —— 用户级联网开关。'' == 未设置过 → 回落全局默认(关)。
+        # TEXT 存 "1"/"0"(SQLite 无布尔;且要能区分"未设置"与"显式关",故不用 NOT NULL DEFAULT '0'
+        # 之外的写法——未设置时本列即为 '',由 _web_enabled 判为未设置)。
+        for col in ("custom_model", "llm_base_url", "llm_api_key", "web_search_enabled"):
             if col not in us_cols:
                 _conn.execute(f"ALTER TABLE user_settings ADD COLUMN {col} TEXT NOT NULL DEFAULT ''")
         _conn.commit()
@@ -265,11 +268,26 @@ def _migrate_messages_to_conversations() -> None:
 def get_user_settings(user_id: int) -> dict:
     row = _conn.execute("SELECT * FROM user_settings WHERE user_id=?", (user_id,)).fetchone()
     if row is None:
-        return {"model": "", "custom_model": "", "llm_base_url": "", "llm_api_key": ""}
+        return {"model": "", "custom_model": "", "llm_base_url": "", "llm_api_key": "",
+                "web_search_enabled": ""}
     d = dict(row)
     d.pop("user_id", None)
     d.pop("updated_at", None)
     return d
+
+
+def _yn(v) -> str:
+    """布尔/字符串 → "1"/"0"(SQLite 无布尔,列存 TEXT)。空串表示「未设置」。"""
+    if v is None or v == "":
+        return ""
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    s = str(v).strip().lower()
+    if s in ("1", "true", "yes", "on"):
+        return "1"
+    if s in ("0", "false", "no", "off"):
+        return "0"
+    return ""
 
 
 def set_user_settings(user_id: int, **fields) -> None:
@@ -277,15 +295,27 @@ def set_user_settings(user_id: int, **fields) -> None:
     cur_fields.update({k: v for k, v in fields.items() if v is not None})
     with _lock:
         _conn.execute(
-            """INSERT INTO user_settings (user_id, model, custom_model, llm_base_url, llm_api_key, updated_at)
-               VALUES (?,?,?,?,?,?)
+            """INSERT INTO user_settings (user_id, model, custom_model, llm_base_url, llm_api_key,
+                                         web_search_enabled, updated_at)
+               VALUES (?,?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET model=excluded.model, custom_model=excluded.custom_model,
                    llm_base_url=excluded.llm_base_url, llm_api_key=excluded.llm_api_key,
+                   web_search_enabled=excluded.web_search_enabled,
                    updated_at=excluded.updated_at""",
             (user_id, cur_fields["model"], cur_fields["custom_model"],
-             cur_fields["llm_base_url"], cur_fields["llm_api_key"], _now()),
+             cur_fields["llm_base_url"], cur_fields["llm_api_key"],
+             _yn(cur_fields.get("web_search_enabled")), _now()),
         )
         _conn.commit()
+
+
+def get_web_search_enabled(user_id: int) -> str:
+    """P4e M-B:用户级联网开关原值('' = 未设置过 → 由调用方回落全局默认)。"""
+    return str(get_user_settings(user_id).get("web_search_enabled") or "")
+
+
+def set_web_search_enabled(user_id: int, enabled) -> None:
+    set_user_settings(user_id, web_search_enabled=_yn(enabled))
 
 
 def update_document_summary(doc_id: int, summary: str) -> None:

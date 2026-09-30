@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import logging
 import re
 from urllib.parse import urlsplit
@@ -78,6 +79,27 @@ async def me(user=Depends(current_user)):
 
 # ---------- 个人设置(模型选择 / 自定义 API) ----------
 
+def _web_search_override(body: dict):
+    """P4e M-B:单次请求覆盖。**键不存在 → None**(交回用户级/全局默认),显式 false 才强制关。"""
+    v = body.get("web_search")
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _web_on(s: dict) -> bool:
+    """用户设置 → 布尔(未设置过回落全局默认,默认关)。"""
+    from . import config
+    v = str(s.get("web_search_enabled") or "").strip().lower()
+    if v in ("1", "true", "yes", "on"):
+        return True
+    if v in ("0", "false", "no", "off"):
+        return False
+    return config.WEB_SEARCH_ENABLED
+
+
 @app.get("/api/me/settings")
 async def get_settings(user=Depends(current_user)):
     s = db.get_user_settings(user["id"])
@@ -93,11 +115,16 @@ async def get_settings(user=Depends(current_user)):
         },
         "effective_model": eff["model"],
         "username": user["username"], "role": user["role"], "role_zh": ROLE_ZH[user["role"]],
+        # P4e M-B: 当前联网开关状态(UI 要能看见当前是开还是关)
+        "web_search_enabled": _web_on(s),
     }
 
 
 @app.put("/api/me/settings")
 async def put_settings(body: dict, user=Depends(current_user)):
+    # P4e M-B: 用户级默认开关(与 custom/model 互斥无关,独立处理)
+    if body.get("web_search") is not None:
+        db.set_web_search_enabled(user["id"], body["web_search"])
     custom = body.get("custom")
     if custom is not None:
         if not isinstance(custom, dict):
@@ -832,7 +859,7 @@ async def chat(body: dict, user=Depends(current_user)):
         return empty
     try:
         d = await agent.chat_for(user["id"], user["username"], user["role"], question, cid,
-                                 scope=scope)
+                                 scope=scope, web_search=_web_search_override(body))
     except LookupError as e:
         raise HTTPException(404, str(e))
     return d
@@ -865,7 +892,8 @@ async def chat_stream(body: dict, user=Depends(current_user)):
                 yield f"data: {json.dumps(done_ev, ensure_ascii=False)}\n\n"
             else:
                 async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"],
-                                                      question, cid, scope=scope):
+                                                      question, cid, scope=scope,
+                                                      web_search=_web_search_override(body)):
                     if ev["type"] == "delta":
                         answer_parts.append(ev["content"])
                     yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
@@ -1013,7 +1041,25 @@ async def weekly_archive(body: dict, user=Depends(require_role("counselor"))):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "weekly_mcp": agent.weekly.session is not None}
+    # P4e S2-②: 暴露**本进程生效**的关键配置,供评测/排障把"当时是什么配置"写进报告。
+    # 只读、无敏感字段(不含 key/口令)。新增字段对既有消费端(冒烟连通性检查)无影响。
+    try:
+        flags = {
+            "grounding_gate_enabled": config.GROUNDING_GATE_ENABLED,
+            "grounding_early_window_chars": config.GROUNDING_EARLY_WINDOW_CHARS,
+            "grounding_stream_force_ungrounded": config.GROUNDING_STREAM_FORCE_UNGROUNDED,
+            "web_search_enabled_default": config.WEB_SEARCH_ENABLED,
+            "web_search_timeout_s": config.WEB_SEARCH_TIMEOUT_S,
+            "web_search_max_sources": config.WEB_SEARCH_MAX_SOURCES,
+            "graph_enabled": config.GRAPH_ENABLED,
+            "max_rewrite": config.MAX_REWRITE,
+            "llm_model": config.LLM_MODEL,
+            "eval_temperature": os.environ.get("NOVAAGENT_EVAL_TEMPERATURE", ""),
+        }
+    except Exception as e:  # noqa: BLE001  — 自检字段不该让 health 挂掉
+        logger.warning("health flags 组装失败: %s", e)
+        flags = {}
+    return {"status": "ok", "weekly_mcp": agent.weekly.session is not None, "flags": flags}
 
 
 @app.get("/")

@@ -1,0 +1,127 @@
+{
+  "tag": "after",
+  "base": "http://127.0.0.1:8913",
+  "cases": [
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "pass": true,
+      "detail": "TTFB=2658ms, E2E=3576ms, span=918ms, deltas=37, retry=True, gate=True",
+      "answer_len": 79,
+      "n_sources": 4,
+      "conversation_id": 1269,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 680,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需要提交的材料及审批流程"
+          },
+          {
+            "node": "retrieve",
+            "ms": 939,
+            "query": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+            "n_sources": 4,
+            "top_score": 0.9924,
+            "n_above_threshold": 4,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 8
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "grounding_gate": {
+          "hit": true,
+          "regenerated": true,
+          "ok_after_regen": true,
+          "n_sources": 4,
+          "stream": true,
+          "early_window_chars": 80,
+          "released_chars": 110
+        }
+      },
+      "ms": 3576
+    },
+    {
+      "id": "ss-02",
+      "kind": "abort",
+      "pass": true,
+      "detail": "断开于首个 delta(TTFB=2328ms),会话 1270 消息数 0 → 回滚成立",
+      "answer_len": 0,
+      "n_sources": 0,
+      "conversation_id": null,
+      "context": {},
+      "ms": 4062
+    },
+    {
+      "id": "ss-03",
+      "kind": "gate",
+      "pass": true,
+      "detail": "TTFB=2469ms, E2E=3682ms, span=1213ms, deltas=50, retry=True, gate=True",
+      "answer_len": 166,
+      "n_sources": 4,
+      "conversation_id": 1271,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 615,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需要提交的材料及审批流程"
+          },
+          {
+            "node": "retrieve",
+            "ms": 873,
+            "query": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+            "n_sources": 4,
+            "top_score": 0.9923,
+            "n_above_threshold": 4,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 8
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        },
+        "grounding_gate": {
+          "hit": true,
+          "regenerated": true,
+          "ok_after_regen": true,
+          "n_sources": 4,
+          "stream": true,
+          "early_window_chars": 80,
+          "released_chars": 113
+        }
+      },
+      "ms": 3694
+    }
+  ],
+  "pass": 3,
+  "total": 3
+}

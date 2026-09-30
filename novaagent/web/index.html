@@ -50,6 +50,12 @@
     <div id="at-picker"></div>
     <div id="composer">
       <div id="scope-chips"></div>
+      <!-- P4e M-B: 联网开关(默认关闭、当前状态可见) -->
+      <div id="web-toggle" title="默认关闭。开启后，仅在知识库查不到时才发起一次公网检索；出网内容只有你当前的问题文本，库内资料与会话历史不出网。">
+        <label><input type="checkbox" id="web-search" onchange="onWebToggle()"> 联网检索</label>
+        <span id="web-state">关</span>
+        <span class="web-hint">（仅在知识库无据时补充；出网只有当前问题）</span>
+      </div>
       <div class="composer-row">
       <input id="q" placeholder="输入问题，例如：休学需要哪些材料？输入 @ 可指定检索范围" onkeydown="composerKey(event)">
       <button id="send" onclick="send()">发送</button>

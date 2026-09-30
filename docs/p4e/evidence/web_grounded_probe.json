@@ -1,0 +1,180 @@
+[
+  {
+    "id": "wg-01",
+    "web_search": true,
+    "pass": true,
+    "detail": "web=on: web_called=True, web_ms=21548, web_n_sources=8, web_error='', 本地来源 0 条, 联网 8 条",
+    "answer_head": "GDP 是“国内生产总值”（Gross Domestic Product）的英文缩写，指一个国家或地区所有常住单位在一定时期内生产活动的最终成果。该指标是衡量一个国家或地区经济规模和增长水平的核心统计指标。\n\n此定义可参考国家统计局网站发布的相关统计术语解释 [https://www.stats.gov.cn/zs/tjws/tjzb/202301/t20230101_1903699.html]。",
+    "n_local_sources": 0,
+    "context": {
+      "budget": 85196,
+      "compressed": false,
+      "truncated": false,
+      "history_count": 0,
+      "used": 0,
+      "retrieval_trace": [
+        {
+          "node": "intent",
+          "ms": 987,
+          "intent": "retrieval",
+          "llm_called": true,
+          "normalized_query": "GDP在填报统计报表时对应的指标名称"
+        },
+        {
+          "node": "retrieve",
+          "ms": 1961,
+          "query": "学校填报统计报表时，GDP 这个英文缩写指的是什么指标？",
+          "n_sources": 0,
+          "top_score": 0.0015,
+          "n_above_threshold": 0,
+          "fused_candidates": 12,
+          "fused_candidate_docs": 7
+        }
+      ],
+      "intent": "retrieval",
+      "attempts": 1,
+      "rewritten": false,
+      "retrieval_skipped": false,
+      "web_enabled": true,
+      "web_called": true,
+      "web_ms": 21548,
+      "web_n_sources": 8,
+      "web_error": "",
+      "web_fallback": true
+    },
+    "ms": 26278
+  },
+  {
+    "id": "wg-02",
+    "web_search": false,
+    "pass": true,
+    "detail": "web=off: web_called=False, web_ms=0, web_n_sources=0, web_error='', 本地来源 0 条, 联网 0 条",
+    "answer_head": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+    "n_local_sources": 0,
+    "context": {
+      "budget": 85196,
+      "compressed": false,
+      "truncated": false,
+      "history_count": 0,
+      "used": 0,
+      "retrieval_trace": [
+        {
+          "node": "intent",
+          "ms": 796,
+          "intent": "retrieval",
+          "llm_called": true,
+          "normalized_query": "GDP在填报学校统计报表时对应的指标名称"
+        },
+        {
+          "node": "retrieve",
+          "ms": 1379,
+          "query": "学校填报统计报表时，GDP 这个英文缩写指的是什么指标？",
+          "n_sources": 0,
+          "top_score": 0.0015,
+          "n_above_threshold": 0,
+          "fused_candidates": 12,
+          "fused_candidate_docs": 7
+        }
+      ],
+      "intent": "retrieval",
+      "attempts": 1,
+      "rewritten": false,
+      "retrieval_skipped": false,
+      "web_enabled": false,
+      "web_called": false,
+      "web_ms": 0,
+      "web_n_sources": 0,
+      "web_error": ""
+    },
+    "ms": 2490
+  },
+  {
+    "id": "wg-03",
+    "web_search": true,
+    "pass": true,
+    "detail": "web=on: web_called=True, web_ms=3173, web_n_sources=7, web_error='', 本地来源 0 条, 联网 7 条",
+    "answer_head": "居民消费价格指数的英文缩写是 CPI。\n\n⚠ 本节含公网检索内容，未经本校核实；涉及本校具体政策、流程与办理口径的，请以学校官方文件为准。",
+    "n_local_sources": 0,
+    "context": {
+      "budget": 85196,
+      "compressed": false,
+      "truncated": false,
+      "history_count": 0,
+      "used": 0,
+      "retrieval_trace": [
+        {
+          "node": "intent",
+          "ms": 808,
+          "intent": "retrieval",
+          "llm_called": true,
+          "normalized_query": "后勤保障部统计物价时使用的居民消费价格指数的英文缩写"
+        },
+        {
+          "node": "retrieve",
+          "ms": 1134,
+          "query": "后勤保障部统计物价时用的居民消费价格指数，英文缩写是什么？",
+          "n_sources": 0,
+          "top_score": 0.0032,
+          "n_above_threshold": 0,
+          "fused_candidates": 12,
+          "fused_candidate_docs": 8
+        }
+      ],
+      "intent": "retrieval",
+      "attempts": 1,
+      "rewritten": false,
+      "retrieval_skipped": false,
+      "web_enabled": true,
+      "web_called": true,
+      "web_ms": 3173,
+      "web_n_sources": 7,
+      "web_error": "",
+      "web_fallback": true
+    },
+    "ms": 6086
+  },
+  {
+    "id": "wg-04",
+    "web_search": false,
+    "pass": true,
+    "detail": "web=off: web_called=False, web_ms=0, web_n_sources=0, web_error='', 本地来源 0 条, 联网 0 条",
+    "answer_head": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+    "n_local_sources": 0,
+    "context": {
+      "budget": 85196,
+      "compressed": false,
+      "truncated": false,
+      "history_count": 0,
+      "used": 0,
+      "retrieval_trace": [
+        {
+          "node": "intent",
+          "ms": 1035,
+          "intent": "retrieval",
+          "llm_called": true,
+          "normalized_query": "后勤保障部统计物价时使用的居民消费价格指数的英文缩写"
+        },
+        {
+          "node": "retrieve",
+          "ms": 1389,
+          "query": "后勤保障部统计物价时用的居民消费价格指数，英文缩写是什么？",
+          "n_sources": 0,
+          "top_score": 0.0032,
+          "n_above_threshold": 0,
+          "fused_candidates": 12,
+          "fused_candidate_docs": 8
+        }
+      ],
+      "intent": "retrieval",
+      "attempts": 1,
+      "rewritten": false,
+      "retrieval_skipped": false,
+      "web_enabled": false,
+      "web_called": false,
+      "web_ms": 0,
+      "web_n_sources": 0,
+      "web_error": ""
+    },
+    "ms": 2889
+  }
+]

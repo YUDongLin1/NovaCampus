@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import re
 import sys
 import time
@@ -48,6 +49,82 @@ SEED_ROLES = {
     "EVAL-辅导员内部工作备忘.md": "counselor",
 }
 REFUSAL_MARKS = ("暂无", "没有找到", "未检索", "知识库中未", "无法回答", "不在知识库", "没有相关")
+
+# ---------- P4e S1-②:流式端点(/api/chat/stream)评测 ----------
+# 【为什么必须加这个类型】坑 60:M4 闸门把流式改成「delta 全量缓冲、判完再下发」,
+# 而既有 48 条用例与冒烟**全部只打 /api/chat**,对该端点 0 覆盖 → 全绿无证明力。
+#
+# 【三条量化断言分别防什么】
+#   ② delta 事件数 > 1 且 非「一条承载全文」 —— 防「整段合成一个 delta 下发」;
+#   ③ E2E - TTFB >= STREAM_MIN_SPAN_MS —— 防「21 个 delta 挤在最后 73ms」(真流式被关掉)。
+#
+#      【阈值为什么从 300 降到 150】300 是复核方拍的数,实测**压在真流式分布里面**
+#      (复核方自带证据:早窗档 208 / 239 / 343 / 574ms,其中 208/239 都 < 300 → 随机 FAIL)。
+#
+#      【先修测量,再定阈值】原双段问句答案仅 110~230 字,两档分布**几乎贴在一起**:
+#        全缓冲档 span 观测上界 164ms(逐次 68/97/100/133/151/164;另批 66.5~109.4、31/48)
+#        早窗档   span 观测下界 208ms(逐次 212.3/244.6/252.0/274.2/567.3/626.8;复核方 208/239)
+#        → 无论取 120/150/180,缝隙都只有 20~30%,一个抖动就串档。
+#      故把用例问句改成**三段式长问句**(答案 ~500 字、130~170 个 delta),让 span 回到
+#      "整段生成耗时"这个它本该度量的量:
+#        全缓冲档(6/6 FAIL) span = 82 / 94 / 96 / 97 / 98 / 108 ms        → 上界 108ms
+#        早窗档  (6/6 PASS) span = 3044 / 3272 / 3275 / 3309 / 3511 / 4410 → 下界 3044ms
+#        → 两档间隔 **~28 倍**,取 150ms 时下侧余量 39%、上侧余量 20 倍。
+#      证据: docs/p4e/evidence/stream_sse_s2_{full6,early6}_long.json(两档各连测 6 次);
+#            旧问句的分布另存 stream_latency_span_{full,early80}.json,保留不抹。
+#
+#      ⚠ 单据原文写的是「之差 > 0」,实测旧实现也有 31~119ms(>0),判不出 → 必须给阈值。
+#      ⚠ **未采用**复核方给的备选相对判据 `span >= max(120, 0.10 × E2E)`:本语料 E2E ≈ 3.0~6.4s,
+#        0.10×E2E = 300~640ms —— 恰好又落回被判定为"压在分布里"的量级;且该比例会随
+#        **检索段变慢**而变严(E2E 5.3s 时要求 span≥530ms),对网络抖动不稳健。故取绝对阈值。
+STREAM_MIN_SPAN_MS = 150
+#   ④ 客户端中途断开 → 本轮 user 消息被回滚(P4b C5 不变量)
+#   ⑤ 闸门命中 → 出现 grounding_retry 且落库答案是重生后版本
+# 事件语法:sources → context → delta* → [grounding_retry → delta*] → done(tools 可插在 delta 之间)
+STREAM_HEAD = ("sources", "context")
+STREAM_MID_OK = ("delta", "grounding_retry", "tools")
+
+
+def _sse_events(resp):
+    """把 SSE 字节流解析成事件 dict(按 \n\n 分帧;忽略 [DONE] 与坏帧)。"""
+    buf = ""
+    for chunk in resp.iter_bytes():
+        buf += chunk.decode("utf-8", "replace")
+        while "\n\n" in buf:
+            raw, _, buf = buf.partition("\n\n")
+            raw = raw.strip()
+            if not raw.startswith("data:"):
+                continue
+            p = raw[5:].strip()
+            if not p or p == "[DONE]":
+                continue
+            try:
+                yield json.loads(p)
+            except ValueError:
+                continue
+
+
+def _check_stream_grammar(kinds: list) -> list:
+    """① 事件序列语法。返回问题列表(空=通过)。"""
+    bad: list = []
+    if not kinds:
+        return ["空事件流(一条事件都没收到)"]
+    if kinds[0] != "sources":
+        bad.append(f"首事件应为 sources,实为 {kinds[0]}")
+    if len(kinds) < 2 or kinds[1] != "context":
+        bad.append(f"次事件应为 context,实为 {kinds[1] if len(kinds) > 1 else '(缺失)'}")
+    if kinds[-1] != "done":
+        bad.append(f"末事件应为 done,实为 {kinds[-1]}")
+    for i, k in enumerate(kinds[2:-1]):
+        if k not in STREAM_MID_OK:
+            bad.append(f"位置 {i + 2} 出现非预期事件 {k}")
+    if "delta" not in kinds:
+        bad.append("全程零 delta 事件")
+    if "grounding_retry" in kinds:
+        gi = kinds.index("grounding_retry")
+        if "delta" not in kinds[gi + 1:]:
+            bad.append("grounding_retry 之后没有新的 delta(重生结果未下发)")
+    return bad
 
 # P4d-fix ④（假阳性修复）：非答案检测用的免责措辞与阈值。
 # NON_ANSWER_MARKS 与 REFUSAL_MARKS 有意重叠但更宽——它要抓的是"答案自认没答"
@@ -483,7 +560,8 @@ def run_conversation_case(c: httpx.Client, tokens: dict, case: dict) -> tuple[bo
             last_ctx = d.get("context") or {}
             turn_contexts.append({"turn": turns_sent + 1, "planted": True, **{k: last_ctx.get(k) for k in
                                   ("used", "budget", "compressed", "truncated", "compress_ms",
-                                   "compress_blocks", "history_gate", "history_count")}})
+                                   "compress_blocks", "history_gate", "history_count",
+                                   "grounding_gate")}})
             turns_sent += 1
         for i, t in enumerate(case["turns"]):
             body = {"question": t["question"]}
@@ -500,7 +578,7 @@ def run_conversation_case(c: httpx.Client, tokens: dict, case: dict) -> tuple[bo
                                   **{k: last_ctx.get(k) for k in ("used", "budget", "compressed",
                                                                   "truncated", "compress_ms", "compress_blocks",
                                                                   "history_gate", "followup_no_new_sources",
-                                                                  "history_count")}})
+                                                                  "history_count", "grounding_gate")}})
             turns_sent += 1
         if case["type"] in ("multiturn", "context_compress"):
             ok, detail = judge_history_answer(case, answer, last_ctx)
@@ -686,6 +764,238 @@ def run_rewrite_case(c: httpx.Client, tokens: dict, case: dict) -> tuple[bool, s
     return (not bad), detail, answer, sources, d.get("conversation_id"), ctx
 
 
+def run_stream_case(c: httpx.Client, tokens: dict, case: dict):
+    """P4e S1-②:走 `/api/chat/stream`(SSE)的用例——用户真实路径的唯一自动化覆盖。
+
+    case 字段:
+      stream_kind  'basic'(①②③) | 'abort'(④) | 'gate'(⑤)
+    """
+    role = case.get("role", "student")
+    hdr = {"Authorization": f"Bearer {tokens[role]}"}
+    kind = case.get("stream_kind", "basic")
+    payload = {"question": case["question"]}
+    cid = None
+    if kind == "abort":
+        cr = c.post(f"{BASE}/api/conversations", headers=hdr, json={"title": "stream-abort-probe"})
+        cr.raise_for_status()
+        cid = cr.json()["id"]
+        payload["conversation_id"] = cid
+
+    bad: list = []
+    t0 = time.time()
+    kinds: list = []
+    deltas: list = []
+    delta_t: list = []
+    post_retry: list = []
+    seen_retry = False
+    aborted_in_time = False
+    done_ev: dict = {}
+    with c.stream("POST", f"{BASE}/api/chat/stream", headers=hdr, json=payload) as r:
+        r.raise_for_status()
+        for ev in _sse_events(r):
+            t_ms = (time.time() - t0) * 1000
+            k = ev.get("type")
+            kinds.append(k)
+            if k == "delta":
+                deltas.append(ev.get("content") or "")
+                delta_t.append(t_ms)
+                if seen_retry:
+                    post_retry.append(ev.get("content") or "")
+            elif k == "grounding_retry":
+                seen_retry = True
+            elif k == "done":
+                done_ev = ev
+            # ④ 收到第 1 个 delta 立即断开(且必须早于 done,否则无法验证回滚)
+            if kind == "abort" and k == "delta" and not done_ev:
+                aborted_in_time = True
+                break
+    e2e = (time.time() - t0) * 1000
+    ttfb = delta_t[0] if delta_t else None
+    span = (e2e - ttfb) if ttfb is not None else None
+
+    if kind == "abort":
+        # ④ P4b C5 不变量:客户端断开 → 该轮 user 消息被回滚(中止=该轮未发生)
+        if not aborted_in_time:
+            bad.append("未在收到 done 之前断开(无法验证回滚,按失败计)")
+        time.sleep(1.5)  # 给服务端 CancelledError 回滚留出时间
+        mr = c.get(f"{BASE}/api/conversations/{cid}/messages", headers=hdr, params={"limit": 100})
+        mr.raise_for_status()
+        msgs = mr.json()["messages"]
+        users = [m for m in msgs if m["role"] == "user"]
+        assts = [m for m in msgs if m["role"] == "assistant"]
+        if users:
+            bad.append(f"断开后会话 {cid} 仍残留 {len(users)} 条 user 消息"
+                       f"(P4b C5 不变量被破坏):{users[0]['content'][:40]!r}")
+        if assts:
+            bad.append(f"断开后会话 {cid} 残留 {len(assts)} 条 assistant 消息")
+        detail = ("; ".join(bad) if bad else
+                  f"断开于首个 delta(TTFB={ttfb:.0f}ms),会话 {cid} 消息数 {len(msgs)} → 回滚成立")
+        return (not bad), detail, "", [], None, {}
+
+    # ① 事件序列语法
+    bad += _check_stream_grammar(kinds)
+    # ② delta 事件数 > 1 且 非「一条承载全文」
+    n_delta = len(deltas)
+    if n_delta <= 1:
+        bad.append(f"delta 事件数 {n_delta} <= 1 → 退化成整段下发(真流式被关掉)")
+    full = "".join(deltas)
+    if n_delta >= 1 and full and max(len(d) for d in deltas) >= len(full) and n_delta <= 1:
+        bad.append("单个 delta 承载了全部正文(一次性整段下发)")
+    # ③ 渐进性:E2E - TTFB 必须 >= 阈值
+    if ttfb is None:
+        bad.append("全程未收到 delta(无法测 TTFB)")
+    else:
+        if span < STREAM_MIN_SPAN_MS:
+            bad.append(f"E2E-TTFB = {span:.0f}ms < {STREAM_MIN_SPAN_MS}ms → 渐进性不存在"
+                       f"(TTFB={ttfb:.0f}ms, E2E={e2e:.0f}ms, deltas={n_delta})")
+
+    final = done_ev.get("answer") or ""
+    ctx = done_ev.get("context") or {}
+    gate = ctx.get("grounding_gate") or {}
+    # 一致性:闸门命中 ⇔ 出现 grounding_retry(任何一侧缺失都是缺陷)
+    if bool(gate.get("hit")) != seen_retry:
+        bad.append(f"闸门命中({gate.get('hit')})与 grounding_retry({seen_retry})不一致;gate={gate}")
+
+    if kind == "gate":
+        # ⑤ 闸门命中 → 必须有 retry 事件,且最终落库答案是**重生后**的版本
+        if not gate.get("hit"):
+            bad.append(
+                "grounding_gate 未命中 → 无法验证重生通道。"
+                "本用例需服务端以 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 启动才**必然**命中;"
+                "canonical 命令见 docs/TASKS.md P4e 回执与 docs/EVAL_BASELINE.md §十九。"
+                f"当前 gate={gate or '无'}")
+        if not seen_retry:
+            bad.append(f"闸门命中却无 grounding_retry 事件(gate={gate})")
+        else:
+            after = "".join(post_retry)
+            if not after:
+                bad.append("grounding_retry 之后没有任何 delta(重生结果未下发)")
+            elif after != final:
+                bad.append(f"重生后下发文本 != done.answer(len {len(after)} vs {len(final)})"
+                           f" → 落库/返回的可能不是重生版")
+        conv_id = done_ev.get("conversation_id")
+        if conv_id:
+            mr = c.get(f"{BASE}/api/conversations/{conv_id}/messages", headers=hdr,
+                       params={"limit": 100})
+            mr.raise_for_status()
+            assts = [m for m in mr.json()["messages"] if m["role"] == "assistant"]
+            if not assts:
+                bad.append("会话内无 assistant 落库消息")
+            elif assts[-1]["content"] != final:
+                bad.append(f"落库答案 != done.answer(len {len(assts[-1]['content'])} vs {len(final)})")
+        else:
+            bad.append("done 事件未回 conversation_id(无法核对落库)")
+
+    detail = ("; ".join(bad) if bad else
+              f"TTFB={ttfb:.0f}ms, E2E={e2e:.0f}ms, span={span:.0f}ms, deltas={n_delta}"
+              f", retry={seen_retry}, gate={gate.get('hit')}")
+    return (not bad), detail, final, done_ev.get("sources") or [], done_ev.get("conversation_id"), ctx
+
+
+# P4e M-A/M-D:联网来源分区展示的判据。
+# ⚠ 反向断言(坑 39/52):上游 Responses API 每条来源**只给 {type,url}**,
+#   正文零 `[n]` 角标、零内联 URL、`annotations` 为空 → **不存在「哪句出自哪条 URL」的映射**。
+#   因此规格定稿:index 仅作列表编号,**不得把 [W<n>] 绑定到具体句子**。
+#   本正则就是这条红线的可执行形式——它一旦命中即判 FAIL,防止以后有人做成假精确。
+_W_CITATION_RE = re.compile(r"\[W\d+\]")
+
+
+def run_web_grounded_case(c: httpx.Client, tokens: dict, case: dict):
+    """P4e M-D:联网搜索**开/关对照**用例(坑 48:没有对照的差异等于没做)。"""
+    role = case.get("role", "student")
+    hdr = {"Authorization": f"Bearer {tokens[role]}"}
+    want_on = bool(case.get("web_search", False))
+    r = c.post(f"{BASE}/api/chat", headers=hdr,
+               json={"question": case["question"], "web_search": want_on})
+    r.raise_for_status()
+    d = r.json()
+    answer = d.get("answer") or ""
+    sources = d.get("sources") or []
+    web_sources = d.get("web_sources") or []
+    ctx = d.get("context") or {}
+    bad: list = []
+
+    # 开关是否真的生效:以服务端 trace 的 web_called 为唯一证据(不看前端/不看答案措辞)。
+    # ⚠ 联网是「本地拒答后的补充通道」,本地有据时不发起出网请求,故**开关=开 ≠ 本次一定调用**。
+    #   只有用例显式声明 expect_web_called 时才比对(本单 4 条均为库内无据的构造问句,故都声明了)。
+    if "expect_web_called" in case:
+        if bool(ctx.get("web_called")) != bool(case["expect_web_called"]):
+            bad.append(f"trace web_called={ctx.get('web_called')} != 期望 "
+                       f"{case['expect_web_called']}(开关没生效)")
+    # 分区不混编号:本地 [1..n] 与联网来源不得共用 ref 编号体系
+    local_refs = {s.get("ref") for s in sources}
+    for ws in web_sources:
+        if ws.get("ref") in local_refs:
+            bad.append(f"联网来源 ref {ws.get('ref')} 与本地来源编号冲突(分区编号混了)")
+
+    if want_on:
+        need = int(case.get("expect_web_sources_min") or 1)
+        if len(web_sources) < need:
+            bad.append(f"联网来源 {len(web_sources)} 条 < 期望 {need} 条;web_error={ctx.get('web_error')!r}")
+        for ws in web_sources:
+            url = str(ws.get("url") or "")
+            if not url.startswith(("http://", "https://")):
+                bad.append(f"联网来源 URL 不可点: {url[:60]!r}")
+            if not ws.get("site_name"):
+                bad.append(f"联网来源缺 site_name: {url[:60]!r}")
+            elif not ws.get("site_name_derived"):
+                bad.append(f"站点名未标注为「由 URL 推导」: {ws.get('site_name')!r}")
+        for mark in (case.get("expect_web_declaration") or []):
+            if mark not in answer:
+                bad.append(f"答案缺少整段级声明 {mark!r}(不得改成逐句角标)")
+        miss = kw_missing(case.get("expect_keywords") or [], answer)
+        if miss:
+            bad.append(f"答案未命中: {miss}; 头部: {answer[:100]!r}")
+    else:
+        if web_sources:
+            bad.append(f"开关关闭却返回 {len(web_sources)} 条联网来源")
+        if _TEMPLATE_MARK not in answer:
+            bad.append(f"开关关闭未走 P4a 确定性拒答模板(缺 {_TEMPLATE_MARK!r});头部: {answer[:100]!r}")
+        if ctx.get("web_called"):
+            bad.append("开关关闭却发起了联网请求(合规红线)")
+        for kw in (case.get("expect_absent_keywords") or []):
+            if kw in answer:
+                bad.append(f"关闭态答案夹带联网内容痕迹: {kw!r}")
+
+    # 反向断言(两条方向都判):正文不得出现逐句绑定的 [W<n>] 角标
+    if case.get("expect_no_w_citation", True):
+        hits = sorted(set(_W_CITATION_RE.findall(answer)))
+        if hits:
+            bad.append(f"答案正文出现逐句绑定的 [W<n>] 角标 {hits} —— 上游无句子↔URL 映射,属假精确")
+
+    detail = ("; ".join(bad) if bad else
+              f"web={'on' if want_on else 'off'}: web_called={ctx.get('web_called')}, "
+              f"web_ms={ctx.get('web_ms')}, web_n_sources={ctx.get('web_n_sources')}, "
+              f"web_error={ctx.get('web_error')!r}, 本地来源 {len(sources)} 条, 联网 {len(web_sources)} 条")
+    return (not bad), detail, answer, sources, d.get("conversation_id"), ctx
+
+
+
+def collect_gate(case_id: str, last_ctx: dict, turn_ctxs: list) -> dict:
+    """P4e S2-③:逐用例统计 grounding 闸门命中数 / 重生后仍不合格数。
+
+    为什么不再用 `evals/badcases.json` 反推(坑 18/56):badcases 是**服务端**按 50 条滚动
+    写的,分不清是哪条用例、哪一轮(种植轮也算)贡献的 —— 复核方因此只能猜"最可疑是 cc-01"。
+    这里改成评测侧直接记账:每个用例、每一轮(含 context_compress 的 43 个种植请求)都留痕。
+    """
+    out = {"hits": 0, "regen_failed": 0, "stages": []}
+    pairs = [(last_ctx or {}, "final")]
+    for i, tc in enumerate(turn_ctxs or []):
+        pairs.append((tc or {}, f"turn{i + 1}"))
+    for ctx, stage in pairs:
+        g = (ctx or {}).get("grounding_gate")
+        if not isinstance(g, dict) or not g.get("hit"):
+            continue
+        out["hits"] += 1
+        if g.get("flag") == "ungrounded_after_regen":
+            out["regen_failed"] += 1
+        if len(out["stages"]) < 40:
+            out["stages"].append({"stage": stage, "n_sources": g.get("n_sources"),
+                                  "ok_after_regen": g.get("ok_after_regen"),
+                                  "flag": g.get("flag")})
+    return out
+
+
 def run() -> int:
     global BASE
     ap = argparse.ArgumentParser()
@@ -701,12 +1011,27 @@ def run() -> int:
         counselor = login(c, "counselor", "counselor123")
         student = login(c, "student", "student123")
         tokens = {"admin": admin, "counselor": counselor, "student": student}
+        # P4e S2-②: **服务端**配置才是权威(客户端 env 可能与服务端不一致,坑 57 同源)
+        server_flags: dict = {}
+        try:
+            hr = c.get(f"{BASE}/api/health")
+            hr.raise_for_status()
+            server_flags = (hr.json() or {}).get("flags") or {}
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] 取服务端 flags 失败({type(e).__name__}),env_flags 只含客户端 env")
+        env_flags = {
+            "server": server_flags,
+            "client_env": {k: v for k, v in os.environ.items() if k.startswith("NOVA")},
+        }
+        print(f"[env_flags] server={server_flags}")
         n = seed_corpus_if_needed(c, counselor)
         if n:
             print(f"[seed] 播种评测语料 {n} 篇")
         print(f"[eval] 共 {len(cases)} 条用例\n")
 
         results = []
+        # P4e S2-③: 闸门命中/重生失败按用例记账(打印在末尾,便于定位 cc-01 那 43 个请求)
+        gate_summary: dict = {"total_hits": 0, "total_regen_failed": 0, "by_case": {}}
         for case in cases:
             t0 = time.time()
             conversation_id = None  # P4b C7: 每个用例独立会话(自动新建)
@@ -746,6 +1071,16 @@ def run() -> int:
                     ok, detail, answer, sources, conversation_id, last_ctx = \
                         run_rewrite_case(c, tokens, case)
                     turns_sent = 1
+                elif case["type"] == "stream_sse":
+                    # P4e S1-②: 用户真实路径(流式 SSE)的自动化覆盖——坑 60 的直接落地
+                    ok, detail, answer, sources, conversation_id, last_ctx = \
+                        run_stream_case(c, tokens, case)
+                    turns_sent = 1
+                elif case["type"] == "web_grounded":
+                    # P4e M-D: 联网开/关对照(坑 48)+ 反向断言(禁 [W<n>] 逐句绑定)
+                    ok, detail, answer, sources, conversation_id, last_ctx = \
+                        run_web_grounded_case(c, tokens, case)
+                    turns_sent = 1
                 else:
                     r = c.post(f"{BASE}/api/chat", headers={"Authorization": f"Bearer {tokens[case['role']]}"},
                                json={"question": case["question"]})
@@ -769,6 +1104,11 @@ def run() -> int:
             faith, fmethod = (None, "na")
             if case["type"] == "qa":
                 faith, fmethod = faithfulness.judge(case.get("question", ""), answer, sources)
+            gstat = collect_gate(case["id"], last_ctx, turn_ctxs)
+            gate_summary["total_hits"] += gstat["hits"]
+            gate_summary["total_regen_failed"] += gstat["regen_failed"]
+            if gstat["hits"]:
+                gate_summary["by_case"][case["id"]] = gstat
             results.append({**case, "pass": ok, "detail": detail,
                             "recall_at_k": recall,
                             "faithfulness": faith, "faithfulness_method": fmethod,
@@ -777,6 +1117,7 @@ def run() -> int:
                             "turns_sent": turns_sent,
                             "last_context": last_ctx,
                             "turn_contexts": turn_ctxs if case["type"] in CHAT_TURN_TYPES else [],
+                            "grounding": gstat,
                             "latency_ms": round((time.time() - t0) * 1000)})
             mark = "[PASS]" if ok else "[FAIL]"
             extra = f" | R@k={recall} 忠实度={faith}({fmethod})" if case["type"] == "qa" else ""
@@ -844,12 +1185,20 @@ def run() -> int:
         summary["refusal_accuracy"] = round(ref["pass"] / ref["total"], 4) if ref["total"] else None
         print(f"  Recall@k 均值: {summary['recall_at_k_avg']} | 忠实度均值: {summary['faithfulness_avg']}"
               f"({summary['faithfulness_method']}) | 拒答准确率: {summary['refusal_accuracy']}")
+        print(f"[P4e S2-③ grounding 闸门] 命中 {gate_summary['total_hits']} 次, "
+              f"重生后仍不合格 {gate_summary['total_regen_failed']} 次")
+        for cid_, gs in gate_summary["by_case"].items():
+            print(f"    - {cid_:10s} hits={gs['hits']} regen_failed={gs['regen_failed']} "
+                  f"stages={[(s['stage'], s.get('flag')) for s in gs['stages'][:6]]}")
 
         out = HERE.parent / "reports" / f"eval_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps(
             {"version": spec["version"], "base": BASE, "summary": summary,
              "total_pass": total_pass, "total": total, "results": results,
+             # P4e S2-②: 报告自带"当时是什么配置",否则后人拿到 55/55 无法判断怎么跑出来的
+             "env_flags": env_flags,
+             "grounding_gate": gate_summary,
              "eval_isolation": {"ok": iso_ok, "checked_conversations": len(conv_cases),
                                 "errors": iso_errors}},
             ensure_ascii=False, indent=2), encoding="utf-8")

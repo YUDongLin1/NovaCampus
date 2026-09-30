@@ -1,0 +1,109 @@
+{
+  "tag": "before",
+  "base": "http://127.0.0.1:8912",
+  "cases": [
+    {
+      "id": "ss-01",
+      "kind": "basic",
+      "pass": false,
+      "detail": "E2E-TTFB = 73ms < 300ms → 渐进性不存在(TTFB=2992ms, E2E=3064ms, deltas=21)",
+      "answer_len": 113,
+      "n_sources": 4,
+      "conversation_id": 1266,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 724,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需要提交的材料及审批流程"
+          },
+          {
+            "node": "retrieve",
+            "ms": 1113,
+            "query": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+            "n_sources": 4,
+            "top_score": 0.9924,
+            "n_above_threshold": 4,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 8
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        }
+      },
+      "ms": 3064
+    },
+    {
+      "id": "ss-02",
+      "kind": "abort",
+      "pass": false,
+      "detail": "断开后会话 1267 仍残留 1 条 user 消息(P4b C5 不变量被破坏):'研究生申请休学需要提交哪些材料？审批流程又是怎样的？'; 断开后会话 1267 残留 1 条 assistant 消息",
+      "answer_len": 0,
+      "n_sources": 0,
+      "conversation_id": null,
+      "context": {},
+      "ms": 4523
+    },
+    {
+      "id": "ss-03",
+      "kind": "gate",
+      "pass": false,
+      "detail": "E2E-TTFB = 79ms < 300ms → 渐进性不存在(TTFB=2773ms, E2E=2852ms, deltas=21); grounding_gate 未命中(gate=无) → 无法验证重生通道; 闸门命中却无 grounding_retry 事件(gate={})",
+      "answer_len": 103,
+      "n_sources": 4,
+      "conversation_id": 1268,
+      "context": {
+        "budget": 85196,
+        "compressed": false,
+        "truncated": false,
+        "history_count": 0,
+        "used": 0,
+        "retrieval_trace": [
+          {
+            "node": "intent",
+            "ms": 647,
+            "intent": "retrieval",
+            "llm_called": true,
+            "normalized_query": "研究生申请休学需要提交的材料及审批流程"
+          },
+          {
+            "node": "retrieve",
+            "ms": 915,
+            "query": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+            "n_sources": 4,
+            "top_score": 0.9923,
+            "n_above_threshold": 4,
+            "fused_candidates": 12,
+            "fused_candidate_docs": 8
+          }
+        ],
+        "intent": "retrieval",
+        "attempts": 1,
+        "rewritten": false,
+        "retrieval_skipped": false,
+        "scope": {
+          "folder_ids": null,
+          "categories": null,
+          "audience": "postgrad"
+        }
+      },
+      "ms": 2886
+    }
+  ],
+  "pass": 0,
+  "total": 3
+}

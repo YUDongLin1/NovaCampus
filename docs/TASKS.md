@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：WorkBuddy**（**P4e C0 两条已通过并合并 `master` `022b5ef`**，基线 **v2.3 / 48 用例满通过**；**已下发 P4e 主体 + S1 流式收口**，分支 `task/P4e-websearch-main`，开单指令 `docs/p4e/workbuddy-order-main-body.md`。**S1 是 merge-blocking**：M4 闸门把 `/api/chat/stream` 改成整段缓冲，实测 TTFB 2365ms/E2E 2401ms、12 个 delta 挤在 36ms 里 → **真流式被关掉**，而全项目没有任何断言走那条路径（`grep 'chat/stream' evals/ novaagent/tests/` = 0 命中，坑 60）。主体引用语义按已定稿的「分区展示 + 整体级标注」实现，**不得把 [W] 绑定到具体句子**。
+> **当前持棒：Qoder → 已下发 P4f（含 C0 前置收口）**（**P4e 主体 + S1 + S2 = ✅ 全部通过并合并 `master`**，2026-10-01 晨。分支 `task/P4e-websearch-main`，S2 提交 `d660271`+`5f965f9`+`4a059eb`。我这一档实测：**canonical（带钩子）整轮 55/55、退出码 0**、R@k 1.0、忠实度 0.9444、拒答 1.0、隔离 47 会话全量 ok；**默认档（不带钩子）54/55、退出码 1、失败项只有 `ss-03` 且文案点名环境变量**；冒烟 `--base` exit 0 / `documents 65→65`；`kb_doctor` 回到 65/487；我自己起的端口全部复查为关闭。**分离度我也独立复现**：全缓冲档 span 56/35/47ms vs 早窗档 5713/2904/2687ms（约 48 倍），阈值 150ms 落在分布之外。基线 **v2.4 / 55 用例**（⚠ 本节 S2 只改了 `ss-*` 问句与阈值、未升 version，v2.4 存在两种刺激，见复核结论 ④）。**下一步 = 等 WorkBuddy 交回 P4f + C0**，开单指令 `docs/p4f/workbuddy-order.md`）
 > ✅ **P4c Review 结论（Qoder，2026-09-30，独立复跑）**：**通过并合并 master**。**边界**：33 文件全在白名单与 Qoder 领地内，`refusal.py`/`llm.py`/`evals/faithfulness.py` **0 变更**，`agent.py` 只有 scope 透传与回显（P4b 的门控/池/压缩一行未动，逐行读过 diff）。**`cases.json` 语义级比对**（494 删/560 增看着像整档重写，所以不只看 diff）：40→43、**无一条旧用例丢失、40 条共有用例逐字段完全一致**，那串数字只是 JSON 重新序列化。**我自写五条安全探针实测三条硬约束**（`docs/p4c/review_scope_security_probe.py` → `after/review_scope_security.json`）：T1 把 counselor 专属文档移进 student 可见夹后以学生 scoped 检索 → **不外泄**；T2 越权夹 vs 不存在夹 → 404/404 且**响应体逐字节一致**（不泄露存在性）；T3 scoped 空夹 → 0 来源 + 明确提示「未做全库检索」，**不回落**；T4 部分越权静默丢弃；T5 scoped 检索来源 2/2 全属该夹。**迁移与 db 层**：在**库副本**上跑三次迁移，`documents 65→65→65`、`chunks 487→487→487`、`folder_id` 全 NULL、`audience` 全 common、schema 三次一致 → **不 UPDATE 既有行且幂等**；db 层 scope 10 项（含 `folder_ids==[]` 直接空、FTS 下推真实过滤：全库 20 → 夹A 3 且全在夹A、夹B 1 且不含夹A块、文件夹可见性不得放宽 `role_min`）→ **18/18 全过**（`after/review_migration_db_probe.json`）。**集中评测我这轮 43/43、exit 0、R@k 0.9412、忠实度 0.9412、拒答 1.0、隔离全量核对 ok**，与 WorkBuddy 那轮**逐值一致**；冒烟 exit 0、`documents 65→65`、`chunks 487`。**C5 追问路径确认被执行**（step 26：合成一对本/研标注文档触发 `audience_conflict` → 返回追问而非猜），另发现服务端还会**拒绝以 `@` 开头的问句（400）**，比我要求的更严。
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
@@ -1283,7 +1283,48 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 - 我在开单指令里给的 `bash docs/p4d/run_with_server.sh 8902 ../evals/run_evals.py` **没带 `--base`**，而 `run_evals.py` 的 `BASE` 默认 `:8900` → 实现方**六轮整轮评测全打在他人 15:40 起的 8 槽旧实例上**。根因是它自己查出来的（`docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` §一），它给的「整轮前先做一次单请求端到端自证，看 trace 里有没有本次新增字段」我提为通用验收纪律。
 
 **已成立、不必重做**：C0-① 融合层扩槽位（纯加法）、矩阵 8/8、延迟量化（954.9→1121.4 ms 中位，+17.4%）、`badcases.json` 集合比对后还原、`rag.py:19` 重复常量清除、主体未开工与硬停判断（我实测四入口确认）。
-### P4e 联网搜索开关 + 来源分区标注 + **C0 前置收口两条**　🟡 **进行中**（C0 两条已 ✅ 通过并合并 `master`；主体 + S1 已下发（C0 第二回已交回，M1~M5 全完成 / 主体暂缓）**（2026-09-30，**当前持棒 = Qoder**，分支 `task/P4e-web-search`，commit `0d50e31`（C0）+`b2db785`（状态回填）+**`06d735a`（M1~M4）**+**`ff02688`（M5）**，**未合并 `master`**。设计见 M7，开单指令 `docs/p4e/workbuddy-order.md`，第一回打回指令 `docs/p4e/workbuddy-reject-order.md`，裁决记录 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`，集中验证纪要 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md`，第二回交回回执见本节末「C0 第二回交回（M1~M5）」）
+### P4e 联网搜索开关 + 来源分区标注 + **C0 前置收口两条**　✅ **DONE —— 主体 + S1 第 1 回 ❌ 打回 → S2 第 2 回 ✅ 通过并合并 `master`**（C0 两条已 ✅ 合并 `master`；主体 + S1 已下发（C0 第二回已交回，M1~M5 全完成 / 主体暂缓）**（2026-09-30，**当前持棒 = Qoder**，分支 `task/P4e-web-search`，commit `0d50e31`（C0）+`b2db785`（状态回填）+**`06d735a`（M1~M4）**+**`ff02688`（M5）**，**未合并 `master`**。设计见 M7，开单指令 `docs/p4e/workbuddy-order.md`，第一回打回指令 `docs/p4e/workbuddy-reject-order.md`，裁决记录 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`，集中验证纪要 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md`，第二回交回回执见本节末「C0 第二回交回（M1~M5）」）
+
+#### Review 结论（Qoder，2026-10-01 S2 第 2 回）——✅ **通过并合并 `master`**
+
+**四条必修逐条独立复验（全部我自己跑，不复用他们的 probe 与 judge）**
+
+| 项 | 我的验证动作 | 结论 |
+|---|---|---|
+| S2-① 阈值落在分布之外 | 我自己起两档实例（:8930 默认 / :8931 `EARLY_WINDOW_CHARS=0`），问句直接从 `cases.json` 读、自己算 `span=E2E-TTFB`：全缓冲 **56/35/47ms**，早窗 **5713/2904/2687ms** （约 48 倍间隔）→ 150ms 两侧都有量级余量 ✅（誊录证据 `evidence/review/qoder_s2_span_separation.json`） |
+| S2-② 官方绿可审计 | `run_evals.py` 取 **服务端** `/api/health` 的 flags 作权威（比我提的客户端 env 更对，坑 57 同源），报告新增 `env_flags` + `grounding_gate`；我实测两档报告里 `force_ungrounded` 分别如实记 false/true；`ss-03` 的 FAIL 文案点名该设的变量并指向 canonical 命令 ✅ |
+| S2-③ 归因 11 条 ungrounded | 我这一档独立量化：默认档 **命中 12 次 / 重生失败 11 次**，canonical 档 **命中 16 / 失败 14**，**全部落在 `cc-01` 的种植轮**（`turn5/8/9/13/15/17/20/32…`），末轮 `final` 一次都没命中；`qa-17`/`ss-*` 命中后重生均成功 ✅ 归因成立且不再靠 badcases 反推 |
+| S2-④ 两处记账 | 忠实度区间已扩为 0.8889~0.9722（我这轮整轮实测 0.9444，与实现方同值）；`QA12_E2E_DISCREPANCY.md` 顶部已加「当前结论」块 ✅ |
+| 边界与红线 | `refusal.py`/`faithfulness.py` 全程 0 变更；三个检索常量未动；`cases.json` 55→55、只有 `ss-01/02/03` 的 question+note 变，旧用例零丢失；出网请求体仍只有 `model/input/tools/tool_choice` 且 `input` 恒等问题文本 ✅ |
+
+**我对实现方两处判据的独立认同（他们推翻了我）**
+
+1. **不采纳我给的另一条思路**（他们明确拒绝并给了理由）：`span >= max(120, 0.10 × E2E)` 在本语料里 E2E≈3.0~6.4s → 相对阈值 = 300~640ms，**恰好又落回被判定为「压在分布里」的量级**，且会随检索段变慢而变严。我复核后认同：绝对阈值 + 固定长刺激才是对的解法，我的相对判据是错的。
+2. **先修测量、再修阈值**：他们发现真正的问题不是阈值数字，而是**问句太短**（答案 110~230 字，两档分布几乎贴合，缝隙只有 20~30%），换成三段式长问句后 span 回到它本该度量的量。这比我把 300 改成 150 的要求做得更彻底，也更值钱。
+
+**四项裁决（他们上交，未自决）**
+
+- **测试钩子 `NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED` 进生产代码**：✅ **接受**。它是服务端启动期 env、默认关、不可由外部输入触发、只影响流式首版判定，而且现在**每份报告都自带 `env_flags`**，「不存在偷偷开钩子把绿混进来」的空间。（若哪天去掉钩子，`ss-03` 会立刻 FAIL 并点名缺哪个变量——这正是可审计的形态。）
+- **`cc-01` 种植轮触发闸门**：定性为**闸门作用域错配，不是产品缺陷，但也不豁免、要修**。证据是「命中 16 次、重生失败 14 次全在种植轮」——**重生从未救回来过一次**，说明那些轮次本就不该要求「可核查事实」（种植轮是往会话里塞背景资料，模型回「记下了」是正确行为）。代价是每轮评测白烧 11~14 次 LLM 调用并污染 badcase 档案。→ **已列入 P4f C0-③**。
+- **联网不覆盖被判定为 `chitchat` 的域外问句**：⏸ 挂起，需扩意图类别（如 `web_fact`），属设计变更，另单处理；本轮不阻塞。
+- **`WEB_SEARCH_TIMEOUT_S=60` 语义**：httpx 的是**空闲超时**不是**总时限**（实测同问句 12.3s/79.4s，60s 并未截断 79.4s 那次），文档却写「超时 60s」。→ 列入 **P4f C0-④**：改名为 idle 语义或加总时限，并把 UI 等待预期写清。
+
+**两处遗留问题（合并后第一优先级，已写进 P4f C0）**
+
+1. 🔴 **红线级**：`run_evals.py` 的 `env_flags.client_env` 收集所有 `NOVA*` 环境变量，而评测报告**是要提交进 git 的**。今天实测只有 `NOVAAGENT_EVAL_TEMPERATURE`（无害），但一旦有人按惯例 `export NOVAAGENT_LLM_API_KEY=...`，**密钥就会被写进入库报告**。改成显式白名单（只收 `NOVA_GROUNDING_*`/`NOVA_GRAPH_ENABLED`/`NOVA_MAX_REWRITE`/`NOVA_FUSION_TOP_K`/`NOVAAGENT_EVAL_TEMPERATURE` 这类非敏感项），并补一条「含 KEY/TOKEN/PASSWORD 的键名一律不落盘」的单测。
+2. ⚠ **口径记账**：S2 改了 `ss-*` 的问句刺激与渐进性阈值但**没升 `version`（仍 v2.4）**，于是「v2.4」这个标签现在覆盖两种测试刺激、两种阈值。已在 `docs/EVAL_BASELINE.md` 补记，并要求以后**问句级变更也算口径变更**（与坑 40 同族）。
+
+**我自己的取证缺陷（自纠）**：第一版 `review_qoder_s2_gate.py` 因变量名笔误（`REP` 写成 `REPORT`）在第 4 阶段崩溃，两档整轮没跑成；分离度数据已拿到，我另写 `review_qoder_s2_rounds.py` 补跑两档。另外 `reports/_port_owner.txt` 显示实现方复查端口时发现我上一轮留下的 :8923 孤儿实例（我自己没复查到），他们清掉了——坑 61 我自己又踩了一次，姿势仍不彻底：**杀完必须按端口复查**。
+
+#### Review 结论（Qoder，2026-10-01 主体 + S1 第 1 回）——❌ **打回**（功能与红线成立，卡在尺子与可复现性）
+
+**我这次独立跑的**：边界 46 文件全在白名单、禁改项 0 变更、三个检索常量未动；`cases.json` 按 id 语义比对 48→55（v2.4）**旧用例零丢失零改动**；自起 :8922 显式 `--base` 跑整轮 → **53/55、退出码 1**，红的两条全在 `stream_sse`，其余 qa 18/18、refusal 6/6、kb_hidden 3/3、refusal_indomain 6/6、intent 2/2、rewrite 2/2、**web_grounded 4/4（开/关双向）**、隔离 47 会话 ok、R@k 1.0、忠实度 0.8889；冒烟 **exit 0 / 65→65**。另用双实例直测流式（:8920 早窗 / :8921 `EARLY_WINDOW_CHARS=0` 全缓冲）：**span 早窗 343/574/208ms vs 全缓冲 31/48ms**，delta 数 21~38；断开后该会话消息 **0 残留**。18 条 qa 逐条按闸门口径复核：**0 条**「有来源却零可核查事实」。
+
+**成立、不必重做**：合规红线（实际请求体只有 4 个键、`input` 恒等问题文本，且探针自带 E6/E6b 反向对照——夹一条库内 chunk 必须判红，这让它不是空转）；「**本地有据不出网**」比我原规格更合规；引用语义（分区 + `site_name_derived` + 代码注入整段声明 + 双路径剥离 `[W<n>]` + 反向断言）；abort 回滚；迁移幂等探针。
+
+**四条必修（S2）**：① `STREAM_MIN_SPAN_MS` 降到 ≤150 或改相对判据，并交「全缓冲 6/6 FAIL、早窗 6/6 PASS」两份连测（阈值 300 是我给的，压在真流式分布内）；② 报告 JSON 记 `env_flags` + `ss-03` 的 FAIL 文案直接给出该设的变量 + canonical 命令写进记账，并**如实上报不带钩子那一档的真实结果**（不许藏 53/55）；③ 归因我这轮多出的 11 条 `ungrounded`（已排除 qa，疑在 `cc-01` 43 轮这类长上下文），改为**按用例记 gate 命中/失败数**；若确认长上下文大量空话正被 `judge_qa` 放过，**那是新产品缺陷，本单不许改判据掩盖，列出来我另开单**；④ 记账更正：忠实度观测区间应扩到 **0.8889~0.9722**（我这轮 0.8889 比已记下限更低，属 judge 抽样非回归）。
+
+**责任在我**：单据里「确认 ②③ 都 FAIL」是我写错的——旧实现同样吐 21~43 个 delta，只是挤在 30~80ms，所以「delta 数 > 1」**无区分力**；实现方如实报告「② 在旧实现上是 PASS」并留双份证据，处理正确。另两条见上面 ①②。
 
 - **S1 流式收口（合并后新发现，**merge-blocking，且要先做**）** —— 责任在负责人：第 1 回裁决只想清了判据，没量化流式代价（HANDOFF 坑 60）
 
@@ -1406,6 +1447,196 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 - **P4e 主体 #18~#20 仍暂缓**：`websearch.py` 不存在、主体未开工的判断 Qoder 已核实成立。引用语义已定稿为「分区展示 + 整体级标注」，等增补规格单独下发。
 - **`reports/eval_report_20260930_223359.json` 按纪律不提交**（评测运行产物），需要时我可在下一轮补交。
 - **`docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` 状态已过时**：其 §二/§三 记的是 `qa-17` 待裁决与 47/48，M4 落地后已转绿，**本轮未再改动该文件**（避免在没有新证据的情况下改写历史纪要）；如需我改成事后复盘，请下指令。
+
+#### P4e 主体 + S1 交回（WorkBuddy，2026-10-01）—— **IN_REVIEW**，持棒交回 Qoder
+
+**状态**：`IN_REVIEW`｜**当前持棒 = Qoder**｜分支 **`task/P4e-websearch-main`**｜**未合并 `master`**（基线仍是 `master` `9685b0d`）
+**提交**：`c65f771`（S1-① 早窗提交 + S1-② 流式覆盖）、`467bbae`（P4e 主体：websearch/开关/分区/合规）+ 本回执与 `docs/P4E.md`
+**工作区**：提交后仅剩 `reports/eval_report_20261001_003548.json` 一个**未跟踪运行产物**（按既有纪律不入库），其余干净；`evals/badcases.json` 已还原（见下）
+
+---
+
+**S1-① 早窗提交（merge-blocking）** ✅
+
+| 项 | 落点 | 证据/字段 |
+|---|---|---|
+| 早窗控制器 | `novaagent/novaagent/agent.py` `_StreamGate`（`feed/_release/flush/grounded/need_regen`） | 纯逻辑无 IO，可单测 |
+| delta 放行规则 | 同文件 `chat_stream_for`：`for seg in gate.feed(safe): yield delta` | 出现首个 `[n]`/数字 **或** 累计满 N 字即补发 |
+| 重生仍走流式 | 重生改 `llm.chat_stream(regen_messages(...))`，逐段下发 | 探针实测 retry 后 10~50 个 delta |
+| 显式重试事件 | `yield {"type":"grounding_retry","released_chars":N,"n_sources":k}` | `evidence/stream_sse_after.json` |
+| 前端不假装没发生 | `web/js/chat.js`：`grounding_retry` → 初稿折进 `.gate-draft`（保留可见）+ 状态行「（初稿未给出可核查依据，已重新组织答案如下）」，重生结果另起一段；`css/theme.css` `.gate-draft/.gate-status` | 同文件 |
+| env 开关 | `config.py` `NOVA_GROUNDING_EARLY_WINDOW_CHARS`（默认 **80**，0=退回全缓冲）、`NOVA_GROUNDING_GATE`（0=关闸门）、`NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED`（测试钩子，默认关） | 同文件 |
+| 闸门语义未弱化 | 仍最多重生一次、仍写 `ctx_info["grounding_gate"]`（含 `early_window_chars`/`released_chars`）、重生后仍不合格 → 保留答案 + `flag=ungrounded_after_regen` + `record_ungrounded` | `probe_stream_gate_unit.py` U1~U4 |
+
+**N=80 的理由**：可核查事实在据实作答时几乎总在首句内出现（本项目 qa 答案首句 40~120 字），80 字让「首个事实」大概率落在窗口内；最坏也只憋 1~2 句而非整段 200~400 字。60/80 两档都实测了（见下表）。
+
+**三档延迟对照**（`docs/p4e/evidence/stream_latency_{full,early80,early60,off}.json`，warmup1 + 连测3 取中位，各档独立端口独立实例）：
+
+| 档位 | env | TTFB 中位 | E2E 中位 | **span 中位** | delta 中位 |
+|---|---|---|---|---|---|
+| 全缓冲（M4 旧行为） | `NOVA_GROUNDING_EARLY_WINDOW_CHARS=0` | 3380.6ms | 3452.0ms | **88.9ms** | 21 |
+| **早窗 80（默认）** | `=80` | 2786.6ms | 3092.0ms | **305.4ms** | 25 |
+| 早窗 60（N 取值对照） | `=60` | 2810.5ms | 3267.8ms | **457.3ms** | 27 |
+| 关闭（无闸门） | `NOVA_GROUNDING_GATE=0` | 2355.5ms | 3001.6ms | **638.8ms** | 27 |
+
+相对 P4d 基线 **TTFD 2161ms**：早窗 +625.6ms、全缓冲 +1219.6ms、关闭 +194.5ms。
+**如实读数**：span 88.9 → 305.4ms（3.4×）、TTFB −17.6% → 真流式恢复；但**未回到关闭档**，差的 ~430ms 是闸门真实代价（本问句答案仅 110~140 字，80 字窗口覆盖大半、首个事实出现偏晚）。全缓冲档 span 88.9ms 与复核方独立实测 36ms 同量级，相互印证。
+
+**S1-② 流式端点自动化覆盖** ✅ **先红后绿两份输出**（同一把尺子：`docs/p4e/probe_stream_sse.py` 直接 `import run_evals` 复用 `run_stream_case`，坑 59）
+
+| 用例 | 红（`evidence/stream_sse_before.json`，0/3） | 绿（`_after.json`，3/3） |
+|---|---|---|
+| ss-01 ①②③ | `E2E-TTFB=73ms < 300ms`（TTFB 2992 / E2E 3064 / deltas 21） | `TTFB=2658 E2E=3576 span=918 deltas=37 retry=True` |
+| ss-02 ④ | 断开后仍残留 1 条 user + 1 条 assistant（**旧实现根本没有中断窗口**） | 会话 1270 消息数 0 → 回滚成立 |
+| ss-03 ⑤ | 无 `grounding_retry`（旧实现无此事件） | `deltas=50 retry=True gate=True`，落库答案 == done.answer |
+
+⚠ **对单据预期的一处如实更正**：单据写「确认 ②③ 确实 FAIL」，实测 **② 在旧实现上是 PASS**（旧实现有 21 个 delta，只是全挤在最后 73ms）——「delta 数 > 1」防的是「整段合成一个 delta」，**防不住「21 个 delta 集中下发」**；真正判红的是 ③。故 ③ 的阈值**未按单据原文的「> 0」**（旧实现也有 73ms > 0）而取 **300ms**：关闭档 638.8 / 早窗档 305.4 / 全缓冲档 88.9，300ms 能把三档干净分开。
+另：`probe_stream_gate_unit.py` 在**库副本**上进程内驱动 `chat_stream_for`，12 条断言（U1~U7）确定性全过、退出码 0，**不依赖任何钩子**。
+
+**M-A 引用语义（分区展示 + 整段级标注）** ✅
+
+| 项 | 落点 | 证据 |
+|---|---|---|
+| 联网来源单独分区、真实 URL 可点 | `websearch.build_web_sources()` → `{index, ref:"W1..Wk", url, site_name, site_name_derived, note}`；前端 `chat.js renderMeta` 渲染「联网来源（公网检索，未经本校核实）」分区，与「知识库来源」分区分开 | `probe_web_citation_ruler.py` R6/R6b/R6c |
+| `site_name` 由 `urlparse().netloc` 推导并标注 | `websearch.derive_site_name()` + `site_name_derived=True`；UI 显示「站点名由 URL 推导（上游只返回 URL）」 | 同上 |
+| `index` 仅作列表编号、不与本地 `[1..n]` 混 | `ref` 用 `W1..Wk`，本地用数字 | 评测 `run_web_grounded_case` 断言 `ws["ref"] not in local_refs` |
+| **不得**把 `[W<n>]` 绑到具体句子 | `agent.strip_web_citations()`（非流）+ `_StreamRefFilter(drop_web=)`（流内）双路径**代码剥离**；反向断言 `run_evals._W_CITATION_RE` | **wg-01 首轮实测模型写出 `[W3]`、反向断言当场判红** → 与 P4a 同源「prompt 挡不住，必须落代码」 |
+| 整段级声明「未经本校核实」 | `agent.WEB_DECLARE` 由**代码注入**（同 P4a C8 手法），流式另发一个 delta | `probe_web_citation_ruler.py` R7；评测 `expect_web_declaration` |
+| 理由入档 | **`docs/P4E.md` §2.2** | 上游零角标/零内联 URL/`annotations` 空 → 无「句子↔URL」映射，自建映射是假精确 |
+
+**M-B 开关** ✅ 默认**关闭**（`config.WEB_SEARCH_ENABLED` 默认 False）；优先级 = **单次请求覆盖 `body.web_search` > 用户级 `user_settings.web_search_enabled` > 全局默认**；`main._web_search_override` / `main._web_on`；`/api/me/settings` GET 暴露 `web_search_enabled`、PUT 接受 `web_search`；UI composer 开关**当前状态可见**（「开/关」）且改动即持久化。迁移只在 `db.py` 启动期 `_migrate()` 内（幂等），`probe_db_migration.py` 在**库副本**上连跑两遍 schema/数据逐字段一致（8 条全过，退出码 0），既有用户默认 `''`→ 回落全局「关」，不误开。
+
+**M-C 降级可观测** ✅ 联网只是**本地拒答后的补充通道**（本地有据**不出网**）；超时/失败/零来源 → 维持拒答 + 追加「（已尝试联网检索，但本次联网搜索不可用或未返回结果…）」；`ctx_info` 恒记 **`web_called / web_ms / web_n_sources / web_error`**（另加 `web_enabled / web_fallback / web_unavailable / web_citations_stripped`）；失败一律 `logger.warning`，不静默兜底（坑 46/47）。超时默认 60s 的实测依据：同一问句两次 12.3s / 79.4s，DOI 问句 68.4s。
+
+**M-D 评测 `web_grounded` 4 条（开/关对照）** ✅
+
+| 用例 | 开关 | 断言 | 实测 |
+|---|---|---|---|
+| wg-01 | 开 | `web_called=True`、联网 ≥1 条且 URL 可点、`site_name_derived`、含「未经本校核实」、命中 GDP/国内生产总值 | `web_ms=11647, 联网 8 条` |
+| wg-02 | **关** | 走 P4a 确定性模板（指纹「系统模板生成」）、**绝不发起联网请求** | `web_called=False, 联网 0 条` |
+| wg-03 | 开 | 同上（第二条：CPI / 居民消费价格指数） | `web_ms=4503, 联网 7 条` |
+| wg-04 | **关** | 同 wg-02 | `web_called=False` |
+
+四条**都带反向断言**（正文不得出现逐句绑定的 `[W<n>]`，命中即 FAIL）。问句为构造的公开知识题（校园框定型），**非真实学工问句**。
+⚠ 问句**为什么加校园框定**：纯域外问法「ISO 4217…」被意图分类器判为 `chitchat` → 走 `direct` 直答，**根本到不了「本地拒答 → 联网」这条链**（实测 `intent='chitchat', retrieval_skipped=True`）。
+
+**M-E 合规红线（C 级，读代码追）** ✅ `docs/p4e/probe_web_compliance.py`，抓 `httpx.AsyncClient.post` 拿**实际请求体**：顶层键 == `{model, input, tools, tool_choice}`；`input` **逐字等于**当前问题文本；请求体每个字符串值不含库内 chunk / 会话历史（预埋姓名+学号+手机号）/ 系统提示词 / 联网区块模板 / `contacts.json`。**21 条全过、退出码 0**：L2a 本地有据 → 新增联网 0 次；L2c 开关关 → 0 次；E6 反向（chunk 塞进 input → 同一把尺子判红）；E6b 干净体判绿。⚠ 尺子修过一次：`json.dumps` 会把 chunk 的 `\n` 转义导致含换行样本**永远匹配不上**、尺子静默空转（坑 45 同形状），现改为递归比对字符串原值。
+
+---
+
+**集中验证（全部落地后一轮）**
+
+| 项 | 结果 | 怎么测的 |
+|---|---|---|
+| 整轮评测 | **`55/55(100%)`、退出码 0** | `NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 bash docs/p4d/run_with_server.sh 8931 ../evals/run_evals.py --base http://127.0.0.1:8931 > /tmp/eval_full.log 2>&1; echo "[EVAL_EXIT=$?]"` → **`[EVAL_EXIT=0]`，重定向前**、**没有接管道**（坑 55） |
+| 分类 | qa 18/18、refusal 6/6、permission_api 4/4、kb_hidden 3/3、refusal_indomain 6/6、multiturn 1/1、refusal_followup 1/1、history_false_premise 1/1、context_compress 1/1、scoped_qa 3/3、intent 2/2、rewrite 2/2、**stream_sse 3/3**、**web_grounded 4/4** | 同上日志 |
+| Recall@k / 忠实度 / 拒答 | **1.0 / 0.9444(llm) / 1.0**；忠实度按区间 0.9444~0.9722 读，未作闸门 | 同上 |
+| 评测隔离 | **47 个带会话用例全量核对通过**（message id 全局唯一、首问逐字匹配、user 条数=应发轮数） | 同上 |
+| 整轮前自证 | 单请求 `/api/chat` 见 `web_enabled/web_called/web_ms/web_n_sources/web_error` + 响应顶层 `web_sources`；`/api/chat/stream` 见 `grounding_retry`（`released_chars=88`）与 `grounding_gate.early_window_chars=80` → **确认连的是新实例**（坑 57） | `/tmp/selfcheck.py`，端口 8930 |
+| 冒烟 | **exit 0、`documents 65 → 65`**、[16a] `deny_url` 回归通过 | `bash docs/p4d/run_with_server.sh 8932 ../novaagent/tests/smoke_test.py --base http://127.0.0.1:8932 > /tmp/smoke.log 2>&1; echo "[SMOKE_EXIT=$?]"` → **`[SMOKE_EXIT=0]`，未接管道** |
+| 库计数 | 评测+冒烟跑完后 `kb_doctor` → **documents=65 / chunks=487**（未并发跑只读探针，坑 58） | 独立串行跑 |
+| 坑 56 | `evals/badcases.json` 按**主键集合**比对：cases 主键差集双向为空、history 70→70、非 `history/last_seen` 字段无变化 → 纯运行时副作用，已 `git checkout --` 还原；`git hash-object` == `HEAD` blob `7c22c069` == `master` blob | 见下注 |
+
+> ⚠ 关于 `af6fe699…`：上一轮回执记的 badcases 基线 md5 与我按 `git show master:evals/badcases.json | md5sum` 得到的 `b5c5245…` 不一致（工作区 CRLF vs blob LF，坑 36）。本轮改用 **git blob 身份**判等价（权威口径），结论：工作区 == HEAD == master，**未提交任何 badcases 改动**。
+
+**端口/进程交代**（坑 61 姿势）
+
+- 本轮起过的端口：`8912`（红灯基线）、`8913`（绿灯）、`8914/8915/8916`（首轮三档，已删 `early` 那份证据）、`8917/8918/8919/8920`（修正后四档）、`8921/8923/8924/8925/8926`（web_grounded 迭代）、`8922`（意图路由排查）、`8930`（整轮前自证）、`8931`（整轮评测）、`8932`（冒烟）。
+- **全部由 `docs/p4d/run_with_server.sh` 的 `trap 'kill $SRV' EXIT` 收在同一条命令生命周期内**，命令结束后随 shell 退出。
+- **收尾复查**（`netstat -ano | grep LISTENING`）：8900~8939 区间**仅剩 `127.0.0.1:8900`（PID 41956，他人常驻，15:40 起）在听**，我起的端口**无一存活**；`:8900` 与 weekly MCP `:18080` **全程未动**。
+- 未使用 Git Bash `kill <Windows PID>`（坑 61）；如需强制清理会用 `taskkill //PID x //F` 并复查端口。
+
+**禁改项**：`git diff --numstat master..HEAD -- sims/ mcp/ weknora/ evals/faithfulness.py novaagent/novaagent/refusal.py` → **输出为空**。
+
+**遗留与需裁决项（未自行拍板）**
+
+1. **`NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED` 测试钩子**：为让 stream_sse ⑤ 必然被执行而加（默认关、仅流式首版、重生仍走真实 LLM）。若不接受生产代码里留测试钩子，替代方案是只保留 `probe_stream_gate_unit.py` 的进程内桩件，评测侧 ⑤ 退化为「闸门命中 ⇔ retry 出现」的一致性断言（恒绿但证明力弱）。**请裁决**。
+2. **联网对「域外闲聊类问句」不生效**：被意图分类器判 `chitchat` 的问句走 `direct` 直答，联网开了也不触发。覆盖需扩意图类别（如 `web_fact`），会动 `INTENT_PROMPT` 与既有 intent/rewrite 用例 —— **建议下单一并做，本单未做**。
+3. **v2.4 口径变更（48 → 55 条）尚未在 `docs/EVAL_BASELINE.md` 与 `HANDOFF.md`「评测基线」行记账**：这两个文件**不在本单白名单**，故未改（坑 40 要求同步）。**请裁决由谁补**。
+4. **联网耗时方差极大**（同问句 12.3s / 79.4s），`web_grounded` 已挑实测快的问句，但整轮时长仍随网络波动（本轮 7m25s）。
+5. `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` 状态已过时（C0 遗留），本单未改写历史纪要。
+6. `reports/eval_report_20261001_003548.json` 按纪律不入库（运行产物）。
+
+#### P4e S2 交回（WorkBuddy，2026-10-01，第一回被打回后的修复轮）—— **IN_REVIEW**，持棒交回 Qoder
+
+**提交**：`d660271`（S2-①②④）、`5f965f9`（S2-③）。分支仍 `task/P4e-websearch-main`，**未合并 master**。
+**工作区**：提交后仅剩运行产物未跟踪（`reports/eval_report_*.json` 三份、`docs/p4e/evidence/*.json` 五份待入），`badcases.json` 已还原。
+
+---
+
+**S2-① 渐进性阈值** ✅ **先修测量，再定阈值**（只降阈值治不好）
+
+复核方指出 300ms 压在真流式分布里（早窗档实测 208/239/343/574，其中 208/239 都 <300 → 随机红）。
+我先把两档分布测出来，发现**只调阈值根本解决不了**：
+
+| 问句 | 全缓冲档 span（应 FAIL） | 早窗档 span（应 PASS） | 缝隙 |
+|---|---|---|---|
+| 原双段问句（答案 110~230 字） | 68 / 97 / 100 / 133 / 151 / 164 ms | 212 / 245 / 252 / 274 / 567 / 627 ms（复核方另测 208/239） | **仅 27%**，120/150/180 都会串档 |
+| **三段式长问句**（答案 ~500 字、130~170 delta） | **82 / 94 / 96 / 97 / 98 / 108 ms** | **3044 / 3272 / 3275 / 3309 / 3511 / 4410 ms** | **~28 倍** |
+
+→ 把 `ss-01/02/03` 的问句改成三段式（「材料？审批流程？期满怎么复学？请把每一步的时限和经办部门一并说明。」），
+`STREAM_MIN_SPAN_MS` 300 → **150**（≤150 满足要求），此时下侧余量 39%、上侧余量 20 倍。
+**验收（两档各连测 6 次）**：全缓冲档 **0/6（6/6 FAIL）**、早窗档 **6/6 PASS**
+→ `docs/p4e/evidence/stream_sse_s2_{full6,early6}_long.json`。
+
+⚠ **未采用**复核方给的备选相对判据 `span ≥ max(120, 0.10×E2E)`：本语料 E2E 3.0~6.4s → 300~640ms，
+恰好又是"压在分布里"的量级；且该比例会随**检索段变慢**而变严（E2E 5.3s 时要求 span≥530ms），对抖动不稳健。
+
+**S2-② 官方绿可复现、可审计** ✅
+- ① `/api/health` 暴露服务端**生效配置** `flags`（gate/早窗/force 钩子/联网默认/超时/graph/model/eval_temperature）；
+  评测报告顶层新增 **`env_flags`**（`server` 为服务端权威值 + `client_env` 为客户端 `NOVA_*`）。
+  报告顶层键现为 `version/base/summary/results/total_pass/total/env_flags/grounding_gate/eval_isolation`。
+- ② `ss-03` 未命中闸门时的 FAIL 文案**直接给出该设哪个变量**（实测输出已含
+  "本用例需服务端以 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 启动…canonical 命令见 docs/TASKS.md … 与 docs/EVAL_BASELINE.md §十九"）。
+- ③ canonical 命令写死在 **`docs/EVAL_BASELINE.md` §十九**（含"取退出码不接管道"的正/误写法）
+  与本节下方。**⚠ EVAL_BASELINE.md 不在常设白名单，仅在复核方 S2-②③ 显式授权下改，一次性、不留先例。**
+
+**S2-③ 归因新增的 `ungrounded`** ✅ **有结论，不是产品缺陷**
+
+评测报告现在**逐用例 + 逐轮**记账（`result.grounding` 与报告顶层 `grounding_gate`），实测两轮 canonical：
+
+| 轮次 | 闸门命中 | 重生后仍不合格 | 分布 |
+|---|---|---|---|
+| 第 1 轮 | 15 | **12** | `cc-01` **12/12 全部来自种植轮**（turn5/13/16/17/19/21/22/28/33/37/41/42）；qa-17 1（重生成功） |
+| 第 2 轮 | 12 | **9** | `cc-01` 9/9 种植轮；`rewrite-02` 1、`ss-01` 1、`ss-03` 1（**重生均成功，regen_failed=0**） |
+| **不带钩子档** | 8 | **0** | 全部重生成功 |
+
+**结论**：`cc-01` 有 42 个**种植轮**（`plant.turns=42`，用于把上下文顶过压缩预算），这些轮的
+"问句"是填充文本、答案本就不需要引用与数字，闸门按真实答案的标准判并重生 1 次、仍不合格 → 记 `ungrounded` badcase。
+**末轮（真正被 `judge_history_answer` 判的那轮）从未命中闸门**，`cc-01` 四条事实（7341/958823/17340/88号）全部命中、用例 PASS。
+→ **不是**"长上下文答案靠无引用无数字通过 judge_qa"；是闸门在**评测填充轮**上的正常触发被记成了 badcase 噪声（坑 56 的技术债延伸）。
+**按复核方要求未改判据掩盖**，列待裁决（见下）。
+
+**S2-④ 两处记账** ✅
+- ① 忠实度观测区间 **0.8889 ~ 0.9722**（复核方整轮 0.8889 低于我原记的 0.9444 下限；judge 抽样抖动非回归）。已写入 `docs/P4E.md` 与 `EVAL_BASELINE.md` §19.4。
+- ② `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` 顶部加「⚠ 当前结论」块，标明该文件为**历史纪要**、`qa-17` 已裁决落地、只有"端口"那条是长期纪律。
+
+---
+
+**集中验证（全部落地后）**
+
+| 档位 | 命令（canonical 见 §十九） | 结果 |
+|---|---|---|
+| **canonical（带钩子）** | `NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 bash docs/p4d/run_with_server.sh 8953 ../evals/run_evals.py --base http://127.0.0.1:8953 > /tmp/eval_canonical2.log 2>&1; echo "[EXIT=$?]"` | **`55/55(100%)`、`[CANONICAL2_EXIT=0]`**；R@k 1.0、忠实度 0.9722、拒答 1.0、隔离 47 会话 ok；`env_flags.server.grounding_stream_force_ungrounded=true` |
+| **默认（不带钩子）** | 同上但**不带** env，端口 8954 | **`54/55`、exit 1**：仅 `ss-03`（闸门未命中，文案已指明该设哪个变量）；**`ss-01` span=3075ms PASS**（对照：打回前同一档是 239ms FAIL） |
+| canonical 第 1 轮（端口 8951） | 同 canonical | 54/55、exit 1：唯一红是 **`qa-08` 措辞轮换**（R@k 1.0、忠实度 1.0、来源全对；单独连测 **5/5 PASS**）→ 坑 16 已知方差，非回归；第 2 轮 55/55 |
+| 冒烟 | `bash docs/p4d/run_with_server.sh 8955 ../novaagent/tests/smoke_test.py --base http://127.0.0.1:8955 > /tmp/smoke2.log 2>&1; echo "[EXIT=$?]"` | **`[SMOKE2_EXIT=0]`、`documents 65 → 65`**、[16a] deny_url 回归通过 |
+
+**取退出码一律重定向后 `echo "[EXIT=$?]"`，未接管道**（坑 55）。
+整轮前做了单请求自证（`/api/health` flags 齐全 + 流式 `grounding_retry` + `grounding_gate.released_chars=692`）。
+`badcases.json` 按主键集合比对（`cases` 主键差集仅新增 `ungrounded` 一案、history 91 vs 70）后 `git checkout --` 还原，
+`git hash-object` == `HEAD` blob `7c22c069` == `master` blob。
+
+**端口/进程**：本轮起 `8940/8941`（分布定标）、`8942/8943`（短问句两档，已弃用证据）、`8944/8945`（长问句两档 6 连测）、`8950`（自证）、`8951/8953`（canonical 两轮）、`8952`（qa-08 连测）、`8954`（不带钩子）、`8955`（冒烟），
+全部由 `run_with_server.sh` 的 `trap ... EXIT` 收在同一命令生命周期内；收尾 `netstat -ano | grep LISTENING` 复查。
+
+**待裁决（未自行拍板）**
+1. **闸门在评测"种植轮"上的触发**要不要豁免（改判据/改记账都属"改判据"，故未动）。建议：种植轮显式标记，badcase 记账区分 turn 类型 —— 请裁决是否另开单。
+2. **`NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED` 测试钩子**（沿用上轮裁决项，仍未拍板）。
+3. 联网对域外闲聊类问句不生效（沿用上轮）。
+4. 联网耗时方差大（沿用上轮）。
+5. `qa-08` 轮换波动是**已知方差**，不建议改用例改绿（沿用 HANDOFF 坑 16 口径）。
+6. `docs/p4e/evidence/stream_sse_s2_full6.json` 是**短问句 + 漏设 env**的无效样本，已删除不再作为证据。
 
 ### P4f 辅导员定制（persona）+ 侧边栏重构　📋 READY（待 P4e，设计见 M8）
 

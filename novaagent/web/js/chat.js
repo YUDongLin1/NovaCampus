@@ -2,13 +2,34 @@
 /* P4b: send 携带 conversation_id + AbortController 可中止 + context 事件驱动占用条;
    loadHistory 改为加载会话列表(旧扁平消息流已迁往 /api/conversations/{id}/messages)。 */
 
+/* ===== P4e M-B: 联网检索开关(默认关闭;用户级默认 + 单次请求覆盖) ===== */
+window._webSearch = false;
+
+function onWebToggle() {
+  const el = $('web-search'); if (!el) return;
+  window._webSearch = !!el.checked;
+  const st = $('web-state'); if (st) st.textContent = window._webSearch ? '开' : '关';
+  /* 持久化为用户级默认(下次登录保持);失败只提示,不阻断对话 */
+  api('/api/me/settings', { method: 'PUT', json: { web_search: window._webSearch } })
+    .catch(e => toast('联网开关保存失败：' + e.message));
+}
+
+async function initWebToggle() {
+  try {
+    const s = await api('/api/me/settings');
+    window._webSearch = !!s.web_search_enabled;
+  } catch (e) { window._webSearch = false; }
+  const el = $('web-search'); if (el) el.checked = window._webSearch;
+  const st = $('web-state'); if (st) st.textContent = window._webSearch ? '开' : '关';
+}
+
 async function send() {
   const q = $('q').value.trim(); if (!q) return;
   $('q').value = ''; addMsg('user', q);
   const btn = $('send'); btn.disabled = true;
   const bot = addMsg('bot', '');
   bot.classList.add('streaming');
-  let got = false, srcs = null, trace = null;
+  let got = false, srcs = null, trace = null, target = bot, wsrcs = null;
   abortInflight();
   window._convAbort = new AbortController();  // P4b C5: 切换会话时中止
   try {
@@ -34,18 +55,36 @@ async function send() {
         if (payload === '[DONE]') continue;
         let ev; try { ev = JSON.parse(payload); } catch (err) { continue; }
         if (ev.type === 'delta') {
-          if (!got) { bot.textContent = ''; got = true; }
-          bot.textContent += ev.content;
+          if (!got) { target.textContent = ''; got = true; }
+          target.textContent += ev.content;
+          $('messages').scrollTop = $('messages').scrollHeight;
+        } else if (ev.type === 'grounding_retry') {
+          /* P4e S1-①:初稿被判定「未给出可核查依据」(有来源却零引用零数字)。
+             已下发的文字**不撤回、不假装没发生**:原样折进「初稿」块并显式标注,
+             重生结果另起一段继续流式。 */
+          const draft = document.createElement('div');
+          draft.className = 'gate-draft';
+          draft.textContent = target.textContent;
+          const st = document.createElement('div');
+          st.className = 'gate-status';
+          st.textContent = '（初稿未给出可核查依据，已重新组织答案如下）';
+          target.textContent = '';
+          bot.appendChild(draft);
+          bot.appendChild(st);
+          const fresh = document.createElement('div');
+          bot.appendChild(fresh);
+          target = fresh; got = false;
           $('messages').scrollTop = $('messages').scrollHeight;
         } else if (ev.type === 'sources') {
-          srcs = ev.sources;
+          srcs = ev.sources; wsrcs = ev.web_sources || wsrcs;
         } else if (ev.type === 'context') {
           updateCtxBar(ev);  // P4b C5: 占用条与事件数值一致
         } else if (ev.type === 'tools') {
           trace = ev.trace;
         } else if (ev.type === 'done') {
           srcs = ev.sources || srcs; trace = ev.tool_trace || trace;
-          if (ev.answer && !got) { bot.textContent = ev.answer; got = true; }
+          wsrcs = ev.web_sources || wsrcs;
+          if (ev.answer && !got) { target.textContent = ev.answer; got = true; }
           if (ev.conversation_id) window._convId = ev.conversation_id;  // 首问后回填自动建的会话
           if (ev.context) updateCtxBar(ev.context);
           loadConversations();  // 列表刷新(新会话出现/updated_at 重排)
@@ -57,7 +96,7 @@ async function send() {
     bot.classList.remove('streaming');
     bot.className = 'msg bot' + (got ? '' : ' error');
     if (!got) bot.textContent = '(空回复)';
-    renderMeta(bot, srcs, trace);
+    renderMeta(bot, srcs, trace, wsrcs);
   } catch (e) {
     if (e.name === 'AbortError') {  // 切换会话中止:前端不留残影,服务端会回滚该轮 user 消息(P4b-fix ⑤)
       bot.classList.remove('streaming');
@@ -72,7 +111,7 @@ async function send() {
         bot.className = 'msg bot' + (d.answer ? '' : ' error');
         if (d.conversation_id) window._convId = d.conversation_id;
         if (d.context) updateCtxBar(d.context);
-        renderMeta(bot, d.sources, d.tool_trace);
+        renderMeta(bot, d.sources, d.tool_trace, d.web_sources);
         loadConversations();
       } catch (e2) {
         bot.textContent = '出错了:' + e2.message;
@@ -91,6 +130,7 @@ window._scope = { folder_ids: [], categories: [] };
 
 function buildChatPayload(q) {
   const p = Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {});
+  p.web_search = !!window._webSearch;   // P4e M-B: 单次请求显式覆盖(开/关都显式传)
   const scope = {};
   if (window._scope.folder_ids.length) scope.folder_ids = window._scope.folder_ids.slice();
   if (window._scope.categories.length) scope.categories = window._scope.categories.slice();
@@ -167,11 +207,20 @@ document.addEventListener('click', (ev) => {
   if (el && el.style.display === 'block' && !el.contains(ev.target) && ev.target.id !== 'q') closeAtPicker();
 });
 
-function renderMeta(bot, srcs, trace) {
+function renderMeta(bot, srcs, trace, wsrcs) {
   if (srcs && srcs.length) {
     const s = document.createElement('div'); s.className = 'sources';
-    s.innerHTML = '<b>引用来源</b><br>' + srcs.map(x => `[${x.ref}] 《${esc(x.title)}》 · 相关度 ${x.score}`).join('<br>');
+    s.innerHTML = '<b>知识库来源</b><br>' + srcs.map(x => `[${x.ref}] 《${esc(x.title)}》 · 相关度 ${x.score}`).join('<br>');
     bot.appendChild(s);
+  }
+  /* P4e M-A: 联网来源**单独分区**,与本地 [1..n] 不混编号;
+     站点名由 URL 推导(上游只返回 {type,url}),必须显式标注,避免误导。 */
+  if (wsrcs && wsrcs.length) {
+    const w = document.createElement('div'); w.className = 'sources-web';
+    w.innerHTML = '<b>联网来源（公网检索，未经本校核实）</b><br>' +
+      wsrcs.map(x => `[${x.ref}] ${esc(x.site_name || '')} · <a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc(x.url)}</a>`).join('<br>') +
+      '<br><span class="web-derived">站点名由 URL 推导（上游只返回 URL）</span>';
+    bot.appendChild(w);
   }
   if (trace && trace.length) {
     const t = document.createElement('div'); t.className = 'sources';
@@ -184,4 +233,5 @@ async function loadHistory() {
   /* P4b: 登录后加载会话列表(不再拉扁平消息流——旧 /api/conversations 语义已变更,
      分页消息走 /api/conversations/{id}/messages,由 switchConversation 按需加载)。 */
   if (window.loadConversations) await loadConversations();
+  await initWebToggle();   // P4e M-B: 登录后把用户级默认同步到开关 UI
 }
