@@ -1,0 +1,30 @@
+{
+  "abort_mid_stream": {
+    "chunks_read": 3,
+    "total_before": 0,
+    "total_after": 1,
+    "roles_after": [
+      "user"
+    ],
+    "nothing_persisted": false
+  },
+  "full_stream": {
+    "events": 15,
+    "event_types": [
+      "context",
+      "delta",
+      "done",
+      "sources"
+    ],
+    "has_context_event": true,
+    "total_before": 1,
+    "total_after": 3,
+    "persisted_two": true,
+    "roles_after": [
+      "user",
+      "user",
+      "assistant"
+    ]
+  },
+  "cleaned": true
+}
