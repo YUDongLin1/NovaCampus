@@ -83,25 +83,39 @@ def model_ctx(model: str) -> int:
 # user 消息与拒答模板(无 sources)一律不进池——用户自述内容(金额/渠道/地点)没有任何
 # 通道被当作事实依据复述;池为空或未命中 → 走 refusal.build_refusal 确定性模板。
 _NORM_RE = re.compile(r"[^0-9A-Za-z\u4e00-\u9fff]+")
-_GATE_MIN_UNIGRAM_COVER = 0.30   # 单字覆盖率下限(配合 ≥3 个不同单字命中)
-_GATE_MIN_BIGRAM_COVER = 0.15    # 2-gram 覆盖率下限(配合 ≥2 个不同命中)
+_GATE_MIN_UNIGRAM_COVER = 0.30   # 主题命中:单字覆盖率下限(配合 ≥3 个不同单字 + ≥1 个 2-gram)
+_GATE_MIN_BIGRAM_COVER = 0.15    # 细节命中:2-gram 覆盖率下限(配合 ≥2 个不同命中)
+# 回指/承接语标记:出现即说明问句离开上下文便语义不完整(代词、指代词),此时只要与
+# 可采信文本有任一实词重叠(≥1 个 2-gram 或 ≥2 个单字)就放行历史回答——回指问句的
+# 字面覆盖天然偏低且随答案措辞波动(实测"需提交/应当提交"两版答案使单字命中在 2~3
+# 之间跳动),纯覆盖率阈值无法同时稳住"代词指代命中"与"游泳馆类搭车问句拒绝"。
+_ANAPHORA_MARKERS = ("它", "它们", "他", "她", "该", "上述", "此", "前面", "刚才", "上面",
+                     "这个", "那个", "这些", "那些", "其")
+
+
+def _has_anaphora(question: str) -> bool:
+    return any(m in question for m in _ANAPHORA_MARKERS)
 
 
 def history_gate_hit(question: str, admissible_texts: list[str]) -> bool:
     """P4b-fix ①: 追问轮历史门控(确定性,零依赖,判据与阈值见 docs/P4B.md §三.1)。
 
     对问句与每条可采信文本做字符 n-gram 覆盖匹配,命中任一即放行"依据历史回答":
-      - 细节命中:问句的 2-gram 有 ≥2 个不同命中,且覆盖率 ≥ 0.15(显式主题追问);
-      - 指代命中:问句的 2-gram 有 ≥1 个命中,且不同单字命中 ≥3、单字覆盖率 ≥ 0.30
-        (代词/省略式追问与既有答案共享"导师"类实词,但字面覆盖天然偏低)。
-    阈值标定:代词追问 3/9=0.333 命中;游泳馆 0.222 / 天气 0 / 空池 拒绝(实测见
-    docs/p4b/evidence/after/followup_gate_v2.json)。已知边际:校医院门诊类问句
-    (h1=4/13=0.308)会走历史提示路径——可采信池内并无该主题内容,模型按提示词
-    约定仍应如实说明未覆盖,不存在编造/洗白通道。
+      - 细节命中:问句 2-gram 有 ≥2 个不同命中且覆盖率 ≥0.15(显式主题追问);
+      - 回指命中:问句含回指/承接标记(它/该/上述/此…)且(2-gram ≥1 或单字 ≥2)
+        ——代词问句离开上下文即语义不完整,须有先行语才可答;
+      - 主题命中:2-gram ≥1 且单字 ≥3 且单字覆盖率 ≥0.30(显式主题、无回指标记)。
+    未命中(含池为空)→ 调用方走 refusal.build_refusal 确定性模板。
+    标定:代词追问两版答案措辞(需提交/应当提交)均命中;游泳馆 0.222/天气 0/空池
+    拒绝;摘要数字追问按细节命中(实测见 docs/p4b/evidence/after/followup_gate_v2.json
+    与评测 mt-01/rfol-01/hfp-01/cc-01)。已知边际:校医院门诊类问句(单字覆盖 0.308)
+    走主题命中→历史提示路径,池内无该主题内容,模型按注入约定仍应如实说明未覆盖,
+    无编造/洗白通道。
     """
     q = _NORM_RE.sub("", question or "")
     if len(q) < 2 or not admissible_texts:
         return False
+    anaphora = _has_anaphora(question or "")
     q_uni = set(q)
     q_bi = {q[i:i + 2] for i in range(len(q) - 1)}
     for text in admissible_texts:
@@ -109,9 +123,10 @@ def history_gate_hit(question: str, admissible_texts: list[str]) -> bool:
         if not t:
             continue
         h1 = len(q_uni & set(t))
-        h2_set = q_bi & {t[i:i + 2] for i in range(len(t) - 1)}
-        h2 = len(h2_set)
+        h2 = len(q_bi & {t[i:i + 2] for i in range(len(t) - 1)})
         if h2 >= 2 and h2 / len(q_bi) >= _GATE_MIN_BIGRAM_COVER:
+            return True
+        if anaphora and (h2 >= 1 or h1 >= 2):
             return True
         if h2 >= 1 and h1 >= 3 and h1 / len(q_uni) >= _GATE_MIN_UNIGRAM_COVER:
             return True

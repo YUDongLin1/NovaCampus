@@ -1,6 +1,6 @@
 {
  "A_first_turn": {
-  "conversation_id": 196,
+  "conversation_id": 242,
   "question_last": "学校游泳馆办深水证需要什么材料，在哪里办?",
   "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
   "ctx": {
@@ -22,7 +22,7 @@
   "all_ok": true
  },
  "B_followup_uncovered": {
-  "conversation_id": 197,
+  "conversation_id": 243,
   "question_last": "学校游泳馆办深水证需要什么材料，在哪里办?",
   "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
   "ctx": {
@@ -48,7 +48,7 @@
   "all_ok": true
  },
  "C_false_premise": {
-  "conversation_id": 198,
+  "conversation_id": 244,
   "question_last": "那我们宿舍的空调费具体怎么交？",
   "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
   "ctx": {
@@ -82,11 +82,11 @@
   "all_ok": true
  },
  "D_out_of_domain": {
-  "conversation_id": 199,
+  "conversation_id": 245,
   "question_last": "那明天成都天气怎么样?",
   "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
   "ctx": {
-   "used": 48,
+   "used": 75,
    "budget": 85196,
    "compressed": false,
    "followup_no_new_sources": null,
@@ -108,11 +108,11 @@
   "all_ok": true
  },
  "E_pronoun": {
-  "conversation_id": 200,
+  "conversation_id": 246,
   "question_last": "那它需要导师签字吗?",
-  "answer": "是的，研究生申请休学需要导师签字。根据相关规定，申请材料中需包含导师意见，且须由导师签署意见并签字确认 。",
+  "answer": "是的，研究生申请休学需要导师签署意见 。",
   "ctx": {
-   "used": 48,
+   "used": 76,
    "budget": 85196,
    "compressed": false,
    "followup_no_new_sources": true,
@@ -121,7 +121,7 @@
   },
   "pronoun_answered": {
    "ok": true,
-   "detail": "是的，研究生申请休学需要导师签字。根据相关规定，申请材料中需包含导师意见，且须由导师签署意见并签字确认 。"
+   "detail": "是的，研究生申请休学需要导师签署意见 。"
   },
   "gate_hit": {
    "ok": true,
@@ -134,9 +134,9 @@
   "all_ok": true
  },
  "F_ref_integrity": {
-  "conversation_id": 201,
+  "conversation_id": 247,
   "question_last": "学校校医院周末门诊时间是什么?",
-  "answer": "知识库中暂无相关内容。请以学校校医院最新公告为准，或直接咨询校医院服务台获取准确信息。",
+  "answer": "知识库中暂无相关内容。请以学校官方最新通知为准，或直接咨询校医院确认周末门诊安排。",
   "ctx": {
    "used": 48,
    "budget": 85196,
@@ -147,7 +147,7 @@
   },
   "honest": {
    "ok": true,
-   "detail": "知识库中暂无相关内容。请以学校校医院最新公告为准，或直接咨询校医院服务台获取准确信息。"
+   "detail": "知识库中暂无相关内容。请以学校官方最新通知为准，或直接咨询校医院确认周末门诊安排。"
   },
   "no_fabricated_ref": {
    "ok": true,

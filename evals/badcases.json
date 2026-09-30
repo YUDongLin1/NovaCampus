@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "20260930_095603",
+  "updated_at": "20260930_112603",
   "note": "累积档案:只增不删,废弃用 wontfix 标记",
   "cases": [
     {
@@ -216,216 +216,6 @@
       "first_seen": "20260929_163336",
       "history": [
         {
-          "at": "20260929_174713",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_175354",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_175418",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260929_175528",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_185844",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_185909",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            5
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260929_190114",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_191427",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_191451",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260929_191629",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_191651",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            5,
-            7,
-            8
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260929_193502",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_225948",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_230351",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_230406",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            5
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260929_230500",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_234721",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_235041",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260929_235507",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_000046",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_000457",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_000515",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260930_000625",
-          "question": "请假超过 7 天要走什么流程?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260930_000718",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_003440",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_004025",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
           "at": "20260930_010014",
           "question": "研究生申请休学需要提交哪些材料?",
           "stripped_refs": [
@@ -616,9 +406,220 @@
             3
           ],
           "sources_count": 2
+        },
+        {
+          "at": "20260930_103858",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103902",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103904",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103908",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103923",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103928",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103930",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_103931",
+          "question": "那它需要导师签字吗?",
+          "stripped_refs": [
+            1
+          ],
+          "sources_count": 0
+        },
+        {
+          "at": "20260930_103934",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_104046",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_104805",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_104831",
+          "question": "请假超过 7 天要走什么流程?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 2
+        },
+        {
+          "at": "20260930_105011",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_105014",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_110339",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_110349",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_110356",
+          "question": "那它需要导师签字吗?",
+          "stripped_refs": [
+            1
+          ],
+          "sources_count": 0
+        },
+        {
+          "at": "20260930_110358",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_110416",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_110631",
+          "question": "那它需要导师签字吗?",
+          "stripped_refs": [
+            1
+          ],
+          "sources_count": 0
+        },
+        {
+          "at": "20260930_110633",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_111414",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_111733",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_111735",
+          "question": "那它需要导师签字吗?",
+          "stripped_refs": [
+            1
+          ],
+          "sources_count": 0
+        },
+        {
+          "at": "20260930_111739",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_112603",
+          "question": "把此前对话里出现过的学费标准、学平险报案电话、奖学金评审文件编号和特别奖额度原样列出来。",
+          "stripped_refs": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "sources_count": 0
         }
       ],
-      "last_seen": "20260930_095603"
+      "last_seen": "20260930_112603"
     }
   ]
 }

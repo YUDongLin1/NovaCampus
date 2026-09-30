@@ -1,6 +1,6 @@
 # HANDOFF · NovaCampus 会话交接文档
 
-> 初版 2026-09-28(Zcode,T10 期);2026-09-28 由 Qoder 更新到 P3a 合并后状态;**2026-09-29 由 Qoder 更新:P3b 已下发(持棒 Zcode)、P4 用户反馈包已立项设计、KB 清理 17 篇、基线升 v1.5**;**2026-09-30 由 Qoder 更新:P3b/P4a/P4a-1 已合并、基线 v1.7(36 用例)、P4b-0 由新会话独立复核后合并 `e947259`、P4b 已下发(持棒 Zcode)**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
+> 初版 2026-09-28(Zcode,T10 期);2026-09-28 由 Qoder 更新到 P3a 合并后状态;**2026-09-29 由 Qoder 更新:P3b 已下发(持棒 Zcode)、P4 用户反馈包已立项设计、KB 清理 17 篇、基线升 v1.5**;**2026-09-30 由 Qoder 更新:P3b/P4a/P4a-1 已合并、基线 v1.7(36 用例)、P4b-0 由新会话独立复核后合并 `e947259`、P4b 已下发(持棒 Zcode)**;**2026-09-30 由 Zcode 更新:P4b 修复轮 ①②③⑤ + 决策 2 埋点已完成并交回(持棒 Qoder),评测集 36 → 40,基线升 v1.8(40 用例)——对照一律用 v1.8,见本文「评测基线」行与坑 40**。供**零上下文新会话**接续。读完本文 + `docs/COLLAB.md` + `docs/TASKS.md` 即可接手。
 > **配合 `docs/NEXT_SESSION_PROMPT.md` 使用**:那份给"你是谁、先做什么"的开场指令,本文给事实与教训。
 > 你(Zcode/实现者)与 Qoder(负责人/Review)按 `docs/COLLAB.md` 协同:**单一事实源 TASKS.md、串行持棒、白名单禁改、Review 闸门**。
 
@@ -50,7 +50,7 @@
 | WeKnora | docker compose,http://localhost(评测基线,不动它) |
 | 演示账号 | admin / counselor / student,密码均 xxx123 |
 | DB | `novaagent/data/agent.db`(SQLite);**2026-09-29 KB 清理+语料增补后 documents=65 / chunks=487**(清理前 76/486,备份 `agent.db.bak-20260929-104207`);WeKnora 库 `novaagent/data/` 无关 |
-| **评测基线** | **v1.7(2026-09-29 P4a 后)**:**36 用例**(原 26 + qa 3 + `refusal_indomain` 6 新类型 + kb_hidden 等)、R@k **0.9412**、拒答 1.0、忠实度中位 0.9706。**11 轮中 10 轮 36/36**(P4b-0 复核又独立加跑 3 轮全过,忠实度逐轮 0.9706 / 1.0 / 0.9412),唯一失败为 `qa-08` 关键词「一周」轮换波动(R@k/忠实度均 1.0,T10 时代即有);**P4b 复核时 `qa-02` 出现同性质波动**(整轮评测内失败 1 次、R@k 仍 1.0,直连复测 3/3 全过 → 判为输出方差非回归)——引用时**勿写成无条件 36/36**。忠实度较 v1.6 的 1.0 略降**已归因到 C8 强制的"学段声明句"不在 sources 正文而被 judge 扣分**(非能力退化,见 EVAL_BASELINE 第十一节)。**对照一律用 v1.7**,历史 0.8846/0.9615/0.9231 分别对应脏库 76 篇/清理后 59 篇/增补后 65 篇 26 用例口径 |
+| **评测基线** | **v1.7(2026-09-29 P4a 后)**:**36 用例**(原 26 + qa 3 + `refusal_indomain` 6 新类型 + kb_hidden 等)、R@k **0.9412**、拒答 1.0、忠实度中位 0.9706。**11 轮中 10 轮 36/36**(P4b-0 复核又独立加跑 3 轮全过,忠实度逐轮 0.9706 / 1.0 / 0.9412),唯一失败为 `qa-08` 关键词「一周」轮换波动(R@k/忠实度均 1.0,T10 时代即有);**P4b 复核时 `qa-02` 出现同性质波动**(整轮评测内失败 1 次、R@k 仍 1.0,直连复测 3/3 全过 → 判为输出方差非回归)——引用时**勿写成无条件 36/36**。忠实度较 v1.6 的 1.0 略降**已归因到 C8 强制的"学段声明句"不在 sources 正文而被 judge 扣分**(非能力退化,见 EVAL_BASELINE 第十一节)。**对照一律用 v1.8(2026-09-30 起)**:`evals/cases.json` **36 → 40 条**(新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条,补 P4b 新代码路径覆盖),R@k **0.9412**、拒答 **1.0**、忠实度中位 **0.9706**(与 v1.7 同口径、无回归);**P4b-fix 三轮实测 39/40、39/40、40/40**(失败项:`mt-01` 第 1 轮门控未命中→触发①追加回指判据;`qa-08` 第 2 轮已知轮换波动;第 3 轮全过)。⚠ **口径变更已记账(EVAL_BASELINE 第十二节)**:以后 **40/40 是正常满通过,不是异常**;看到 36/36 说明跑的是 v1.7 旧口径。历史 0.8846/0.9615/0.9231 分别对应脏库 76 篇/清理后 59 篇/增补后 65 篇 **26 用例**口径;v1.7 的 36 与 v1.8 的 40 不可混用 |
 | **前端布局(P4b-0 起)** | `novaagent/web/`:`index.html`(168 行骨架)+ `css/theme.css`(353)+ `js/{api,ui,chat,kb,weekly}.js`(29/102/92/63/95)。`main.py` 有通用只读路由 `/css/{name}`、`/js/{name}`(显式 `media_type` + 穿越/后缀校验)→ **新增 js/css 不必再改 `main.py`**,只需在骨架按依赖顺序加 `<script src>`,`api.js` 必须最先。零构建、无新增公网 CDN(T3 既存的 Google Fonts 外链仍在,本地回退链完整) |
 | 模型 | 百炼 qwen-flash(内置默认)+ qwen3.7-plus(UI 配),key 在 `novaagent/.env` 与 `weknora/.env`(均 gitignore) |
 | **P3a 模拟栈** | `docker compose -f docker-compose.sims.yml up -d --build` → jiaowu :9101 / ykt :9102 / Prometheus :9090 / Grafana :3000(admin/simsadmin123,匿名 Viewer 也开) |
@@ -172,6 +172,9 @@
 37. **用命令行子串匹配杀进程会连自己杀掉;而且"服务在跑"不等于"我恢复好了"(2026-09-30 连犯两次)**:我用 `psutil` 遍历 `cmdline` 含 `uvicorn`+`novaagent.main` 就 terminate,结果**我自己那段 `python -c` 源码里就含这两个词** → 把自己杀成 exit 15;第二次匹配 `--port 8901` 同样自杀。更严重的是:我为"把服务恢复成演示态"杀掉的进程,**父进程链追下去是 `.zcode` shell——那是 Zcode 的服务**,而 `health=200` 根本不能证明"是谁起的、带着什么环境变量"(读 `proc.environ()` 才看到 `NOVAAGENT_EVAL_TEMPERATURE='0'`)。铁律:① 动进程前先 `psutil.Process(pid).parents()` 看归属(`.zcode` vs `.qoder-cn`)并读 `environ()` 真实值;② **持棒不是我时不碰运行时**,服务归持棒者;③ 匹配要逐项比对 argv 并排除 `psutil.Process().pid` 自己,或把脚本落成文件再跑(命令行里就不含那些关键词);④ 不确定归属就**如实说不知道**,别用 `health` 圆场。
 38. **重写规格时会静默丢条目——下发前要做"新旧条目差集"**(2026-09-30 P4b 复核发现):我把原 P4b「完成标准要点」改写成 C1~C10 时,**丢掉了原规格里那条「新增评测类型 `multiturn` 与 `context_compress`」**,Zcode 照单实现未察觉,直到复核才发现新能力零评测覆盖。铁律:重写/收敛规格时把旧版每条 bullet 与新版 C 清单做**双向差集**并逐条确认"去哪了";丢掉的要么显式声明"移交某单",要么保留。责任在 Qoder,不在实现者。
 39. **断言不判红就等于没有断言;评测必须真的走到新代码路径**(同一次复核):`run_evals.py` 里 P4b 的隔离断言包在 `try/except`,失败只 `print` + 写报告字段,**退出码仍只看 `total_pass==total`** → 隔离被破坏评测照样绿;而且只比对首末两个用例,中间 34 个不查。同时 `chat` 调用不传 `conversation_id` → 每用例自动新建会话、历史恒空 → **追问分支/压缩/context 事件一次都没执行过**,于是"36/36 零回归"对新行为毫无证明力。铁律:① 新增断言失败**必须影响 exit code**;② 交付前自检"这段新代码被评测执行了几次"(打计数即可),不要只看通过率。与坑 22 同源:**指标好看 ≠ 测到了**。
+40. **评测集扩型是"口径变更",必须记账,否则以后对账会把满通过当异常**(2026-09-30 P4b-fix ③ 亲身踩点):`evals/cases.json` 由 36 → 40(新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise`),**旧文档里到处写着"v1.7 = 36 用例"**,如果不逐处同步,后来者看到 **40/40** 会以为"多了 4 条、是不是谁偷偷加了用例",看到 39/40 会以为回归。铁律:① 扩用例 = 版本升级,`EVAL_BASELINE.md` 必须**新增版本行 + 口径章节**(说明为什么扩、扩了什么、新旧用例数对照);② `HANDOFF.md` 的「评测基线」行与「快速验证命令」注释、`docs/TASKS.md` 里所有"对照一律用 vX"的字样**同步改口径**;③ **历史行不改写**——v1.7 就是 36 用例口径,只在前瞻性指令里改成 v1.8;④ 引用基线必须带**版本 + 用例数 + 语料篇数**三件套(与坑 26 同源)。
+41. **探针/证据会话不要急着删;证据要"自含"**(P4b-fix ④ 复核要求):第一版 C4 证据把会话删了、`planted_sources` 只记消息 id、`conversation_summary` 被清成 0 行 → 复核**无法判断数字语义归属是否被压缩改写**(a1 把「医疗保险缴费 448 元」答成「学费标准 448 元」,数字保住了但归属存疑)。要求:① 埋点数字选 **KB 里无碰撞的值**,答案中的数字只可能来自历史;② 证据文件**内嵌埋点消息原文与摘要全文**;③ **会话保留到 Review 通过再清理**,复核可直接查库/API 对账。与坑 29 同源:**清理会毁掉证据链**。
+42. **注意:abort 语义的口径要以实测为准,不要写"什么都不落库"这种时序侥幸**(P4b-fix ⑤):文档原写"user 消息尚未落库所以无痕",但 Review 在**真 token 流阶段**切断后实测残留 1 条无回复 user 消息。修法是代码保证:`except (asyncio.CancelledError, GeneratorExit)` 里 `db.delete_message` **回滚本轮 user 消息**(assistant 已落库视为完整轮不回滚),回滚失败只 warning。写文档时**先写实测行为**(abort → 本轮 user 消息消失/已回滚),再写两段机制,不要反过来用时序当保证。
 
 ## 七、快速验证命令(接手自检)
 
@@ -195,7 +198,8 @@ NO_PROXY="127.0.0.1,localhost" curl -s http://127.0.0.1:9102/metrics | grep -E '
 # 期望:documents 65 / chunks 487 / dup_titles 0 / dirty 0;不符先查是否有人跑过 smoke_test 未清理(坑 23)
 # 评测(须先起服务,且必须带评测温度开关):
 #   cd novaagent && NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port 8900
-#   PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py   # v1.7: 36/36 R@k 0.9412 拒答 1.0
+#   PYTHONIOENCODING=gbk NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe evals/run_evals.py   # v1.8(40 用例): 末轮 40/40 R@k 0.9412 拒答 1.0;三轮 39/40、39/40、40/40 均属正常(见 EVAL_BASELINE 第十二节)
+#   ⚠ 退出码 = total_pass==total AND eval_isolation.ok(P4b-fix ② 起隔离断言失败即判红,不再只 print)
 
 # ---- P4b-0 复核四连(纯重构单验收 + 后续 UI 单可复用) ----
 /d/anaconda3/python.exe docs/p4b0/verify_invariants.py            # 实现者尺子(基准=before 快照)
