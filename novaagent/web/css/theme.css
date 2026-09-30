@@ -422,3 +422,8 @@
 .chip:hover { background: #f0d9d2; }
 .composer-row { display: flex; gap: 12px; align-items: center; width: 100%; }
 #composer { flex-wrap: wrap; row-gap: 8px; position: relative; }
+
+/* P4e S1-①:grounding 闸门重生的「初稿」块与状态行——初稿保留可见,不假装没发生 */
+.gate-draft { opacity: .55; border-left: 3px solid var(--ink-light, #c9c4bb);
+  padding-left: 8px; margin: 4px 0; white-space: pre-wrap; font-size: .95em; }
+.gate-status { color: #9a6a3a; font-size: .88em; margin: 4px 0 2px; }

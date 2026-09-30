@@ -1,0 +1,79 @@
+{
+  "mode": "off",
+  "base": "http://127.0.0.1:8920",
+  "runs": 3,
+  "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+  "ttfb_ms_median": 2355.5,
+  "e2e_ms_median": 3001.6,
+  "span_ms_median": 638.8,
+  "n_delta_median": 27,
+  "answer_chars_median": 145,
+  "retrieval_ms_median": 952,
+  "ttfb_ms_all": [
+    2355.5,
+    2241.3,
+    2439.4
+  ],
+  "e2e_ms_all": [
+    3001.6,
+    2763.4,
+    3078.2
+  ],
+  "span_ms_all": [
+    646.1,
+    522.1,
+    638.8
+  ],
+  "n_delta_all": [
+    27,
+    22,
+    29
+  ],
+  "gate_hit_all": [
+    false,
+    false,
+    false
+  ],
+  "rows": [
+    {
+      "warm": false,
+      "ttfb_ms": 2355.5,
+      "e2e_ms": 3001.6,
+      "span_ms": 646.1,
+      "n_delta": 27,
+      "answer_chars": 145,
+      "retrieval_ms": 952,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 2241.3,
+      "e2e_ms": 2763.4,
+      "span_ms": 522.1,
+      "n_delta": 22,
+      "answer_chars": 116,
+      "retrieval_ms": 908,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    },
+    {
+      "warm": false,
+      "ttfb_ms": 2439.4,
+      "e2e_ms": 3078.2,
+      "span_ms": 638.8,
+      "n_delta": 29,
+      "answer_chars": 156,
+      "retrieval_ms": 1012,
+      "gate": null,
+      "released_chars": null,
+      "early_window_chars": null
+    }
+  ],
+  "p4d_baseline": {
+    "ttfd_ms": 2161,
+    "e2e_ms": 2898
+  }
+}

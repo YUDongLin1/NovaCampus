@@ -8,7 +8,7 @@ async function send() {
   const btn = $('send'); btn.disabled = true;
   const bot = addMsg('bot', '');
   bot.classList.add('streaming');
-  let got = false, srcs = null, trace = null;
+  let got = false, srcs = null, trace = null, target = bot;
   abortInflight();
   window._convAbort = new AbortController();  // P4b C5: 切换会话时中止
   try {
@@ -34,8 +34,25 @@ async function send() {
         if (payload === '[DONE]') continue;
         let ev; try { ev = JSON.parse(payload); } catch (err) { continue; }
         if (ev.type === 'delta') {
-          if (!got) { bot.textContent = ''; got = true; }
-          bot.textContent += ev.content;
+          if (!got) { target.textContent = ''; got = true; }
+          target.textContent += ev.content;
+          $('messages').scrollTop = $('messages').scrollHeight;
+        } else if (ev.type === 'grounding_retry') {
+          /* P4e S1-①:初稿被判定「未给出可核查依据」(有来源却零引用零数字)。
+             已下发的文字**不撤回、不假装没发生**:原样折进「初稿」块并显式标注,
+             重生结果另起一段继续流式。 */
+          const draft = document.createElement('div');
+          draft.className = 'gate-draft';
+          draft.textContent = target.textContent;
+          const st = document.createElement('div');
+          st.className = 'gate-status';
+          st.textContent = '（初稿未给出可核查依据，已重新组织答案如下）';
+          target.textContent = '';
+          bot.appendChild(draft);
+          bot.appendChild(st);
+          const fresh = document.createElement('div');
+          bot.appendChild(fresh);
+          target = fresh; got = false;
           $('messages').scrollTop = $('messages').scrollHeight;
         } else if (ev.type === 'sources') {
           srcs = ev.sources;
@@ -45,7 +62,7 @@ async function send() {
           trace = ev.trace;
         } else if (ev.type === 'done') {
           srcs = ev.sources || srcs; trace = ev.tool_trace || trace;
-          if (ev.answer && !got) { bot.textContent = ev.answer; got = true; }
+          if (ev.answer && !got) { target.textContent = ev.answer; got = true; }
           if (ev.conversation_id) window._convId = ev.conversation_id;  // 首问后回填自动建的会话
           if (ev.context) updateCtxBar(ev.context);
           loadConversations();  // 列表刷新(新会话出现/updated_at 重排)

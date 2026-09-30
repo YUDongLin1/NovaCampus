@@ -1,6 +1,6 @@
 {
-  "version": "v2.3",
-  "description": "NovaAgent 评测集:48 条(qa 18 / refusal_indomain 6 / refusal 6 / permission_api 4 / kb_hidden 3 / scoped_qa 3 / P4b 新路径 4 / P4d 意图直答 2 + 改写重试 2);P4a 增 F1/F2/F3 配对用例与域内无据拒答;P4c 增 @ scope;P4d 增 intent/rewrite 两类;**P4d-fix ① rind-02 由 refusal_indomain 迁移为 qa(F2 修复后『库内无据』前提失效)并新增 rind-07 承接域内无据覆盖(坑 22:迁出 1 补 1,refusal_indomain 仍为 6 条,覆盖未变薄);**P4d-fix ② compute_recall 两侧标题归一(全/半角括号·书名号·空白),R@k 0.9412 → 1.0 属口径变更(EVAL_BASELINE §十五)**",
+  "version": "v2.4",
+  "description": "NovaAgent 评测集:48 条(qa 18 / refusal_indomain 6 / refusal 6 / permission_api 4 / kb_hidden 3 / scoped_qa 3 / P4b 新路径 4 / P4d 意图直答 2 + 改写重试 2);P4a 增 F1/F2/F3 配对用例与域内无据拒答;P4c 增 @ scope;P4d 增 intent/rewrite 两类;**P4d-fix ① rind-02 由 refusal_indomain 迁移为 qa(F2 修复后『库内无据』前提失效)并新增 rind-07 承接域内无据覆盖(坑 22:迁出 1 补 1,refusal_indomain 仍为 6 条,覆盖未变薄);**P4d-fix ② compute_recall 两侧标题归一(全/半角括号·书名号·空白),R@k 0.9412 → 1.0 属口径变更(EVAL_BASELINE §十五)**；**P4e v2.4(口径变更,48 → 55 条)**:新增 `stream_sse` 3 条(用户真实路径 /api/chat/stream 的唯一自动化覆盖,坑 60)与 `web_grounded` 4 条(联网开/关对照 2 组,坑 48;含「正文不得出现逐句绑定的 [W<n>] 角标」反向断言)。历史 v2.3 = 48 条口径不改写。",
   "cases": [
     {
       "id": "qa-01",
@@ -710,6 +710,103 @@
         ]
       ],
       "note": "P4d C4: 矩阵同款'术语+具体意图'问法(单遍 rerank 0.1008→0 来源);断言改写发生且召回达标"
+    },
+    {
+      "id": "ss-01",
+      "type": "stream_sse",
+      "stream_kind": "basic",
+      "role": "student",
+      "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+      "note": "P4e S1-② ①②③:事件序列 sources→context→delta*→done;delta>1;E2E-TTFB>=300ms(防 M4 把真流式缓冲成一次下发,坑 60)"
+    },
+    {
+      "id": "ss-02",
+      "type": "stream_sse",
+      "stream_kind": "abort",
+      "role": "student",
+      "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+      "note": "P4e S1-② ④:收到首个 delta 立即断开 → 本轮 user 消息必须被回滚(P4b C5 不变量);该用例不回 conversation_id,不进隔离断言(回滚后 user 条数为 0)"
+    },
+    {
+      "id": "ss-03",
+      "type": "stream_sse",
+      "stream_kind": "gate",
+      "role": "student",
+      "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
+      "note": "P4e S1-② ⑤:闸门命中 → 出现 grounding_retry、重生文本分多个 delta 下发、done.answer 与落库答案均为重生后版本。⚠ 需服务端带 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 才**必然**命中闸门;不带该变量时本用例退化为一致性断言(闸门命中 ⇔ retry 出现),不会假红。"
+    },
+    {
+      "id": "wg-01",
+      "type": "web_grounded",
+      "role": "student",
+      "web_search": true,
+      "expect_web_called": true,
+      "question": "ISO 4217 标准里人民币的三字母代码是什么？",
+      "expect_web_sources_min": 1,
+      "expect_web_declaration": [
+        "未经本校核实"
+      ],
+      "expect_keywords": [
+        [
+          "CNY",
+          "RMB"
+        ],
+        [
+          "人民币"
+        ]
+      ],
+      "expect_no_w_citation": true,
+      "note": "P4e M-D 开:库内无据的公开知识题 → 出现联网分区、URL 可点、整段级「未经本校核实」"
+    },
+    {
+      "id": "wg-02",
+      "type": "web_grounded",
+      "role": "student",
+      "web_search": false,
+      "expect_web_called": false,
+      "question": "ISO 4217 标准里人民币的三字母代码是什么？",
+      "expect_absent_keywords": [
+        "未经本校核实",
+        "联网检索"
+      ],
+      "expect_no_w_citation": true,
+      "note": "P4e M-D 关:同一问句必须走 P4a 确定性拒答模板(指纹「系统模板生成」),且绝不发起联网请求"
+    },
+    {
+      "id": "wg-03",
+      "type": "web_grounded",
+      "role": "student",
+      "web_search": true,
+      "expect_web_called": true,
+      "question": "中国国家统计局公布的居民消费价格指数的英文缩写是什么？",
+      "expect_web_sources_min": 1,
+      "expect_web_declaration": [
+        "未经本校核实"
+      ],
+      "expect_keywords": [
+        [
+          "CPI"
+        ],
+        [
+          "居民消费价格指数"
+        ]
+      ],
+      "expect_no_w_citation": true,
+      "note": "P4e M-D 开(第二条构造问句,防单例偶然)"
+    },
+    {
+      "id": "wg-04",
+      "type": "web_grounded",
+      "role": "student",
+      "web_search": false,
+      "expect_web_called": false,
+      "question": "中国国家统计局公布的居民消费价格指数的英文缩写是什么？",
+      "expect_absent_keywords": [
+        "未经本校核实",
+        "联网检索"
+      ],
+      "expect_no_w_citation": true,
+      "note": "P4e M-D 关(第二条构造问句的对照组)"
     }
   ]
 }
