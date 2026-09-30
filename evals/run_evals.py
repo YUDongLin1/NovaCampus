@@ -328,6 +328,104 @@ def run_scoped_qa(c: httpx.Client, tokens: dict, case: dict) -> tuple[bool, str,
                 pass
 
 
+def _trace_has(trace: list, node: str) -> bool:
+    return any(isinstance(t, dict) and t.get("node") == node for t in (trace or []))
+
+
+def _trace_skipped(trace: list) -> bool:
+    return any(isinstance(t, dict) and t.get("skipped") is True for t in (trace or []))
+
+
+def run_intent_case(c: httpx.Client, tokens: dict, case: dict) -> tuple[bool, str, str, list, int | None, dict]:
+    """P4d C3: 意图直答用例(闲聊/时间)——断言**检索被跳过**(不调 LLM 的问时间类还要断言零 LLM)。
+
+    断言(每条都能失败,失败即计入 total_pass 不满;坑 39/45):
+      expect_retrieval_skipped  context.retrieval_skipped 必须为 true;trace 内必须有 skipped 标记;
+      expect_intent             context.intent 等于该值;
+      expect_no_sources         必须零来源(直答不检索);
+      expect_answer_any         答案包含任一关键词(any-of);
+      expect_no_llm_intent      intent 阶段未调 LLM(问时间类:正则直答);
+      expect_latency_lt_ms      端到端延迟上限(毫秒,证明快路径真的快)。
+    反断言(坑 45): "零来源"必须与"检索确实被跳过"同时成立才算过——只断言空 sources 会把
+    检索失败/空库误判为通过。
+    """
+    t0 = time.time()
+    r = c.post(f"{BASE}/api/chat", headers={"Authorization": f"Bearer {tokens[case['role']]}"},
+               json={"question": case["question"]})
+    r.raise_for_status()
+    elapsed_ms = round((time.time() - t0) * 1000)
+    d = r.json()
+    ctx = d.get("context") or {}
+    trace = ctx.get("retrieval_trace") or []
+    sources = d.get("sources") or []
+    answer = d.get("answer") or ""
+    bad: list[str] = []
+    if case.get("expect_retrieval_skipped") and not ctx.get("retrieval_skipped"):
+        bad.append(f"retrieval_skipped={ctx.get('retrieval_skipped')!r}(期待 True)")
+    if case.get("expect_retrieval_skipped") and not _trace_skipped(trace):
+        bad.append(f"trace 内无 skipped 标记: {[t.get('node') for t in trace]}")
+    if case.get("expect_intent") and ctx.get("intent") != case["expect_intent"]:
+        bad.append(f"intent={ctx.get('intent')!r}(期待 {case['expect_intent']!r})")
+    if case.get("expect_no_sources") and sources:
+        bad.append(f"期待零来源却得 {len(sources)} 条: {[s['title'] for s in sources][:2]}")
+    if case.get("expect_answer_any") and not any(k in answer for k in case["expect_answer_any"]):
+        bad.append(f"答案未含 {case['expect_answer_any']} 任一; 头部: {answer[:80]!r}")
+    if case.get("expect_no_llm_intent"):
+        it = next((t for t in trace if t.get("node") == "intent"), None)
+        if not it or it.get("llm_called"):
+            bad.append(f"intent 阶段调了 LLM(期待正则直答): {it}")
+    lat = case.get("expect_latency_lt_ms")
+    if lat and elapsed_ms >= lat:
+        bad.append(f"延迟 {elapsed_ms}ms ≥ {lat}ms")
+    detail = "; ".join(bad) if bad else (f"skipped={ctx.get('retrieval_skipped')}, "
+                                         f"intent={ctx.get('intent')}, trace={[t.get('node') for t in trace]}"
+                                         f", {elapsed_ms}ms")
+    return (not bad), detail, answer, sources, d.get("conversation_id"), ctx
+
+
+def run_rewrite_case(c: httpx.Client, tokens: dict, case: dict) -> tuple[bool, str, str, list, int | None, dict]:
+    """P4d C3: 改写用例——口语化/噪声长问句必须**发生改写**且**最终召回到达标来源**。
+
+    断言(每条都能失败;坑 39):
+      expect_rewritten       trace 内必须出现 rewrite 节点(证明改写真的跑了,而非一次蒙对);
+      expect_final_sources   最终必须有来源(改写后召回成功);
+      expect_sources_titles  来源标题须命中任一前缀(证实召回到目标材料,不是别的块);
+      expect_keywords        答案关键词(any-of);
+      expect_min_attempts    最少检索轮数(≥2 证明经历了 retry)。
+    反断言(坑 45): 若 expect_rewritten 为真却零来源 → 判红(改写没救回来等于没改)。
+    """
+    r = c.post(f"{BASE}/api/chat", headers={"Authorization": f"Bearer {tokens[case['role']]}"},
+               json={"question": case["question"]})
+    r.raise_for_status()
+    d = r.json()
+    ctx = d.get("context") or {}
+    trace = ctx.get("retrieval_trace") or []
+    sources = d.get("sources") or []
+    answer = d.get("answer") or ""
+    bad: list[str] = []
+    attempts = ctx.get("attempts")
+    rewrites = [t for t in trace if t.get("node") == "rewrite"]
+    if case.get("expect_rewritten"):
+        if not rewrites and not ctx.get("rewritten"):
+            bad.append(f"未发生改写(attempts={attempts}, trace={[t.get('node') for t in trace]})")
+    if case.get("expect_final_sources") and not sources:
+        bad.append("改写后仍零来源(未救回)")
+    allow = tuple(case.get("expect_sources_titles") or ())
+    if allow and sources:
+        bad += [f"来源非目标材料: {s['title']}" for s in sources
+                if not any(s["title"].startswith(p) for p in allow)]
+    if case.get("expect_min_attempts") and (attempts or 0) < case["expect_min_attempts"]:
+        bad.append(f"检索轮数 {attempts} < {case['expect_min_attempts']}")
+    if case.get("expect_keywords"):
+        miss = kw_missing(case["expect_keywords"], answer)
+        if miss:
+            bad.append(f"答案未命中: {miss}; 头部: {answer[:80]!r}")
+    qs = [t.get("to") for t in rewrites if t.get("to")]
+    detail = "; ".join(bad) if bad else (f"改写 {qs[-1:] if qs else '(未触发)'} → "
+                                         f"sources={len(sources)}, attempts={attempts}")
+    return (not bad), detail, answer, sources, d.get("conversation_id"), ctx
+
+
 def run() -> int:
     global BASE
     ap = argparse.ArgumentParser()
@@ -378,6 +476,16 @@ def run() -> int:
                     ok, detail, answer, sources = run_scoped_qa(c, tokens, case)
                     turns_sent = 1
                     first_question = case["question"]
+                elif case["type"] == "intent":
+                    # P4d C3: 闲聊/时间直答——断言检索被跳过(不调 LLM 的问时间类另断言零 LLM)
+                    ok, detail, answer, sources, conversation_id, last_ctx = \
+                        run_intent_case(c, tokens, case)
+                    turns_sent = 1
+                elif case["type"] == "rewrite":
+                    # P4d C3: 口语化/噪声问句必须发生改写且最终召回达标来源
+                    ok, detail, answer, sources, conversation_id, last_ctx = \
+                        run_rewrite_case(c, tokens, case)
+                    turns_sent = 1
                 else:
                     r = c.post(f"{BASE}/api/chat", headers={"Authorization": f"Bearer {tokens[case['role']]}"},
                                json={"question": case["question"]})

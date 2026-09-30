@@ -167,6 +167,13 @@ def _migrate() -> None:
     )
     _conn.commit()
 
+    # P4d: 会话检索轨迹(retrieval_trace,供 graph 编排复盘与评测断言)
+    ccols = [r["name"] for r in _conn.execute("PRAGMA table_info(conversations)")]
+    if "retrieval_trace" not in ccols:
+        with _lock:
+            _conn.execute("ALTER TABLE conversations ADD COLUMN retrieval_trace TEXT")
+            _conn.commit()
+
     # P4c C1: KB 文件夹 + documents.audience 学段元数据。
     # 迁移纪律(C1): 不删数据——只 CREATE IF NOT EXISTS / 幂等加列 / 建索引,
     # 不 UPDATE 任何既有行(folder_id 恒 NULL=根、audience 恒 'common'),
@@ -795,6 +802,17 @@ def create_conversation(user_id: int, title: str = "新会话") -> int:
         )
         _conn.commit()
     return cur.lastrowid
+
+
+def update_conversation_trace(conv_id: int, trace: list | None) -> None:
+    """P4d: 落检索轨迹(intent/retrieve/rewrite 各节点耗时、改写前后查询、质量信号),
+    供复盘与评测断言(`retrieval_trace.skipped=true` / 是否发生改写)。"""
+    if not conv_id or trace is None:
+        return
+    with _lock:
+        _conn.execute("UPDATE conversations SET retrieval_trace=? WHERE id=?",
+                      (json.dumps(trace, ensure_ascii=False)[:8000], conv_id))
+        _conn.commit()
 
 
 def get_conversation(conv_id: int, user_id: int) -> dict | None:

@@ -106,7 +106,11 @@ def _keyword_search(query: str, chunks: list[dict], top_k: int,
         id_to_idx = {c["id"]: i for i, c in enumerate(chunks)}
         return [(id_to_idx[cid], sc) for cid, sc in fts if cid in id_to_idx]
     # 回退:内存 2-gram 计次(FTS5 不可用/异常/零命中;拒答阈值行为不变)
+    # P4d C5②: 过滤停用词——"学校/我们/这项"等通用词会把无关块顶榜(实测教育部令 5 块霸榜),
+    # 过滤后再计次;config.KEYWORD_STOPWORDS_ENABLED 可关(用于 A/B 对照)。
     terms = {q} if len(q) <= 4 else {q, *(q[i : i + 2] for i in range(0, len(q) - 1))}
+    if config.KEYWORD_STOPWORDS_ENABLED:
+        terms = {t for t in terms if t not in config.KEYWORD_STOPWORDS} or {q}
     scores: list[tuple[int, float]] = []
     for i, c in enumerate(chunks):
         s = sum(c["content"].count(t) for t in terms if len(t) >= 2)
@@ -157,7 +161,9 @@ async def search_with_quality(query: str, min_rank: int,
     P4c C3: scope 只会**收窄**候选集(db.all_chunks_for_search 在 RBAC 之上再过滤),
     不改本函数返回结构形状;folder_ids==[] 直接得空结果(硬约束 3: 不回落全库)。
     """
-    quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False}
+    quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False,
+               # P4d C2: 融合候选条数——grade 判定与"是否值得改写"的输入(fused_candidates)
+               "fused_candidates": 0}
     sc = scope or {}
     chunks = db.all_chunks_for_search(min_rank,
                                       folder_ids=sc.get("folder_ids"),
@@ -169,6 +175,7 @@ async def search_with_quality(query: str, min_rank: int,
     v_ranked = _vector_search(qvec, chunks, VECTOR_TOP_K)
     k_ranked = _keyword_search(query, chunks, KEYWORD_TOP_K, scope=sc)
     fused = _rrf_fuse(v_ranked, k_ranked)[:FUSION_TOP_K]
+    quality["fused_candidates"] = len(fused)
     if not fused:
         return [], quality
     idxs = [i for i, _ in fused]

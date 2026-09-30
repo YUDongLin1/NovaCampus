@@ -60,6 +60,43 @@ MODEL_CANDIDATES = [
 ]
 
 
+# ---------- P4d: LangGraph 检索编排 + 查询改写 ----------
+# 只用 LangGraph 做状态机编排;LLM 仍走 llm.py(httpx)、向量仍走 numpy 内存余弦。
+GRAPH_ENABLED = env("NOVA_GRAPH_ENABLED", "1") not in ("0", "false", "False")
+MAX_REWRITE = int(env("NOVA_MAX_REWRITE", "2"))
+# grade 判定(C2):top_score ≥ 该值 且 达标条数 ≥ GRADE_MIN_ABOVE 才算召回达标
+GRADE_MIN_SCORE = float(env("NOVA_GRADE_MIN_SCORE", "0.3"))
+GRADE_MIN_ABOVE = int(env("NOVA_GRADE_MIN_ABOVE", "2"))
+# 改写地板(⚠ **P4d 起已废弃、不再参与任何判定**,保留仅为兼容旧 env/复盘引用):
+# 原设计"rerank 峰值低于此值 → 不做改写直接拒答"被实测证伪——rerank 在本 corpus 上会把
+# 正确候选整体压到 0.03~0.19(见 docs/p4d/probe_rerank_dist.py),绝对值不可作"库里有无此主题"
+# 的判据。现改为由 build_rewrite_plan 的档位可用性决定(无可用档位才直拒)。
+REWRITE_FLOOR = float(env("NOVA_REWRITE_FLOOR", "0.05"))
+INTENT_TIMEOUT_S = float(env("NOVA_INTENT_TIMEOUT_S", "8"))
+REWRITE_TIMEOUT_S = float(env("NOVA_REWRITE_TIMEOUT_S", "10"))
+# 术语展开词典(改写主力:意图归一 + 同义术语展开)。键=用户口语词,值=材料里的规范表述。
+TERM_EXPANSION: dict[str, list[str]] = {
+    "学平险": ["学生平安保险", "大学生意外伤害保险"],
+    "学生平安保险": ["学平险", "大学生意外伤害保险"],
+    "意外伤害保险": ["学平险", "学生平安保险"],
+    "医保": ["大学生医疗保险", "城乡居民基本医疗保险"],
+    "大学生医疗保险": ["医保", "城乡居民基本医疗保险"],
+    "报销": ["理赔"],
+    "理赔": ["报销"],
+}
+# 去情境噪声(改写辅助):命中前缀/句式里的称呼、铺垫、口头语,与检索无关且会污染 rerank
+NOISE_PATTERNS = [
+    r"^老师[，,、:：]?", r"^同学[，,、:：]?", r"^我想问[一下下]*[，,、:：]?", r"^请问[，,、:：]?",
+    r"^麻烦[你您][，,、:：]?", r"我们学校", r"咱们学校", r"我校",
+]
+# 关键词回退层(2-gram 计次)的停用词:现状"学校/我们/这项"等通用词会把无关块顶榜(C5 ②)
+KEYWORD_STOPWORDS = {
+    "学校", "我们", "你们", "他们", "这项", "这个", "那个", "同学", "老师", "可以", "怎么",
+    "什么", "是否", "需要", "现在", "目前", "请问", "一下", "我想", "知道", "有没有",
+}
+KEYWORD_STOPWORDS_ENABLED = env("NOVA_KEYWORD_STOPWORDS", "1") not in ("0", "false", "False")
+
+
 def configured() -> list[str]:
     """返回缺失的关键配置项(启动自检用)。"""
     missing = []

@@ -1,6 +1,6 @@
 {
- "version": "v1.9",
- "description": "NovaAgent 评测集:36 条(qa 17 / refusal_indomain 6 / refusal 6 / permission_api 4 / kb_hidden 3);P4a 增 F1/F2/F3 配对用例(术语短问+口语长问)与域内无据拒答类型",
+ "version": "v2.0",
+ "description": "NovaAgent 评测集:47 条(qa 17 / refusal_indomain 6 / refusal 6 / permission_api 4 / kb_hidden 3 / scoped_qa 3 / P4b 新路径 4 / **P4d 意图直答 2 + 改写重试 2**);P4a 增 F1/F2/F3 配对用例与域内无据拒答;P4c 增 @ scope;P4d 增 intent/rewrite 两类",
  "cases": [
   {
    "id": "qa-01",
@@ -557,6 +557,92 @@
    "question": "国家奖学金的评定条件是什么？",
    "expect_status": 404,
    "note": "P4c 硬约束 1: 越权夹与不存在同表现 404, 不泄露存在性"
+  },
+  {
+   "id": "intent-01",
+   "type": "intent",
+   "role": "student",
+   "question": "现在几点了？",
+   "expect_retrieval_skipped": true,
+   "expect_intent": "time",
+   "expect_no_sources": true,
+   "expect_no_llm_intent": true,
+   "expect_answer_any": [
+    "现在"
+   ],
+   "expect_latency_lt_ms": 3000,
+   "note": "P4d C1/C3: 问时间类走正则+datetime 直答——检索必须被跳过(retrieval_skipped=true)、intent 阶段零 LLM、零来源;断言同时要求'确实跳过'与'零来源',防把检索失败误判为通过(坑 45)"
+  },
+  {
+   "id": "intent-02",
+   "type": "intent",
+   "role": "student",
+   "question": "你好，你是谁呀？",
+   "expect_retrieval_skipped": true,
+   "expect_intent": "chitchat",
+   "expect_no_sources": true,
+   "expect_answer_any": [
+    "助手",
+    "校园",
+    "查"
+   ],
+   "note": "P4d C1/C3: 闲聊直答——检索跳过、零来源;首字延迟应显著低于检索路径(与 intent-01 共同支撑 C1 延迟对照表)"
+  },
+  {
+   "id": "rewrite-01",
+   "type": "rewrite",
+   "role": "student",
+   "question": "老师，我想问下咱们学校那个学平险是要单独交钱吗，我没在缴费项目里看到",
+   "expect_rewritten": true,
+   "expect_final_sources": true,
+   "expect_min_attempts": 2,
+   "expect_sources_titles": [
+    "大学生意外伤害保险理赔须知",
+    "关于西南交通大学2016年度新生学平险保险的通知"
+   ],
+   "expect_keywords": [
+    [
+     "学平险",
+     "学生平安保险"
+    ],
+    [
+     "保险",
+     "投保",
+     "参保",
+     "缴费",
+     "理赔",
+     "报销"
+    ]
+   ],
+   "note": "P4d C3/C4: F2 崩塌现场(口语+称呼+情境噪声,单遍 rerank 0.0514→0 来源)。断言'确实发生改写'(trace 含 rewrite 节点)且'改写后召回到目标材料'——两条缺一不可,改写没救回等于没改(坑 39/45)"
+  },
+  {
+   "id": "rewrite-02",
+   "type": "rewrite",
+   "role": "student",
+   "question": "学平险在哪里买",
+   "expect_rewritten": true,
+   "expect_final_sources": true,
+   "expect_min_attempts": 2,
+   "expect_sources_titles": [
+    "大学生意外伤害保险理赔须知",
+    "关于西南交通大学2016年度新生学平险保险的通知"
+   ],
+   "expect_keywords": [
+    [
+     "学平险",
+     "学生平安保险"
+    ],
+    [
+     "保险",
+     "投保",
+     "参保",
+     "缴费",
+     "理赔",
+     "报销"
+    ]
+   ],
+   "note": "P4d C4: 矩阵同款'术语+具体意图'问法(单遍 rerank 0.1008→0 来源);断言改写发生且召回达标"
   }
  ]
 }

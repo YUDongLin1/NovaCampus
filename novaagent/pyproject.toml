@@ -12,4 +12,7 @@ dependencies = [
     "python-docx>=1.1",
     "mcp==2.2.0",
     "python-multipart>=0.0.9",
+    # P4d: 只用 LangGraph 做检索编排状态机(LLM 仍走 llm.py/httpx、向量仍走 numpy 内存余弦,
+    # 不引入 langchain 的模型/向量/retriever 封装)。实际版本与传递依赖见 docs/P4D.md。
+    "langgraph>=1.2,<2.0",
 ]

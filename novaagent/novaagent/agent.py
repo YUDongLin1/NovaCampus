@@ -13,7 +13,7 @@ import re
 import time
 from typing import Any
 
-from . import config, db, llm, rag, refusal
+from . import config, db, graph, llm, rag, refusal
 from .weekly_client import WeeklyMCP
 
 logger = logging.getLogger(__name__)
@@ -60,6 +60,12 @@ COMPRESS_PROMPT = """你是对话历史压缩器。把以下较早的对话历�
 3. 必须保留对象代称(如"姓名1同学""该老师")与其对应主题的关系;
 4. 按主题分条概括,不遗漏任何一个被讨论过的主题;
 5. 只输出摘要正文,不要解释、不要标题。
+6. **(P4d 坑 41 修复) 每一条要点都必须标注来源类别,格式为行尾 [来源:助手有据] 或 [来源:用户自述·未经核实]**:
+   - [来源:助手有据] = 该信息来自助手当时**带引用来源**的回答(可信,可作为后续回答的事实依据);
+   - [来源:用户自述·未经核实] = 该信息**只出现在用户自己的话里**(包括用户夹在"背景资料"里的陈述),
+     助手从未用知识库来源确认过——后续回答**不得把它当作已核实事实复述**,确需提及必须说明"用户自述、未经核实";
+   - 同一条要点若两类都有,按"用户自述"标注;
+   - 禁止把用户自述内容改写/升格为 [来源:助手有据]。
 
 对话历史:
 {history}"""
@@ -102,7 +108,8 @@ def history_gate_hit(question: str, admissible_texts: list[str]) -> bool:
 
     对问句与每条可采信文本做字符 n-gram 覆盖匹配,命中任一即放行"依据历史回答":
       - 细节命中:问句 2-gram 有 ≥2 个不同命中且覆盖率 ≥0.15(显式主题追问);
-      - 回指命中:问句含回指/承接标记(它/该/上述/此…)且(2-gram ≥1 或单字 ≥2)
+      - 回指命中:问句含回指/承接标记(它/该/上述/此…)且 **2-gram ≥1 且单字 ≥2**
+        (P4d 收紧:原为"或",偏宽——改写上线后问句本身应能命中知识库,不再靠更宽的回指档放行);
         ——代词问句离开上下文即语义不完整,须有先行语才可答;
       - 主题命中:2-gram ≥1 且单字 ≥3 且单字覆盖率 ≥0.30(显式主题、无回指标记)。
     未命中(含池为空)→ 调用方走 refusal.build_refusal 确定性模板。
@@ -126,7 +133,8 @@ def history_gate_hit(question: str, admissible_texts: list[str]) -> bool:
         h2 = len(q_bi & {t[i:i + 2] for i in range(len(t) - 1)})
         if h2 >= 2 and h2 / len(q_bi) >= _GATE_MIN_BIGRAM_COVER:
             return True
-        if anaphora and (h2 >= 1 or h1 >= 2):
+        # P4d C7②: 回指档由"或"收紧为"且"(2-gram ≥1 且单字 ≥2)——改写上线后减少对历史通道的依赖
+        if anaphora and h2 >= 1 and h1 >= 2:
             return True
         if h2 >= 1 and h1 >= 3 and h1 / len(q_uni) >= _GATE_MIN_UNIGRAM_COVER:
             return True
@@ -408,9 +416,31 @@ class AgentService:
         min_rank = db.config.ROLE_RANK[role]
         # P4b: 历史注入(过去轮次)先于检索与当前问题落库——本问不计入自身历史
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
-        sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
+        # P4d: 检索编排走 LangGraph(graph 内检索复用 main 层解析出的 scope,不自行构造);
+        # P4a 硬门控仍在下方 should_refuse 调用,未被削弱;P4b 追问门控逻辑一行未动。
+        g_out: dict | None = None
+        if config.GRAPH_ENABLED:
+            g_out = await graph.run_pipeline(question=question, min_rank=min_rank, scope=scope,
+                                             model=eff["model"], base_url=eff["base_url"],
+                                             api_key=eff["api_key"])
+            sources, quality = g_out["sources"], g_out["quality"]
+            ctx_info["retrieval_trace"] = g_out.get("trace") or []
+            ctx_info["intent"] = g_out.get("intent")
+            ctx_info["attempts"] = g_out.get("attempts")
+            ctx_info["rewritten"] = bool(g_out.get("rewritten"))
+            # C3 断言锚点: direct(闲聊/时间)路径检索被跳过,评测据此断言 retrieval_skipped=true
+            ctx_info["retrieval_skipped"] = bool(g_out.get("retrieval_skipped"))
+        else:
+            sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
         if scope:
             ctx_info["scope"] = scope
+        if g_out and g_out.get("mode") == "direct":
+            # 闲聊/问时间:确定性直答(时间类不调 LLM),不占检索与生成
+            db.update_conversation_trace(conversation_id, g_out.get("trace"))
+            return {"answer": g_out["answer"], "sources": [], "tool_trace": [],
+                    "conversation_id": conversation_id, "context": ctx_info,
+                    "retrieval_trace": g_out.get("trace") or []}
+        db.update_conversation_trace(conversation_id, g_out.get("trace") if g_out else None)
         # P4a C1 拒答硬门控:无来源/相关度不足 → 确定性模板(代码拼装,不经 LLM)。
         # P4b C2/C4 多轮分支:追问轮的证据不只来自知识库——本会话历史(含压缩摘要)已注入
         # 上下文。首问(无历史)维持硬拒答不变(refusal_indomain 评测即此路径);追问轮检索
@@ -513,9 +543,34 @@ class AgentService:
         eff = self.effective_llm(user_id)
         min_rank = db.config.ROLE_RANK[role]
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
-        sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
+        # P4d: 与 chat_for 同款编排(graph 内检索复用传入 scope);direct 分支在下方处理
+        g_out: dict | None = None
+        if config.GRAPH_ENABLED:
+            g_out = await graph.run_pipeline(question=question, min_rank=min_rank, scope=scope,
+                                             model=eff["model"], base_url=eff["base_url"],
+                                             api_key=eff["api_key"])
+            sources, quality = g_out["sources"], g_out["quality"]
+            ctx_info["retrieval_trace"] = g_out.get("trace") or []
+            ctx_info["intent"] = g_out.get("intent")
+            ctx_info["attempts"] = g_out.get("attempts")
+            ctx_info["rewritten"] = bool(g_out.get("rewritten"))
+            # C3 断言锚点: direct(闲聊/时间)路径检索被跳过,评测据此断言 retrieval_skipped=true
+            ctx_info["retrieval_skipped"] = bool(g_out.get("retrieval_skipped"))
+        else:
+            sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
         if scope:
             ctx_info["scope"] = scope  # P4c C4: 生效 scope 原样回传(纯 echo)
+        db.update_conversation_trace(conversation_id, g_out.get("trace") if g_out else None)
+        if g_out and g_out.get("mode") == "direct":
+            text = g_out["answer"]
+            db.add_message(user_id, "assistant", text, conversation_id)
+            yield {"type": "sources", "sources": []}
+            yield {"type": "context", **ctx_info}
+            yield {"type": "delta", "content": text}
+            yield {"type": "done", "answer": text, "sources": [], "tool_trace": [],
+                   "conversation_id": conversation_id, "context": ctx_info,
+                   "retrieval_trace": g_out.get("trace") or []}
+            return
         # P4b-fix ①(与 chat_for 同款代码门控):命中才注入历史依据指令;未命中维持硬拒。
         do_refuse, reason = refusal.should_refuse(sources, quality)
         followup_note = ""
