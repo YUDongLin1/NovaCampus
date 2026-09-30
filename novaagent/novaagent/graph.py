@@ -241,14 +241,14 @@ async def node_direct(s: dict) -> dict:
     if s.get("intent") == "time":
         return {"mode": "direct", "answer": time_direct_answer(q) or "", "sources": [],
                 "quality": {"top_score": None, "n_above_threshold": 0, "rerank_available": False,
-                            "fused_candidates": 0},
+                            "fused_candidates": 0, "fused_candidate_docs": 0},
                 "do_refuse": False, "reason": "", "retrieval_skipped": True, "trace": trace}
     return {"mode": "direct",
             "answer": ("我是校园智能助手，可以查学校的政策流程、奖助学金、学籍与保险等材料，"
                        "也可以帮你整理周报。直接把问题发给我就行。"),
             "sources": [],
             "quality": {"top_score": None, "n_above_threshold": 0, "rerank_available": False,
-                        "fused_candidates": 0},
+                        "fused_candidates": 0, "fused_candidate_docs": 0},
             "do_refuse": False, "reason": "", "retrieval_skipped": True, "trace": trace}
 
 
@@ -261,7 +261,8 @@ async def node_retrieve(s: dict) -> dict:
     trace.append({"node": "retrieve", "ms": round((time.time() - t0) * 1000), "query": q,
                   "n_sources": len(sources), "top_score": quality.get("top_score"),
                   "n_above_threshold": quality.get("n_above_threshold"),
-                  "fused_candidates": quality.get("fused_candidates")})
+                  "fused_candidates": quality.get("fused_candidates"),
+                  "fused_candidate_docs": quality.get("fused_candidate_docs")})
     attempts = int(s.get("attempts") or 0) + 1
     out = {"sources": sources, "quality": quality, "trace": trace, "attempts": attempts,
            "last_query": q}

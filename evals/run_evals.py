@@ -129,6 +129,40 @@ def seed_corpus_if_needed(c: httpx.Client, counselor_token: str) -> int:
     return uploaded
 
 
+def _check_absent_keywords(case: dict, answer: str) -> list[str]:
+    """P4e C0-②：「答案不得出现无据断言」的两段式检查（qa / refusal_indomain 共用同一判据）。
+
+    原实现只有**无条件** `expect_absent_keywords` 一种判据，坑 54 指出它埋雷：
+    rind-07 选的 `证明`(student 可见 **42 块**) / `录取`(14 块) 是**宽词**——
+    《学生公寓管理办法》「应当妥善保管宿舍房门钥匙」、教育部令 41 号讲录取报到都是
+    **正当出处**。C0-① 把检索补强之后，这类块会被召回并据实引用，届时该用例必然
+    假红（"必然，不是偶发"）。
+
+    改为两段：
+      1. **无条件段** `expect_absent_keywords`：只放**库内零命中**的具体事项词
+         （交回/退卡/提档/调档/饭卡…实测 student 可见 323 块全为 0 块）。
+         出现即夹带无据断言——这类处置动作全库无条款可答，是本用例的**主判据**。
+      2. **共现段** `expect_absent_keywords_cooccur`：[[词, [共现词...]], ...]，
+         只有该词**与共现词同现**才算夹带（如答案里同时出现「证明」和「录取通知书」
+         才说明它在替用户"认定"这件事该开证明；单引《学生公寓管理办法》的"保管钥匙"
+         则不算）。共现词一律取**零命中的处置动词**，避免把正当引用误判。
+
+    返回违规词列表（空 = 通过）。
+    """
+    bad = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    for pair in case.get("expect_absent_keywords_cooccur", []) or []:
+        if not pair or len(pair) < 2:
+            continue
+        word = pair[0]
+        ctxs = [c for c in (pair[1] or []) if c]
+        if not word or word not in answer:
+            continue
+        hit_ctx = [c for c in ctxs if c in answer]
+        if hit_ctx:
+            bad.append(f"{word}(与 {'/'.join(hit_ctx)} 同现)")
+    return bad
+
+
 def judge_qa(case: dict, answer: str, sources: list) -> tuple[bool, str]:
     if not sources:
         return False, "无引用来源"
@@ -170,13 +204,13 @@ def judge_qa(case: dict, answer: str, sources: list) -> tuple[bool, str]:
                else "剥离免责措辞后实质内容为 0")
         return False, (f"非答案:命中免责措辞 {marks},但{why}——"
                        f"关键词命中来自问题复述,不是答案(引用 {[s['title'] for s in sources]})")
-    # P4d-fix ①：qa 型也支持 expect_absent_keywords（rind-02 迁移后要断言
-    # 「95585 不得作现行」——历史文件里的报案电话不能被当现行规定给出）。
+    # P4d-fix ① / P4e C0-②：qa 型也检查"不得夹带无据断言"（rind-02 迁移后要断言
+    # 「95585 不得作现行」；rind-07 迁回 refusal 型后由 judge_refusal_indomain 共用同一判据）。
     # 此前只有 refusal 类判定检查该字段，qa 型忽略；迁移后必须真的检查，否则断言形同虚设。
     # （自测抓到过一次真实缺陷：这段曾被误放到 return 之后成为死代码，硬断言形同虚设。）
-    absent = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    absent = _check_absent_keywords(case, answer)
     if absent:
-        return False, (f"夹带禁用内容(历史文件信息不得作现行): {absent}"
+        return False, (f"夹带禁用内容(历史文件信息不得作现行/无据断言): {absent}"
                        f"(引用 {[s['title'] for s in sources]})")
     return True, f"命中 {case['expect_keywords']},引用 {len(sources)} 条"
 
@@ -201,7 +235,7 @@ def judge_refusal_indomain(case: dict, answer: str, sources: list) -> tuple[bool
     contact = case.get("expect_contact")
     if contact and contact not in answer:
         return False, f"拒答未含出口信息({contact})"
-    absent = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    absent = _check_absent_keywords(case, answer)
     if absent:
         return False, f"拒答/答案夹带无据断言: {absent}"
     return True, f"域内无据正确拒答(sources={len(sources)},出口与断言检查通过)"

@@ -16,11 +16,31 @@ EMBED_BATCH = 16
 RRF_K = 60
 VECTOR_TOP_K = 20
 KEYWORD_TOP_K = 20
-FUSION_TOP_K = 8
 FINAL_TOP_K = 7          # T10 杠杆②: 5→7,容纳通用+专门两类来源,种子"复学一周"细节块进入上下文
 RERANK_MIN_SCORE = config.RERANK_MIN_SCORE  # P4a: 阈值常量迁至 config,保留别名兼容既有引用
 RERANK_BLEND = 0.6       # T10 杠杆③: 最终排序 = 0.6*rerank分 + 0.4*RRF秩归一(防单文档霸榜)
 MAX_PER_DOC = 2          # T10 修订: 维持 2——实测=1 会把种子文档的"复学一周"块挤出上下文(仅剩材料块)
+# P4e C0-①: 融合候选槽位由 8 扩到 12(**只做加法、不剔除任何块**)。
+# 断点:doc9「EVAL-研究生奖学金评定办法」向量层第 6(0.6809)但关键词层未进 top20,
+# RRF 分仅 1/67 → 被 `[:FUSION_TOP_K=8]` 截掉,8 槽被两篇本科生办法占满 → 根本没进
+# rerank → 答案错误否定断言"研究生相关规定未在知识库覆盖"
+# (证据 docs/p4d/evidence/review/qa12_attribution.json)。
+#
+# ⚠ **为什么不用"截断前 per-doc 多样化"**(复核方列为修法①、且称结构性根源)——**实测打死了 qa-17**:
+#   qa-17「我是研究生…学生个人荣誉称号申请…」的 before 候选分布是 doc77 占 6/8 槽,
+#   它**唯一有效来源正是 doc77 的第 3+ 块**(top_score 0.6013);候选层限流到 2 之后
+#   留存的两块 rerank 分都 <RERANK_MIN_SCORE → **来源数 2→0、R@k 1.0→0.0**
+#   (证据 docs/p4e/evidence/fusion_strategy_probe.json)。
+#   结论:rrf 高位块 ≠ rerank 高分块,**任何"剔除式"多样化都会误杀"高分块排在同文档第 3+ 位"的问法**。
+#   扩槽位是纯加法,零剔除 → 对全部 18 条 qa 与 8 条变体矩阵零行为变化(除目标增召)。
+#   另实测"扩槽位+多样化"(12 槽硬限流)会多召回 doc100「兼职辅导员管理办法」0.5383 过阈,
+#   污染上下文 → 纯扩槽位更干净。
+# ⚠ RERANK_MIN_SCORE **未动**(断点在它之前,本系列已三次确认这条纪律)。
+FUSION_TOP_K = int(config.env("NOVA_FUSION_TOP_K", "12"))
+# ⚠ 这里**不要**再加"FUSION_CANDIDATE_DOCS"之类的模块级观测常量(坑 52 同源):
+#   候选集文档数走 `search_with_quality` 返回的 quality["fused_candidate_docs"] 字段,
+#   由 graph.py 的 retrieve trace 读取。曾经在这里放过一个同名的模块常量,
+#   全仓库零引用(纯死代码),已在 P4e C0 交回前删除。
 
 
 def chunk_text(text: str, size: int = 500, overlap: int = 80) -> list[str]:
@@ -170,7 +190,9 @@ async def search_with_quality(query: str, min_rank: int,
     """
     quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False,
                # P4d C2: 融合候选条数——grade 判定与"是否值得改写"的输入(fused_candidates)
-               "fused_candidates": 0}
+               "fused_candidates": 0,
+               # P4e: 候选集覆盖的不同文档数(纯观测信号,不参与任何判定)
+               "fused_candidate_docs": 0}
     sc = scope or {}
     chunks = db.all_chunks_for_search(min_rank,
                                       folder_ids=sc.get("folder_ids"),
@@ -183,6 +205,8 @@ async def search_with_quality(query: str, min_rank: int,
     k_ranked = _keyword_search(query, chunks, KEYWORD_TOP_K, scope=sc)
     fused = _rrf_fuse(v_ranked, k_ranked)[:FUSION_TOP_K]
     quality["fused_candidates"] = len(fused)
+    # P4e: 观测候选集的文档集中度(纯信号,不参与判定;供 trace/评测看检索是否被单文档霸榜)
+    quality["fused_candidate_docs"] = len({chunks[i]["doc_id"] for i, _ in fused})
     if not fused:
         return [], quality
     idxs = [i for i, _ in fused]
