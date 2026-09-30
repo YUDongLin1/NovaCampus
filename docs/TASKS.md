@@ -1638,7 +1638,15 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 5. `qa-08` 轮换波动是**已知方差**，不建议改用例改绿（沿用 HANDOFF 坑 16 口径）。
 6. `docs/p4e/evidence/stream_sse_s2_full6.json` 是**短问句 + 漏设 env**的无效样本，已删除不再作为证据。
 
-### P4f 辅导员定制（persona）+ 侧边栏重构　📋 READY（待 P4e，设计见 M8）
+### P4f 辅导员定制（persona）+ 侧边栏重构　🚀 **已下发**（2026-10-01，持棒 WorkBuddy，分支 `task/P4f-persona`，设计见 M8，开单指令 `docs/p4f/workbuddy-order.md`）
+
+- **C0 前置收口（P4e 复核攒下；C0-① 与 C0-③ 为 merge-blocking）**
+
+  - [ ] **C0-①（🔴 红线形状）** `evals/run_evals.py` 的 `env_flags.client_env` 现在收**所有** `NOVA*` 变量，而评测报告**要提交进 git**：一旦有人 `export NOVAAGENT_LLM_API_KEY=...`，密钥就进库并永久留在历史里（今天实测只有 `NOVAAGENT_EVAL_TEMPERATURE`，无害，但形状是错的）。改显式白名单 + 一条**能判红**的单测（断言密钥类键名不在 `client_env`、且白名单项确实在 → 防空集假通过，坑 45）。
+  - [ ] **C0-②** 规则落地：**问句级/判据常量级变更也算口径变更**，必须升 `version` 并在 `docs/EVAL_BASELINE.md` 记一行（S2 换了 `ss-*` 长问句、阈值 300→150 却仍标 v2.4，同一标签现覆盖两种刺激）。
+  - [ ] **C0-③（闸门作用域）** grounding 闸门被套在**不需要事实回答的轮次**上：P4e S2 我实测默认档命中 12 次/重生失败 11 次、canonical 档命中 16/失败 14，**全部来自 `cc-01` 的种植轮，`final` 轮从未命中**；「重生一次都没救回来」＝前提不成立（种植轮是塞背景，模型回「记下了」才对）。要求给闸门加**轮次类型判定**（只对期待事实回答的轮次生效），判据写进注释、不许用「长度<30 字」糊。验收：整轮记账里种植轮命中数归零，且 `qa-17`/`ss-03` 的兜底能力不回退。
+  - [ ] **C0-④** `WEB_SEARCH_TIMEOUT_S=60` 名实不符：httpx 那个是**空闲超时**不是总时限（实现方实测同问句 12.3s/**79.4s**，60s 没截断）。做总时限 + 双层（idle 20s / 总 45s）或改名 + 文档写清等待预期，并补一条用假 transport 的**慢响应必判红**单测（不打真实网络）。
+  - [ ] **C0-⑤** `docs/p4d/run_with_server.sh` 收尾 `kill $SRV` **杀不掉 Windows 进程**：本轮复核打印 `[server] done rc=0, shutting down 8936` 之后端口**仍在监听**；负责人另两次也留过孤儿实例（:8906/:8907、:8923），都是实现方复查端口时发现的。改 `taskkill //PID x //F` 或 psutil，并在退出前**按端口复查打印** `[port-check] :N closed=True/False`，False 时非 0 退出（坑 61）。
 
 - **目标**：统一左侧会话栏，账户入口移至会话栏最底部；新增"辅导员"入口，可创建并定制不同学院的 AI 辅导员（名称、人设提示词、回复风格、绑定学院专属知识库），对话中可直接调用对应辅导员作答。
 - **允许改**：`novaagent/novaagent/{db.py,agent.py,main.py,config.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4F.md`
