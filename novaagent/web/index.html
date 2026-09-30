@@ -36,7 +36,14 @@
 </header>
 
 <main>
+  <aside id="conv-sidebar">
+    <div class="row"><button class="btn ghost" id="conv-new" onclick="newConversation()">＋ 新会话</button></div>
+    <ul id="conv-list"><li class="empty">—</li></ul>
+    <label class="conv-arch"><input type="checkbox" id="conv-show-archived" onchange="loadConversations()"> 显示归档</label>
+  </aside>
+
   <div id="chat-pane">
+    <div id="ctx-bar" style="display:none"><div id="ctx-fill"></div><span id="ctx-text"></span></div>
     <div id="messages">
       <div class="hint">知识库问答自动检索并标注引用 [n]；「记一条碎片…」「生成本周周报」会触发周报工具；右下角可切换模型与账户设置。</div>
     </div>
@@ -155,6 +162,7 @@
 
 <script src="/js/api.js"></script>
 <script src="/js/ui.js"></script>
+<script src="/js/conversations.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/kb.js"></script>
 <script src="/js/weekly.js"></script>

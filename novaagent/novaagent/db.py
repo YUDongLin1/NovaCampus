@@ -132,6 +132,97 @@ def _migrate() -> None:
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_user ON messages(user_id, id)")
     _conn.commit()
 
+    # P4b C1: 会话与上下文管理(conversations 主表 + messages.conversation_id + 压缩摘要表;
+    # persona_id 为 P4f 预留列,本单不实现人设逻辑)
+    _conn.execute(
+        """CREATE TABLE IF NOT EXISTS conversations (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+               title TEXT NOT NULL DEFAULT '新会话',
+               persona_id INTEGER,
+               archived INTEGER NOT NULL DEFAULT 0,
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL
+           )"""
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, archived, id)")
+    mcols = [r["name"] for r in _conn.execute("PRAGMA table_info(messages)")]
+    if "conversation_id" not in mcols:
+        with _lock:
+            _conn.execute("ALTER TABLE messages ADD COLUMN conversation_id INTEGER")
+            _conn.commit()
+    # P4b-fix ①: assistant 消息回答时的来源快照(有效 sources 才落)——追问轮门控用它把
+    # "可采信历史证据"限定为此前带有效来源的回答;user 消息与拒答模板恒为 NULL。
+    if "sources_json" not in mcols:
+        with _lock:
+            _conn.execute("ALTER TABLE messages ADD COLUMN sources_json TEXT")
+            _conn.commit()
+    _conn.execute(
+        """CREATE TABLE IF NOT EXISTS conversation_summary (
+               conversation_id INTEGER PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+               summary_text TEXT NOT NULL,
+               covered_until_message_id INTEGER NOT NULL DEFAULT 0,
+               updated_at TEXT NOT NULL
+           )"""
+    )
+    _conn.commit()
+    _migrate_messages_to_conversations()
+
+
+def _migrate_messages_to_conversations() -> None:
+    """P4b C1: 为无会话归属的历史消息建历史会话(幂等,只处理 conversation_id IS NULL)。
+
+    切分规则:同一 user_id 内,相邻消息间隔 >30 分钟即开新会话;迁移出的会话一律
+    archived=1(不淹没 UI),标题取该组首条 user 消息前 20 字(否则「历史归档」);
+    不删不改任何原文,迁移前后 messages 总数不变。
+    """
+    rows = _conn.execute(
+        "SELECT id, user_id, role, content, created_at FROM messages "
+        "WHERE conversation_id IS NULL ORDER BY user_id, id"
+    ).fetchall()
+    if not rows:
+        return
+
+    def _ts(s: str):
+        try:
+            return datetime.fromisoformat(s)
+        except (ValueError, TypeError):
+            return None
+
+    groups: dict[tuple, list[int]] = {}
+    prev: dict[int, tuple] = {}  # user_id -> (ts, group_key)
+    for r in rows:
+        uid = r["user_id"]
+        ts = _ts(r["created_at"])
+        p = prev.get(uid)
+        new_session = p is None or ts is None or p[0] is None or (ts - p[0]).total_seconds() > 1800
+        if new_session:
+            gkey = (uid, r["id"])
+            groups[gkey] = [r["id"]]
+            prev[uid] = (ts, gkey)
+        else:
+            groups[p[1]].append(r["id"])
+            prev[uid] = (ts, p[1])
+    with _lock:
+        for (uid, first_id), ids in groups.items():
+            first = _conn.execute(
+                "SELECT role, content FROM messages WHERE id=?", (first_id,)
+            ).fetchone()
+            title = (first["content"] or "")[:20] if first and first["role"] == "user" else ""
+            if not title:
+                title = f"历史归档 {first_id}"
+            now = _now()
+            cur = _conn.execute(
+                "INSERT INTO conversations (user_id, title, persona_id, archived, created_at, updated_at) "
+                "VALUES (?,?,NULL,1,?,?)",
+                (uid, title, now, now),
+            )
+            cid = cur.lastrowid
+            _conn.executemany(
+                "UPDATE messages SET conversation_id=? WHERE id=?", [(cid, i) for i in ids]
+            )
+        _conn.commit()
+
 
 def get_user_settings(user_id: int) -> dict:
     row = _conn.execute("SELECT * FROM user_settings WHERE user_id=?", (user_id,)).fetchone()
@@ -366,14 +457,32 @@ def fts_search(query: str, role_mins: list[str], top_k: int) -> list[tuple[int, 
         return None
 
 
-def add_message(user_id: int, role: str, content: str) -> None:
-    """T9: 追加一条会话消息(role: user/assistant)。"""
+def add_message(user_id: int, role: str, content: str, conversation_id: int | None = None,
+                sources: list[dict] | None = None) -> int:
+    """T9: 追加一条会话消息(role: user/assistant);P4b 起可挂 conversation_id。返回消息 id。
+    P4b-fix ①: assistant 消息可带回答时实际使用的 sources 快照(空/None 不落),
+    供追问轮门控判定"可采信历史证据"。"""
+    sources_json = json.dumps(sources, ensure_ascii=False) if sources else None
     with _lock:
-        _conn.execute(
-            "INSERT INTO messages (user_id, role, content, created_at) VALUES (?,?,?,?)",
-            (user_id, role, content, _now()),
+        cur = _conn.execute(
+            "INSERT INTO messages (user_id, role, content, created_at, conversation_id, sources_json) "
+            "VALUES (?,?,?,?,?,?)",
+            (user_id, role, content, _now(), conversation_id, sources_json),
+        )
+        if conversation_id:
+            _conn.execute("UPDATE conversations SET updated_at=? WHERE id=?", (_now(), conversation_id))
+        _conn.commit()
+    return cur.lastrowid
+
+
+def delete_message(message_id: int, conversation_id: int) -> bool:
+    """P4b-fix ⑤: 客户端中止时回滚本轮 user 消息(仅限指定会话内的该条,防误删)。"""
+    with _lock:
+        cur = _conn.execute(
+            "DELETE FROM messages WHERE id=? AND conversation_id=?", (message_id, conversation_id)
         )
         _conn.commit()
+    return cur.rowcount > 0
 
 
 def get_messages(user_id: int, limit: int = 50) -> list[dict]:
@@ -386,6 +495,115 @@ def get_messages(user_id: int, limit: int = 50) -> list[dict]:
         (user_id, limit),
     ).fetchall()
     return [dict(r) for r in rows]
+
+
+# ---------- P4b C6: 会话 CRUD(可见性一律 user_id 过滤;越权与不存在同表现) ----------
+
+def create_conversation(user_id: int, title: str = "新会话") -> int:
+    now = _now()
+    with _lock:
+        cur = _conn.execute(
+            "INSERT INTO conversations (user_id, title, persona_id, archived, created_at, updated_at) "
+            "VALUES (?,?,NULL,0,?,?)",
+            (user_id, (title or "新会话")[:20], now, now),
+        )
+        _conn.commit()
+    return cur.lastrowid
+
+
+def get_conversation(conv_id: int, user_id: int) -> dict | None:
+    row = _conn.execute(
+        "SELECT * FROM conversations WHERE id=? AND user_id=?", (conv_id, user_id)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def list_conversations(user_id: int, include_archived: bool = False, limit: int = 200) -> list[dict]:
+    q = ("SELECT c.id, c.title, c.archived, c.updated_at, COUNT(m.id) AS message_count "
+         "FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id "
+         "WHERE c.user_id=?")
+    if not include_archived:
+        q += " AND c.archived=0"
+    q += " GROUP BY c.id ORDER BY c.archived ASC, c.updated_at DESC, c.id DESC LIMIT ?"
+    rows = _conn.execute(q, (user_id, limit)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def rename_conversation(conv_id: int, user_id: int, title: str) -> bool:
+    with _lock:
+        cur = _conn.execute(
+            "UPDATE conversations SET title=?, updated_at=? WHERE id=? AND user_id=?",
+            ((title or "").strip()[:20] or "新会话", _now(), conv_id, user_id),
+        )
+        _conn.commit()
+    return cur.rowcount > 0
+
+
+def set_conversation_archived(conv_id: int, user_id: int, archived: bool) -> bool:
+    with _lock:
+        cur = _conn.execute(
+            "UPDATE conversations SET archived=?, updated_at=? WHERE id=? AND user_id=?",
+            (1 if archived else 0, _now(), conv_id, user_id),
+        )
+        _conn.commit()
+    return cur.rowcount > 0
+
+
+def delete_conversation(conv_id: int, user_id: int) -> dict | None:
+    """级联删除:只删该会话的消息与摘要;会话不属于该用户 → None(与不存在同表现)。"""
+    if not get_conversation(conv_id, user_id):
+        return None
+    with _lock:
+        n_msg = _conn.execute(
+            "DELETE FROM messages WHERE conversation_id=?", (conv_id,)
+        ).rowcount
+        n_sum = _conn.execute(
+            "DELETE FROM conversation_summary WHERE conversation_id=?", (conv_id,)
+        ).rowcount
+        _conn.execute("DELETE FROM conversations WHERE id=?", (conv_id,))
+        _conn.commit()
+    return {"messages_deleted": n_msg, "summary_deleted": n_sum}
+
+
+def conversation_messages(conv_id: int, limit: int = 50, offset: int = 0) -> tuple[list[dict], int]:
+    total = _conn.execute(
+        "SELECT count(*) FROM messages WHERE conversation_id=?", (conv_id,)
+    ).fetchone()[0]
+    rows = _conn.execute(
+        "SELECT id, role, content, created_at FROM messages WHERE conversation_id=? "
+        "ORDER BY id ASC LIMIT ? OFFSET ?",
+        (conv_id, limit, offset),
+    ).fetchall()
+    return [dict(r) for r in rows], total
+
+
+def get_conversation_history(conv_id: int) -> list[dict]:
+    """历史注入用:时间正序全量(含消息 id 与 sources_json,供压缩覆盖标记、
+    评测隔离断言与 P4b-fix ① 追问轮门控的可采信证据判定)。"""
+    rows = _conn.execute(
+        "SELECT id, role, content, sources_json FROM messages WHERE conversation_id=? ORDER BY id ASC",
+        (conv_id,),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def upsert_conversation_summary(conv_id: int, summary_text: str, covered_until: int) -> None:
+    with _lock:
+        _conn.execute(
+            "INSERT INTO conversation_summary (conversation_id, summary_text, covered_until_message_id, updated_at) "
+            "VALUES (?,?,?,?) ON CONFLICT(conversation_id) DO UPDATE SET "
+            "summary_text=excluded.summary_text, covered_until_message_id=excluded.covered_until_message_id, "
+            "updated_at=excluded.updated_at",
+            (conv_id, summary_text, covered_until, _now()),
+        )
+        _conn.commit()
+
+
+def get_conversation_summary(conv_id: int) -> dict | None:
+    row = _conn.execute(
+        "SELECT * FROM conversation_summary WHERE conversation_id=?", (conv_id,)
+    ).fetchone()
+    return dict(row) if row else None
 
 
 def _now() -> str:

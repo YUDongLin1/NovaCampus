@@ -1,0 +1,11 @@
+[P4b 第 0 步] BEFORE db_schema(迁移前) — 2026-09-30 00:34:38
+============================================================
+PRAGMA table_info(messages):
+  0 id INTEGER notnull=0 dflt=None
+  1 user_id INTEGER notnull=1 dflt=None
+  2 role TEXT notnull=1 dflt=None
+  3 content TEXT notnull=1 dflt=None
+  4 created_at TEXT notnull=1 dflt=None
+messages 总数: 2588
+按 user_id 分组: {"3": 2374, "2": 214}
+sqlite_master like 'con%': [] → conversations 不存在

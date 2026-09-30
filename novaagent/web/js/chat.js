@@ -1,5 +1,6 @@
 /* P4b-0 拆分:本文件内容由 index.html 原样迁移(零修改),行为零变化。 */
-// 对话:SSE 流式问答、来源与工具轨迹渲染、历史加载
+/* P4b: send 携带 conversation_id + AbortController 可中止 + context 事件驱动占用条;
+   loadHistory 改为加载会话列表(旧扁平消息流已迁往 /api/conversations/{id}/messages)。 */
 
 async function send() {
   const q = $('q').value.trim(); if (!q) return;
@@ -8,11 +9,14 @@ async function send() {
   const bot = addMsg('bot', '');
   bot.classList.add('streaming');
   let got = false, srcs = null, trace = null;
+  abortInflight();
+  window._convAbort = new AbortController();  // P4b C5: 切换会话时中止
   try {
     const resp = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {}),
-      body: JSON.stringify({ question: q })
+      body: JSON.stringify(Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {})),
+      signal: window._convAbort.signal
     });
     if (!resp.ok || !resp.body) throw new Error('HTTP ' + resp.status);
     const reader = resp.body.getReader();
@@ -35,11 +39,16 @@ async function send() {
           $('messages').scrollTop = $('messages').scrollHeight;
         } else if (ev.type === 'sources') {
           srcs = ev.sources;
+        } else if (ev.type === 'context') {
+          updateCtxBar(ev);  // P4b C5: 占用条与事件数值一致
         } else if (ev.type === 'tools') {
           trace = ev.trace;
         } else if (ev.type === 'done') {
           srcs = ev.sources || srcs; trace = ev.tool_trace || trace;
           if (ev.answer && !got) { bot.textContent = ev.answer; got = true; }
+          if (ev.conversation_id) window._convId = ev.conversation_id;  // 首问后回填自动建的会话
+          if (ev.context) updateCtxBar(ev.context);
+          loadConversations();  // 列表刷新(新会话出现/updated_at 重排)
         } else if (ev.type === 'error') {
           throw new Error(ev.error || '流式错误');
         }
@@ -50,13 +59,21 @@ async function send() {
     if (!got) bot.textContent = '(空回复)';
     renderMeta(bot, srcs, trace);
   } catch (e) {
+    if (e.name === 'AbortError') {  // 切换会话中止:前端不留残影,服务端会回滚该轮 user 消息(P4b-fix ⑤)
+      bot.classList.remove('streaming');
+      bot.textContent += '\n(已切换会话,本次回答中止)';
+      return;
+    }
     bot.classList.remove('streaming');
     if (!got) {
       try {
-        const d = await api('/api/chat', { method: 'POST', json: { question: q } });
+        const d = await api('/api/chat', { method: 'POST', json: Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {}) });
         bot.textContent = d.answer || '(空回复)';
         bot.className = 'msg bot' + (d.answer ? '' : ' error');
+        if (d.conversation_id) window._convId = d.conversation_id;
+        if (d.context) updateCtxBar(d.context);
         renderMeta(bot, d.sources, d.tool_trace);
+        loadConversations();
       } catch (e2) {
         bot.textContent = '出错了:' + e2.message;
         bot.className = 'msg bot error';
@@ -82,11 +99,7 @@ function renderMeta(bot, srcs, trace) {
 }
 
 async function loadHistory() {
-  try {
-    const d = await api('/api/conversations?limit=30');
-    if (d.messages && d.messages.length) {
-      for (const m of d.messages) addMsg(m.role === 'user' ? 'user' : 'bot', m.content);
-      $('messages').scrollTop = $('messages').scrollHeight;
-    }
-  } catch (e) { /* 历史加载失败不阻断 */ }
+  /* P4b: 登录后加载会话列表(不再拉扁平消息流——旧 /api/conversations 语义已变更,
+     分页消息走 /api/conversations/{id}/messages,由 switchConversation 按需加载)。 */
+  if (window.loadConversations) await loadConversations();
 }

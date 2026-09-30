@@ -485,33 +485,51 @@ async def kb_delete(doc_id: int, user=Depends(require_role("counselor"))):
 
 # ---------- 对话 ----------
 
+def _resolve_conversation(body: dict, user_id: int) -> int:
+    """P4b: 解析请求里的会话——传了 conversation_id 必须属主(不存在/越权同表现 404),
+    缺省返回 0(由 agent 层自动新建,标题=首问前 20 字)。"""
+    cid = body.get("conversation_id")
+    if cid:
+        try:
+            cid = int(cid)
+        except (TypeError, ValueError):
+            raise HTTPException(400, "conversation_id 必须是整数")
+        if not db.get_conversation(cid, user_id):
+            raise HTTPException(404, "会话不存在")
+        return cid
+    return 0
+
+
 @app.post("/api/chat")
 async def chat(body: dict, user=Depends(current_user)):
     question = (body.get("question") or "").strip()
     if not question:
         raise HTTPException(400, "question 不能为空")
-    d = await agent.chat_for(user["id"], user["username"], user["role"], question)
-    db.add_message(user["id"], "user", question)
-    db.add_message(user["id"], "assistant", d.get("answer", ""))
+    cid = _resolve_conversation(body, user["id"]) or None
+    try:
+        d = await agent.chat_for(user["id"], user["username"], user["role"], question, cid)
+    except LookupError as e:
+        raise HTTPException(404, str(e))
     return d
 
 
 @app.post("/api/chat/stream")
 async def chat_stream(body: dict, user=Depends(current_user)):
-    """T8: 流式对话(SSE)。事件序列: sources → delta* → tools? → done → [DONE]。"""
+    """T8: 流式对话(SSE)。事件序列: sources → context → delta* → tools? → done → [DONE]。"""
     question = (body.get("question") or "").strip()
     if not question:
         raise HTTPException(400, "question 不能为空")
+    cid = _resolve_conversation(body, user["id"]) or None
 
     async def gen():
         answer_parts: list[str] = []
         try:
-            async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"], question):
+            async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"], question, cid):
                 if ev["type"] == "delta":
                     answer_parts.append(ev["content"])
                 yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
-            db.add_message(user["id"], "user", question)
-            db.add_message(user["id"], "assistant", "".join(answer_parts))
+        except LookupError as e:
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)}, ensure_ascii=False)}\n\n"
         except Exception as e:  # 流中途异常:通知前端(已渲染增量保留,不落库)
             logger.exception("stream error")
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)[:200]}, ensure_ascii=False)}\n\n"
@@ -524,10 +542,55 @@ async def chat_stream(body: dict, user=Depends(current_user)):
     )
 
 
+# ---------- P4b C6: 会话 CRUD ----------
+
 @app.get("/api/conversations")
-async def conversations(limit: int = 50, user=Depends(current_user)):
-    """T9: 当前用户会话历史(按用户隔离,时间正序)。"""
-    return {"messages": db.get_messages(user["id"], limit)}
+async def conversations(include_archived: bool = False, limit: int = 200, user=Depends(current_user)):
+    """P4b: 当前用户的会话列表(默认只列未归档;按 archived,updated_at 排序)。
+    ⚠ 语义变更(T9 的扁平消息流已迁往 GET /api/conversations/{id}/messages)——消费端
+    chat.js/loadHistory 已同步改造(P4b C5),坑 30 说明见 docs/P4B.md。"""
+    return {"conversations": db.list_conversations(user["id"], include_archived, limit)}
+
+
+@app.post("/api/conversations")
+async def conversations_create(body: dict, user=Depends(current_user)):
+    cid = db.create_conversation(user["id"], (body.get("title") or "新会话"))
+    conv = db.get_conversation(cid, user["id"])
+    return {"id": cid, "title": conv["title"], "archived": conv["archived"],
+            "updated_at": conv["updated_at"]}
+
+
+@app.get("/api/conversations/{conversation_id}/messages")
+async def conversation_messages(conversation_id: int, limit: int = 50, offset: int = 0,
+                                user=Depends(current_user)):
+    """P4b: 某会话的消息分页(时间正序);越权与不存在同表现(404)。"""
+    if not db.get_conversation(conversation_id, user["id"]):
+        raise HTTPException(404, "会话不存在")
+    msgs, total = db.conversation_messages(conversation_id, limit, offset)
+    return {"messages": msgs, "total": total}
+
+
+@app.patch("/api/conversations/{conversation_id}")
+async def conversation_patch(conversation_id: int, body: dict, user=Depends(current_user)):
+    """重命名(title)与归档/恢复(archived)。"""
+    ok = False
+    if "title" in body:
+        ok = db.rename_conversation(conversation_id, user["id"], str(body.get("title") or ""))
+    if "archived" in body:
+        ok = db.set_conversation_archived(conversation_id, user["id"], bool(body.get("archived"))) or ok
+    if not ok:
+        raise HTTPException(404, "会话不存在")
+    conv = db.get_conversation(conversation_id, user["id"])
+    return {"id": conversation_id, "title": conv["title"], "archived": conv["archived"]}
+
+
+@app.delete("/api/conversations/{conversation_id}")
+async def conversation_delete(conversation_id: int, user=Depends(current_user)):
+    """级联删除:只删该会话的消息与摘要;越权与不存在同表现(404)。"""
+    r = db.delete_conversation(conversation_id, user["id"])
+    if r is None:
+        raise HTTPException(404, "会话不存在")
+    return {"ok": True, **r}
 
 
 # ---------- 周报(辅导员/管理员) ----------

@@ -1,0 +1,19 @@
+[P4b 第 0 步] BEFORE 多轮失守现场(无会话/无历史注入) — 2026-09-30 00:34:41
+============================================================
+复现命令: python -c "import httpx,json;N='http://127.0.0.1:8900';t=httpx.post(N+'/api/login',json={'username':'counselor','password':'counselor123'}).json()['token'];H={'Authorization':'Bearer '+t};a=httpx.post(N+'/api/chat',json={'question':'研究生申请休学需要提交哪些材料?'},headers=H).json();b=httpx.post(N+'/api/chat',json={'question':'那它需要导师签字吗?'},headers=H).json();print(json.dumps({'q1':a['answer'][:100],'q2':b['answer'][:200]},ensure_ascii=False))"
+
+Q1: 研究生申请休学需要提交哪些材料?
+A1(sources=1): 研究生申请休学应当提交以下材料：  
+1. 本人书面申请；  
+2. 二级甲等以上医院诊断证明（因病休学）；  
+3. 导师意见。  
+
+以上材料需经培养单位审核同意后，报研究生院审批 。
+
+Q2(代词「它」应指代休学申请): 那它需要导师签字吗?
+A2(sources=0): 知识库中暂无相关内容，无法就该问题给出有依据的回答。
+（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）
+建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。
+如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。
+
+判定:第二问的「它」无任何前文可指代——现状 messages 只注入 system+当前问题,必然指代失败或答非所问(C2 要修的失守点)。

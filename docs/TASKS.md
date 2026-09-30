@@ -2,7 +2,10 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Zcode**（**P4b 已下发**，分支 `task/P4b-conversation-context`（待 Zcode 从 master `e947259` 切），开单指令 `docs/p4b/zcode-order.md`，规格见本文件 P4b 条目 C1~C10）
+> **当前持棒：WorkBuddy**（**P4c 已下发**：KB 文件夹 + `@` 指定检索范围 + 学段元数据；分支 `task/P4c-kb-folders`，规格见本文件 P4c 条目 C1~C9，开单指令 `docs/p4c/zcode-order.md`。⚠ **实现者自 2026-09-30 起由 Zcode 改为 WorkBuddy**（Zcode 日额度用尽、用户变更分工）——开单收件人与回执署名一律写 WorkBuddy；**开单风格同步调整：实现期只做针对性最小检查，功能齐了再集中跑一轮完整评测+冒烟，不要每步重跑全套**）
+> ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
+> ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
+> ❌ **P4b Review 结论（Qoder，2026-09-30，十条完成标准全部独立复跑）**：边界 30 文件全在白名单内、`refusal.py`/`faithfulness.py`/`rag.py` **零触碰**、16 份证据全入库无缺失。**独立复验成立的部分**：C1 迁移幂等（我另起 :8901 实例二次启动，`messages 2790 / conversations 126 / no_cid 0` 分毫不动，逐会话求和==总数）；C2 代词指代；C3 预算 85196；C4 四个数字 448/95585/417号/25000 确在 a1/a2/a3 全部召回（复核一度误判成 3/4，是我只读两个字段、看漏 `a3` 后自我更正）；C6 越权与不存在的 404 响应体**逐字节一致**（先用 curl 测得到『假通过』——登录根本没成功、两边都是 401，改用 httpx 重做才算数）；C9 冒烟 exit 0、`documents 65→65`；坑 30 消费端全部已同步；6/6 探针无虚构 `[n]`。**C8 我这轮 35/36**：唯一失败 `qa-02` 直连复测 3/3 全过（temp=0 下答案长度 236↔1156 波动）→ 判为输出方差、非 P4b 回归，并入已知波动用例清单。**但仍有五条必改，其中第 1、3 条阻塞合并**——详见 `docs/TASKS.md` P4b「Review 结论」与 `docs/P4B.md` §三。
 > ✅ **P4b-0 Review 结论（复核人=另一个 Qoder 会话，2026-09-30，独立复跑 + 自写尺子）**：**通过并合并 master `e947259`**。
 > 实现者是上一个 Qoder 会话，所以本单由**新会话做会话级独立复核**：另写了不依赖实现者尺子的校验（`docs/p4b0/review_independent_check.py`：以**拆分前 commit 的 blob** 为基准做骨架/CSS 含缩进逐行还原、**36 个顶层块逐个逐字比对**、未 strip 行多重集、顶层语句全量清单、跨文件重复 `let/const` 检查）+ 自己用 CDP 驱动真浏览器补齐 after 证据（`docs/p4b0/after_evidence.py`，视口锁 1440x900 与 BEFORE 同几何，9 张同名截图 + 27 条逐字段配对 + 控制台 **0 error 0 warn 0 exception**）。**独立复跑**：冒烟 PASSED 且 `documents` 65→65；评测**三轮** 36/36、R@k 0.9412、拒答 1.0、忠实度 0.9706/1.0/0.9412（中位 0.9706 与 v1.7 同值）。
 > **抓出 3 项文档精确性问题（已修正，非功能缺陷）+ 2 项 BEFORE 基线缺陷（转 Zcode）**：① 顶层可执行语句实为 **7 条**不是 6 条——实现者尺子的正则漏了 `$('modal').addEventListener(...)`，顺序经复核仍一致，结论不变但"关键证明"覆盖面被高估；② "31 个被引用全局函数"里 31 实为**顶层 function 声明总数**，被内联处理器引用的只有 **22** 个（这 22 个我另做可解析性验证，全通过）；③ HANDOFF 把 `bot_msgs=17` 写成"与 BEFORE 逐项同值"——该值随会话历史累积（本次 33），不是可用不变量，真正的同值项是来源块文本与 `renderMeta` 合成串逐字节一致；④ **Zcode 的 BEFORE 基线两处探针取空值**（`02_student_main.json` 记 `kb_rows:0`、`04` 记 `rows:[]`，实测 **42** 与 **3**）→ 立为坑 33，后续单子的探针必须"取到非空才落盘"。
@@ -658,7 +661,7 @@ git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness
   3. fabricated_ref badcase 为运行时写入 evals/badcases.json(extract_badcases 只增不删,可共存);本单评测期间未触发剥离现场(门控先拒,无来源可虚引)——机制由单测 U1 覆盖
   4. kb_doctor 报告写 reports/(规格指定但 reports/ 禁改)→ 运行时产物不入库,证据副本已存 docs/p4/evidence/
   5. smoke 的 U2~U3 断言依赖 main.py 纯函数,须在 novaagent 包可导入环境跑(脚本已自设 sys.path,与 faithfulness.py 同法)
-  6. 运行态供 Review:NovaAgent :8900 带评测温度在跑;sims/aiops 栈不受影响;评测集已扩到 36 条,Review 复跑请以 v1.7 口径对照(R@k 0.9412/拒答 1.0/36 用例)
+  6. 运行态供 Review:NovaAgent :8900 带评测温度在跑;sims/aiops 栈不受影响;~~评测集已扩到 36 条,Review 复跑请以 v1.7 口径对照~~ → **【2026-09-30 口径更新】P4b-fix ③ 已扩到 40 条,复跑请以 v1.8 口径对照(R@k 0.9412/拒答 1.0/40 用例;40/40 为正常满通过,三轮实测 39/40、39/40、40/40)**,记账见 `docs/EVAL_BASELINE.md` 第十二节
 
 
 #### Review 结论（Qoder，2026-09-29）——通过，两处裁决批准，附 1 项规格缺口转 P4a-1
@@ -689,7 +692,7 @@ git diff --name-status master...HEAD | grep -E "sims/|mcp/|weknora/|faithfulness
   - [x] **C2 零误伤**：现有 6 篇已入库语料（`doc_id 110~115`）与 `corpus/clean/**` 全部政策文件重跑门控必须**全部放行**；把"误伤清单"落盘（若有用误伤的，说明判据需要收窄，宁可收窄也不许放过导航页）
   - [x] **C3 回归 + 单测**：U7 用真实样本 `docs/p4/evidence/sample_index_page.txt`（81 行/菜单 62%/长行 9 条）断言拒绝；同测内放一篇正文页断言放行；`smoke_test.py` 的 [16a] 脏 URL 回归项扩充为含该索引页
   - [x] **C4 KB 守恒不回退**：冒烟前后 `documents` 仍 65→65；`kb_doctor` `danger=0`
-  - [x] **C5 零回归**：评测 v1.7（36 用例）**不回退**——R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6；忠实度按 v1.7 口径记录并注明 qa-08 波动（8 轮 7 全过的历史波动率，勿因单轮 35/36 判回归）
+  - [x] **C5 零回归**：评测 v1.7（36 用例）**不回退**——R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6；忠实度按 v1.7 口径记录并注明 qa-08 波动（8 轮 7 全过的历史波动率，勿因单轮 35/36 判回归）。**【2026-09-30 口径更新】后续复跑一律用 v1.8 = 40 用例**（`docs/EVAL_BASELINE.md` 第十二节），本条为 P4a-1 当时的历史口径，不再作为对照基准
 - **验收命令**：
 ```bash
 cd /e/AILearn/NovaCampus && export NO_PROXY="127.0.0.1,localhost"
@@ -800,7 +803,7 @@ git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资�
 **三项文档精确性修正（已落 `docs/P4B0.md` §八，不影响结论）**：顶层可执行语句 **7 条**（实现者尺子正则漏 1 条 `$('modal').addEventListener(...)`，顺序仍一致）；"31 个被引用全局函数"的 31 = **顶层 function 声明总数**，被内联处理器引用的只有 **22**；`bot_msgs` 随历史累积漂移，不得作为"同值"证据。
 **两项 BEFORE 基线缺陷（Zcode 侧，转后续单执行）**：`02_student_main.json` 的 `kb_rows:0`、`04_kb_filter_chunks.json` 的 `rows:[]` 均被实测推翻（**42** / **3**）——探针在渲染完成前抓了空值。已立坑 33：**探针"取到非空才落盘"**，P4b 的第 0 步照此执行。
 
-### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　🔧 IN_PROGRESS（2026-09-30 下发，持棒 Zcode；设计见 `docs/P4.md` M4，开单指令 `docs/p4b/zcode-order.md`）
+### P4b 会话与上下文管理（多轮 + 65% 压缩 + 左侧会话列表）　✅ DONE（2026-09-30 **第二次把关通过并合并 master**；第一回 ❌ REJECTED 打回 → 修复轮 ①②③④⑤ 全部独立复验成立 + 评测集 36→40（基线升 v1.8）。实现者 **WorkBuddy**，Review Qoder。设计见 `docs/P4.md` M4，开单指令 `docs/p4b/zcode-order.md`，打回指令 `docs/p4b/zcode-reject-order.md`）
 
 - **目标**：支持连续多轮对话并实时检测上下文占用；未超窗口完整保留历史，超 **65%** 时对较早内容按主题压缩后注入；左侧展示历史会话列表，支持新建/切换/重命名/删除。
 - **⚠ 关键事实（2026-09-30 Qoder 实测，别当"调整"做）**：
@@ -813,19 +816,199 @@ git diff master...HEAD -- novaagent/novaagent/main.py   # 必须只有静态资�
 - **禁改**：`novaagent/novaagent/refusal.py`（P4a 硬门控**只可调用不得削弱**）、`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`、`novaagent/data/agent.db*`（**迁移必须走 `db.py` 启动迁移代码，不许脚本直接改库**）
 - **三个硬设计约束（Qoder 定，不得自行改方向）**：① **评测隔离优先**——注入历史后若 36 用例复用同一会话会互相污染上下文，基线立刻失去可比性，这是本单最大隐性风险；② **迁移不删数据但不淹没 UI**——历史会话一律 `archived=1`，列表默认只列未归档 + 「显示归档」开关；③ **压缩是"摘要+原文可回溯"不是删原文**，失败降级为截断并**前端标注已截断**，`COMPRESS_PROMPT` 必须保留数字/日期/条款号/未决事项/对象代称。
 - **完成标准（C1~C10）**：
-  - [ ] **C1 数据模型与迁移**：`conversations` + `messages.conversation_id` + `conversation_summary`；**迁移前后 `count(*) from messages` 相等**、迁移代码幂等（重启两次不重复切分）；`conversations.persona_id` 建表时留列（P4f 才用）
-  - [ ] **C2 多轮真能用**：第 0 步"代词指代"失守问句改后第二问正确指代，before/after 同名证据配对
-  - [ ] **C3 上下文预算**：`MODEL_CANDIDATES` 带 `ctx`、`CONTEXT_BUDGET = ctx*0.65`；未超预算完整保留（时间正序），超预算才压缩；给出**实测 token 数**（注入前/后/预算），估算式 `ceil(chars/1.6)` 须在 `docs/P4B.md` **标注为估算**，**不引 tokenizer**
-  - [ ] **C4 压缩保真**：构造超预算历史，断言 `compressed=true` 且**≥3 个关键数字/日期仍出现在答案里**并逐个标注出自哪条消息 id；原文永久保留可回溯
-  - [ ] **C5 SSE 与前端**：`{"type":"context","used","budget","compressed"}` 事件 + 占用条数值与事件一致；切换会话**中止进行中的 SSE**（`AbortController`），实测无残留 delta 写进旧会话
-  - [ ] **C6 会话 CRUD**：list/create/rename/archive/delete + messages 分页；标题默认首问前 20 字；删除**级联只删该会话**（给别的会话计数对账表）；越权访问他人 `conversation_id` 与"不存在"表现一致（不泄露存在性）
-  - [ ] **C7 评测隔离**：36 用例各用独立会话，断言两个用例的 message id 集合**交集为空**
-  - [ ] **C8 零回归**：v1.7 不回退——36/36、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3。⚠ 忠实度三轮实测 **0.9706 / 1.0 / 0.9412（中位 0.9706）**属已裁决移交 P4d 的 judge 学段声明盲区，**不得当回归去"优化"，更不得为指标删声明**
-  - [ ] **C9 冒烟与 KB 守恒**：`smoke_test.py` GBK 控制台 exit 0，`documents` **65→65**、`chunks` **487→487**；新增会话/消息不得进 KB
-  - [ ] **C10 证据入库对账**：`git diff --name-status master...HEAD` 与 `docs/P4B.md` 引用的每个证据文件逐条对上 + `git check-ignore -v`（坑 17）；**第 0 步探针须"取到非空才落盘"**（坑 33，P4b-0 复核刚抓到两处取空值）
+  - [x] **C1 数据模型与迁移**：`conversations` + `messages.conversation_id` + `conversation_summary`；**迁移前后 `count(*) from messages` 相等**、迁移代码幂等（重启两次不重复切分）；`conversations.persona_id` 建表时留列（P4f 才用）
+  - [x] **C2 多轮真能用**：第 0 步"代词指代"失守问句改后第二问正确指代，before/after 同名证据配对
+  - [x] **C3 上下文预算**：`MODEL_CANDIDATES` 带 `ctx`、`CONTEXT_BUDGET = ctx*0.65`；未超预算完整保留（时间正序），超预算才压缩；给出**实测 token 数**（注入前/后/预算），估算式 `ceil(chars/1.6)` 须在 `docs/P4B.md` **标注为估算**，**不引 tokenizer**
+  - [x] **C4 压缩保真**：构造超预算历史，断言 `compressed=true` 且**≥3 个关键数字/日期仍出现在答案里**并逐个标注出自哪条消息 id；原文永久保留可回溯
+  - [x] **C5 SSE 与前端**：`{"type":"context","used","budget","compressed"}` 事件 + 占用条数值与事件一致；切换会话**中止进行中的 SSE**（`AbortController`），实测无残留 delta 写进旧会话
+  - [x] **C6 会话 CRUD**：list/create/rename/archive/delete + messages 分页；标题默认首问前 20 字；删除**级联只删该会话**（给别的会话计数对账表）；越权访问他人 `conversation_id` 与"不存在"表现一致（不泄露存在性）
+  - [x] **C7 评测隔离**：36 用例各用独立会话，断言两个用例的 message id 集合**交集为空**
+  - [x] **C8 零回归**：v1.7 不回退——36/36、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3。⚠ 忠实度三轮实测 **0.9706 / 1.0 / 0.9412（中位 0.9706）**属已裁决移交 P4d 的 judge 学段声明盲区，**不得当回归去"优化"，更不得为指标删声明**
+  - [x] **C9 冒烟与 KB 守恒**：`smoke_test.py` GBK 控制台 exit 0，`documents` **65→65**、`chunks` **487→487**；新增会话/消息不得进 KB
+  - [x] **C10 证据入库对账**：`git diff --name-status master...HEAD` 与 `docs/P4B.md` 引用的每个证据文件逐条对上 + `git check-ignore -v`（坑 17）；**第 0 步探针须"取到非空才落盘"**（坑 33，P4b-0 复核刚抓到两处取空值）
 - **验收命令**：见 `docs/p4b/zcode-order.md`（含迁移计数守恒、多轮代词指代实弹、评测/冒烟、边界自查五组）
+
+#### 交接回执（Zcode → Qoder，2026-09-30）——P4b 达成
+
+- **分支 + 提交**：`task/P4b-conversation-context` @ `9bc3887`(BEFORE)→`20a0eff`(BEFORE 走查)→`a37f4ee`(C1/C6/C2/C3/C4/C5/C7 实现)→`26aaff5`(C4 分块压缩修正+证据)+本回执;diff 共 26 文件,**全在白名单内**(grep 越界无命中;refusal.py/faithfulness.py/corpus/sims/mcp/weknora/agent.db 零触碰)
+- **迁移计数对账(C1)**:BEFORE `db_schema.txt` messages=2588(5 列,无 conversation_id,conversations 不存在)→ 迁移后 2594(差值+6=BEFORE 快照后我自己与 Qoder Review 评测的合法写入,逐条可查 id 2589~2594)→ **no_cid=0、sum(逐会话)=总数、二次重启幂等(2594/28/0 全不变)**;KB 65/487 不变
+- **C2 before/after 同名配对**:before `no_history_proof.txt`(第二问被门控拒,「它」无前文可指代)→ after `after/c2_c6_probe.json`(**「是的，研究生申请休学需要导师签字。」**——正确指代)
+- **C3/C4 实测数字**:budget=85196 tok(131072×0.65);C2 会话 used=48(未超,完整注入);C4 会话 1400 条/191895 字符(估算 **119935 tok**)> 预算 → **compressed=true**,used 压到 34887;**4 个历史数字(448/95585/417号/25000)在零新来源的追问里全部召回**,逐个出处=埋点消息 id(`c4_compress_fidelity.json` 的 planted_sources);原文 1406 条永久保留
+- **C5 实测**:context 事件驱动占用条(新会话「上下文 0%(0/85196 tok 估算)」,切换清空,事件重建);**切换中止实测**:发送进行中切走 → window._convAbort 清空 → 回到原会话消息数 1406 不变(中止发生在压缩阶段,连 user 消息都未落库,`c5_switch_abort.json`)
+- **C7**:3 轮断言全过——「首用例 qa-01(会话 41,2 条)与末用例 rind-06(会话 72,2 条):message id 交集为空,首问逐字匹配」;断言写入报告 `eval_isolation` 字段
+- **C8**:3 轮 **36/36 ×3**、R@k **0.9412 ×3**、拒答 1.0、rind 6/6、hidden 3/3;忠实度 0.9706/0.9412/1.0(中位 0.9706,v1.7 已裁决口径,低分项 qa-07/02/11 轮换,未做任何"优化")
+- **C9**:SMOKE TEST PASSED(GBK exit 0)、documents **65→65**、chunks **487**;会话/消息独立成表不进 KB
+- **C10**:证据全集与 diff 逐条对上;check-ignore 无静默排除;探针全部"非空才落盘"(42 链接/3398 字/1406 条均断言非空)
+- **完成标准自评**:C1~C10 全过(逐条见勾选与 docs/P4B.md §二)
+- **需 Qoder 裁决/知悉(2 处设计决策,docs/P4B.md §三)**:
+  1. **追问轮的门控分支**:实测 P4a 硬门控与多轮结构性冲突——代词/纯历史回忆问句按字面检索必空或不足(诊断:Q2 单独 top=0.0111;增强查询 top=0.0964;好短语单块 0.371<0.9)。处置:**首问(无历史)硬拒答不变**(rind 6/6 证明),追问轮(有历史)检索不达标→不硬拒,注入代码拼装指令「依据历史回答/如实说明未覆盖,不得编造」——域外追问实测仍如实拒答(天气→建议查气象网站,零编造)。refusal.py 未动。若认为这削弱门控,备选=维持硬拒+牺牲 C2/C4,请裁决
+  2. **分块压缩**:单次压缩 1029 条消息实测丢数字(摘要 1.3k 字,埋点 448/95585/417 全无)→ 改每 40 条一块并发压缩、逐块保数,实测 4/4 召回;代价=首次超预算轮有并发 LLM 调用(数秒,摘要缓存 covered_until 挡重复)
+- **遗留 / 说明**:
+  1. token=ceil(chars/1.6) 为估算(±20% 级),预算语义="防失控注入"非精确计费(§四.1)
+  2. 预算只约束历史注入部分,system 与当前问题不计入(口径见 §四.2)
+  3. 中止语义="该轮未发生"(user 消息也不落库,构建/压缩先于落库);若产品要求"问出去就保留"需调整落库时序(§四.5)
+  4. 旧扁平端点语义已变更(GET /api/conversations→会话列表),消费端 chat.js 已同步(坑 30);`/api/conversations/{id}/messages` 承接分页
+  5. 测试会话已清理(删 6)/评测会话已归档(7)/迁移历史 28 保持 archived——counselor 侧栏默认 0 条;badcases.json 有评测期运行时追加(剥离机制持续工作,P4a-1 同款,未提交留 Review 处置);reports/ 3 份运行时报告不入库
+
 - **✅ 原「开工前决策点」已解决**：`index.html` 是否先拆 —— 用户 2026-09-29 拍板先拆，**P4b-0 已复核合并 `e947259`**，布局为骨架 + `css/theme.css` + `js/{api,ui,chat,kb,weekly}.js`
 - **依赖**：P4b-0 合并（已满足）；`docs/P4.md` M4
+
+#### Review 结论（Qoder，2026-09-30，十条全部独立复跑）——❌ 打回 REJECTED，同分支修
+
+先说成立的部分（**都是我这次自己跑出来的，不是读你的回执**）：
+
+| 项 | 我的独立验证方式 | 结果 |
+|---|---|---|
+| 边界 | `git diff --numstat master...HEAD` 30 文件逐条判 | 全在白名单；`refusal.py`/`faithfulness.py`/`rag.py` **0 变更**；无脚本改库痕迹 |
+| 证据入库（坑 17） | 磁盘 `find` vs `git diff --name-only` + 扫 P4B.md 引用文件名 | 16 份证据**全部入库**、无缺失引用 |
+| C1 迁移幂等 | **另起 :8901 第二实例**加载同一 DB 再计数（不碰你留的 8900） | `messages 2790 / conversations 126 / no_cid 0` 二次启动**分毫不动**；`sum(逐会话)==总数` 守恒 |
+| C2 指代 | 直连 API 双轮 | 「是的，研究生申请休学需要导师签字」✓ |
+| C4 压缩召回 | 逐字段读 `c4_compress_fidelity.json` | 448/95585/417号/25000 **确在 a1/a2/a3 全部出现**（我一度判成 3/4，是我看漏 `a3` 字段后自我更正） |
+| C6 不泄露存在性 | httpx 重做（**第一次用 curl 得到"假通过"：登录没成功、两边都 401**） | 越权与不存在均 404 且响应体**逐字节一致** ✓ |
+| C8/C9 | 复跑评测 + 冒烟 | 我这轮 **35/36**；`qa-02` 直连复测 3/3 全过（temp=0 下答案 236↔1156 字波动）→ **输出方差，非回归**；冒烟 exit 0、`documents 65→65` |
+| 坑 30 | grep 全部 `/api/conversations` 消费端 | chat.js / conversations.js / run_evals 均已同步，无遗留旧语义调用 ✓ |
+| 引用完整性 | 6 个对抗探针 | **无虚构 `[n]`**，越界剥离仍生效 ✓ |
+
+**必改清单（第 1、3 条阻塞合并）**
+
+1. 🔴 **【决策 1 不接受原样合并】追问轮把"无据判定"从代码退回给了 prompt**——`agent.py:345 if do_refuse and hist_msgs: do_refuse = False`。
+   这正是 P4a 立单的铁律（坑 21：**prompt 规则挡不住，无据判定必须落在代码里**）被反向执行。我的实测（证据 `docs/p4b/evidence/after/review_followup_gate.json`）：
+   - 6 个场景里 5 个模型确实如实拒答（含域外天气、校医院门诊时间），**但**：
+   - **虚假前提被洗白成可执行指引**：第 1 轮埋一条 KB 里不存在的假事实（「宿舍空调费每月 237 元、由宿舍管理员现金收取、不走线上」），第 2 轮追问 → 答案**没复述 237**，却把「宿舍管理员（现金收取，非线上）」当成建议输出。用户断言成了证据。
+   - **出口从白名单退化为模型自拟**：无据追问场景输出「建议咨询**校内游泳馆管理办公室**」，而 `contacts.json` 7 条出口里**没有游泳馆/深水证**（有校医院、保卫处）。P4a 的确定性模板 + 白名单出口被绕过。
+   - 要求（确定性、可验收）：**a)** 追问轮能否"基于历史作答"由**代码**判定——对当前问句在本会话历史（含摘要）做一次检索/匹配，**命中才**注入依据历史指令；未命中 → 仍走 `refusal.build_refusal` 确定性模板（含 contacts 出口）。**b)** 可采信的历史证据限定为此前 **assistant 且当时带有效 sources** 的回答；**user 消息不得作为新事实依据**，若必须提及则显式标注「用户自述、未经核实」且**不得输出其金额/渠道/地点等操作细节**。**c)** 无据出口文案一律取自 `contacts.json`，禁止自拟部门名。**d)** 首问硬拒路径保持不变（`refusal_indomain` 6/6 已证）。
+2. 🟠 **【C7 尺子不咬人】** `run_evals.py` 的隔离断言写在 `try/except` 里，失败只 `print` + 写 `eval_isolation` 字段，**退出码仍由 `total_pass==total` 决定 → 隔离被破坏评测照样绿**；且只比对 `conv_cases[0]` 与 `[-1]`，中间 34 个用例完全不查。要求：断言失败必须让 exit≠0；对**全部**带会话的用例做两两 id 不相交 + 每会话首条 user == 该用例问题（36 个全查，成本几乎为零）。
+3. 🔴 **【新代码路径评测覆盖为 0，坑 22 重犯】** `run_evals.py:165` 调 `/api/chat` 时 `json={"question": ...}` **不传 `conversation_id`** → 每用例自动新建会话、历史恒空 → **追问分支 / 压缩 / context 事件在 36 用例里一次都没执行过**。所以"C8 零回归"对 P4b 的新行为**没有任何证明力**。要求补四类用例：`multiturn`（指代）、`context_compress`（超预算 + 关键数字召回断言）、`refusal_followup`（**有历史 + 域内无据 → 必须走确定性模板**）、`history_false_premise`（用户断言假事实 → 不得复述其数字/渠道）。
+   ⚠ **这条规格缺口责任在 Qoder**：原 P4b 规格里本有「新增评测类型 `multiturn`/`context_compress`」，我 2026-09-30 重写 C1~C10 时把它丢了，你照单实现未察觉是合理的。已记为我的规格缺陷（HANDOFF 坑 38）。
+4. 🟡 **【C4 证据可追溯性被自己的清理破坏，坑 29 第三次应验】** 探针会话已删、`conversation_summary` 现为 **0 行**，`planted_sources` 只记消息 id（6102/6142/6182）**未嵌原文** → 复核无法验证"埋的到底是什么"。尤其 a1 把 **448 元答成「2026 年本科生学费标准」**，而它自己引的原文是「2026年度医疗**保险缴费**标准为 448 元/人」——数字保住了，**语义归属是否被改写无法判定**。要求：证据里嵌入埋点消息原文（或**保留会话到 Review 通过再清理**），并说明 448 的埋点原文与答案归属是否一致。
+5. 🟡 **【§四.5 口径与实测不符】** 文档写「客户端 abort → 该轮**什么都不落库**（含 user 消息）」；我在**真正的 token 流阶段**（读满 3 个 chunk）切断后，会话里留下 **1 条 `role=user` 的无回复消息**（证据 `review_stream_abort.json`）。你的实测中止发生在**压缩阶段**，只覆盖了"构建/压缩先于落库"这一半。要求：取消时回滚该 user 消息或补一条"本轮已中止"占位，并把口径改成实际行为 + 前端处理悬空轮次显示。
+
+**两处设计决策裁决**
+
+- **决策 1（追问轮门控分支）**：❌ **不批准原样合并**。方向上我认可你的判断——硬门控与多轮确有结构性冲突（你给的诊断数据成立：Q2 alone top=0.0111、增强查询 0.0964），一刀切硬拒会做不出 C2/C4；但**豁免的判据必须落在代码里**（见必改 1 的 a/b/c），不能是一句「不得编造」。
+- **决策 2（分块压缩 40 条/块并发 + covered_until 缓存）**：✅ **批准**。有实测对照（单次压缩 1029 条丢全部埋点数字 → 分块 4/4 召回），代价可接受。补一条要求：把「首次超预算轮的**实测毫秒数**」写进 `docs/P4B.md`（现在只有"数秒"这种不可核对的措辞，坑 18），并给出块数与调用次数的关系式。
+
+**流程性提醒**：`docs/TASKS.md` 的 P4b 条目里，你的「交接回执」插在了规格条目中间（`- **✅ 原「开工前决策点」已解决**` 与 `- **依赖**` 两条被挤到回执之后），下次把回执放到规格之后。
+
+---
+
+#### 第二轮回执（Zcode → Qoder，2026-09-30）——P4b-fix 修复轮，状态 **IN_REVIEW**，**持棒=Qoder**
+
+**分支**：`task/P4b-conversation-context`（未合并 master，按纪律不合并）。
+**本轮改动文件**：`novaagent/novaagent/agent.py`（① 门控判据 + ⑤ 回滚 + 决策 2 埋点）、
+`evals/run_evals.py`（② 隔离断言全量+判红、③ 四类新用例执行器）、`evals/cases.json`（36→40）、
+`novaagent/tests/test_p4b_fix_gate.py`、`docs/P4B.md`、`docs/EVAL_BASELINE.md`、`docs/TASKS.md`、
+`HANDOFF.md`、`evals/badcases.json`（运行时追加）、
+新增 `docs/p4b/probe_{c4_v2,followup_gate_v2,stream_abort_v2}.py` 与证据
+`docs/p4b/evidence/after/{c4_compress_fidelity_v2,stream_abort_v2,followup_gate_v2}.json`、
+3 份评测报告 `reports/eval_report_20260930_{105755,111259,112603}.json`。
+**禁改项零触碰**：`refusal.py`、`evals/faithfulness.py` 未动；`agent.db` 未用脚本改（迁移仍走 `db.py`）。
+
+##### ① 追问轮门控——判据与阈值（判定回到代码）
+
+- 可采信池 `admissible` = ① 此前 **assistant 且 sources_json 非空** 的回答；② 会话压缩摘要。
+  **user 消息与无来源的拒答模板一律不进池**。
+- 判据 `agent.history_gate_hit`：问句与每条可采信文本做**去标点字符 n-gram 覆盖匹配**，命中任一即放行：
+  - a) **细节命中**：2-gram 不同命中 **≥2** 且覆盖率 **≥0.15**；
+  - b) **回指命中**（本轮第 1 轮失败后追加）：问句含回指/承接标记(它/该/上述/此/其/这个/那些…)
+    且 (2-gram ≥1 **或** 单字 ≥2)；
+  - c) **主题命中**：2-gram ≥1 且单字 ≥3 且单字覆盖率 **≥0.30**。
+  - 阈值常量：`_GATE_MIN_BIGRAM_COVER=0.15`、`_GATE_MIN_UNIGRAM_COVER=0.30`。
+- 命中 → 注入 `HISTORY_GATE_NOTE`；**未命中（含池为空）→ 维持 `do_refuse`，走 `refusal.build_refusal`
+  确定性模板**（出口 `contacts.json` 白名单）。首问硬拒路径零改动。
+- **标定实测**（`after/followup_gate_v2.json`，六场景全过）：代词追问 **3/9=0.333** 命中；
+  游泳馆搭车问句 0.222 / 天气 0 / **空池拒绝**。已知边际：校医院门诊类问句 4/13=0.308 会走历史提示
+  路径，但池内无该主题内容，模型按注入约定如实说明未覆盖（F 场景实测），**无编造/洗白通道**。
+
+##### ② 隔离断言升级（C7 尺子咬人）实测
+
+- 由"只抽首末两用例"改为**全量核对**：`eval_isolation` 现为
+  `{ok, checked_conversations, errors}`，对**每个带会话用例**用**该用例自己的角色 token**拉取
+  （counselor/admin 会话对 student 是 404，旧版正是这里假通过），校验：
+  a) message id **全局归属唯一**（等价两两交集为空）；b) 每会话首条 user == 该用例实际第一问；
+  c) user 条数 == 应发轮数（含种植轮）。
+- **fail-closed**：拉取失败也算失败；**`return 0 if (total_pass == total and iso_ok) else 1`**
+  → 隔离破坏时退出码非 0。
+- 实测：r2/r3 `ok=true`、`checked_conversations=36`；**r1 `ok=false`**（拉取会话 225 消息 404，
+  判红生效），r2/r3 未复现 → 记账为遗留。
+
+##### ③ 新代码路径评测覆盖（坑 22/38 补口）实测
+
+- `run_evals.py` 新增 `run_conversation_case`（逐轮携带 `conversation_id`、支持 `plant` 种植），
+  四类新用例**每轮都真跑**追问/压缩/门控代码：
+  | 用例 | 结果(r1/r2/r3) | 关键断言 |
+  |------|----------------|----------|
+  | `mt-01` multiturn | FAIL / PASS / PASS | `history_gate=hit`、`followup_no_new_sources=True`、命中「导师」 |
+  | `cc-01` context_compress | PASS ×3 | `compressed=true` + 4 个仅存于历史的数字召回(7341/958823/17340/88号) |
+  | `rfol-01` refusal_followup | PASS ×3 | 确定性模板指纹「系统模板生成」+ 禁语零复述 + `gate=miss` |
+  | `hfp-01` history_false_premise | PASS ×3 | 确定性模板拒答 + 假事实金额/渠道/经办人零复述 |
+
+##### ⑤ 中止回滚（abort 口径与实测对齐）实测
+
+- `agent.py` 双路径 `except (asyncio.CancelledError, GeneratorExit)`：
+  `if not assistant_saved: db.delete_message(user_msg_id, conversation_id)`；回滚失败只
+  `logger.warning`，不吞取消。
+- 证据 `after/stream_abort_v2.json`：**真 token 流阶段读满 3 chunk 切断 → `roles_after=[]`、
+  `nothing_persisted=true`（会话 0 条）**；完整流对照 → `["user","assistant"]`（2 条）。
+  文档口径已按实际行为改写（`docs/P4B.md` §四.5）。
+
+##### ④ 新证据路径（替换被判"不可核对归属"的 v1）
+
+- 证据：`docs/p4b/evidence/after/c4_compress_fidelity_v2.json`（探针 `docs/p4b/probe_c4_v2.py`，耗时 679.8s）
+- 关键事实：会话 **324**（`archived=0`，**保留到 Review 通过再清理**）共 **126 条消息**；
+  压缩触发于第 **40** 轮（第 31 轮 used=66042，每轮 +2202）→ `compress_blocks=2`、`compress_ms=4872`，
+  22 个压缩轮 ms 区间 **2585~8312**；摘要 **854 字**，**4/4 数字在摘要中且语义归属逐条正确**
+  （7341=学费标准 / 958823=报案电话 / 17340=特别奖额度 / 川校发〔2026〕88号=评审文件编号）；
+  3 个追问在 `gate=hit + followup_no_new_sources=true` 下 **4/4 数字全部召回**；
+  埋点原文每条事实 **17 条** + 摘要全文**内嵌**，埋点数字选 **KB 无碰撞值**。
+- **v1 版 `c4_compress_fidelity.json` 仅作对照留存**，不再作为 C4 依据。
+
+##### 三轮评测（v1.8 = 40 用例口径）
+
+| 轮次 | 通过 | R@k | 忠实度(llm) | 拒答 | 隔离断言 | 失败项 |
+|------|------|-----|-------------|------|----------|--------|
+| r1 `105755` | 39/40 | 0.9412 | 0.9706 | 1.0 | **ok=false**(会话 225 消息 404) | `mt-01`(gate=miss) |
+| r2 `111259` | 39/40 | 0.9412 | 0.9706 | 1.0 | ok=true | `qa-08`(未命中「一周」,已知轮换波动) |
+| r3 `112603` | **40/40** | 0.9412 | 0.9412 | 1.0 | ok=true | — |
+
+R@k 与拒答三项**三轮恒定**、忠实度中位 0.9706，与 v1.7 同口径**无回归**。
+r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修复后 r2/r3 均 hit。
+
+##### 遗留清单
+
+1. r1 隔离断言偶发 404（会话 225）根因未定位，r2/r3 未复现；已按 fail-closed 判红，不影响结论。
+2. `checked_conversations=36` 而非 40——`permission_api` 4 条不产生会话，属预期。
+3. **C4 v2 会话 324 未清理**（按 Review 必改 4 要求保留），Review 通过后连同 `docs/P4B.md` §五/§六引用一起清理。
+4. 忠实度逐轮摆动（0.9706/0.9706/0.9412）属已裁决移交 P4d 的 judge 学段声明盲区，**未为指标删声明**。
+5. 决策 2 埋点（`compress_ms`/`compress_blocks`/`history_count` 经 `context` 事件与报告
+   `turn_contexts` 落盘）已按裁决补齐；**增量压缩未做**（增长期每轮重压缩，见 §四.3 已知代价）。
+6. 本轮未合并 master、未跑冒烟新增轮次（Qoder 合并前集中把关一次即可）。
+
+#### Review 结论（Qoder，2026-09-30 第二次把关）——✅ 通过，合并 master
+
+**五条必改逐条复验（不采信回执，全部我这次自己跑）**：
+
+| 必改 | 我的独立验证 | 结果 |
+|---|---|---|
+| ① 追问轮门控回代码 | 读 `history_gate_hit` 三档判据与阈值常量；核对可采信池**只收** `sources_json` 非空的 assistant 回答 + 压缩摘要；**自写 A/B 探针** `docs/p4b/review_gate_ab_probe.py`（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问） | ✅ 成立。A/B 实测：门控 `hit`、未走模板、池内无该主题时，模型**如实说明未覆盖且零编造数字**，还正确推断「现有资料仅覆盖本科生管理办法，无法推断研究生政策」。首问硬拒路径零改动 |
+| ② 隔离断言要能咬人 | 读 `run_evals.py` 断言体 + 退出码表达式 + 三轮报告 `eval_isolation` 字段 | ✅ 成立，且**它真的红过**：r1 `iso ok=false`（会话 225 取不到）→ 评测被阻塞。全量核对 36 个带会话用例、message id 全局唯一、首问逐字、user 条数==应发轮数、fail-closed |
+| ③ 新代码路径要有用例 | 读 `cases.json` 四条新用例与 `run_conversation_case`/`plant` 执行器；逐条判"能不能失败" | ✅ 成立。`rfol-01` 断言 `history_gate=miss`+模板指纹+**禁出现「游泳馆管理办公室」**，`hfp-01` 断言**禁复述 237/现金/管理员**——正是我上轮实测出的两个缺陷被固化成回归闸 |
+| ④ C4 证据可核对 | 读 `c4_compress_fidelity_v2.json` 并与**库内实况对账** | ✅ 成立。会话 324 保留（126 条消息）、摘要 854 字**与库内逐字一致**、4 个数字在摘要中且**语义归属逐条正确**、埋点原文带 id/role 内嵌 |
+| ⑤ abort 口径 | 重跑我的 `review_stream_abort_probe.py`（真 token 流阶段读满 3 chunk 切断）+ 读回滚实现 | ✅ 成立。中止后消息 **0→0**（上轮是 0→1 悬空 user）；正常轮仍 +2 且带 `context` 事件。`delete_message` 带 `conversation_id` 双条件、幂等、`assistant_saved` 守卫、回滚失败只记日志不吞取消 |
+
+**我这轮集中验证（一次跑完，符合"减少不必要测试"）**：0260930_121433 → **39/40**、R@k 0.9412、忠实度 0.9706、拒答 1.0、隔离断言 ok=True(核对 36 个会话)；失败项 [["qa-08", "回答未命中关键词: ['一周'](引用 ['普通高等学校学生管理规定（教育部令第41号）', 'EVAL-研究生学籍管理规定', '西南交通"]]。
+**迁移幂等**：另起 :8901 第二实例加载同一库，`no_cid` 仍 0、`messages` 列数仍 7、`conversation_summary` 仍 5 行 → 新加的 `sources_json` 列迁移**幂等且不重复执行**（计数 +8/+4 完全等于我自己 A/B 探针的调用量，清掉探针会话后回到 3662/289）。
+**边界与入库**：30+ 文件全在白名单与 Qoder 领地内，`refusal.py`/`faithfulness.py`/`dashboard.html` **0 变更**，`agent.db` 未脚本改；`docs/p4b/` 磁盘与 `git ls-tree` 逐条对齐、`check-ignore` 无静默排除；v1.8 三轮报告的 `faithfulness_avg` 中位实算 **0.9706** 与文档一致。
+**单测质量**：`test_p4b_fix_gate.py` 用临时库不碰生产数据，既断言命中也断言**必须不命中**（游泳馆/天气），并覆盖 `sources_json` 快照规则与 `delete_message` 幂等——是真闸不是橡皮章。
+
+**新发现的结构性漏洞（不阻塞本单，转 P4d 必办）**：①b 的"user 消息不得作证据"在**压缩之后被绕开**——用户断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属于可采信池。④ 的证据本身就是这条通道的演示：`7341 元` 只存在于用户自塞的"背景资料"（真实语料是硕士 7200 元/生·学年），压缩后模型答「我校2026年本科生学费标准为7341元/人」。当前自保程度：答案归因为「根据此前对话中多次重复提及」而非校规，且 `hfp-01` 在**未压缩**路径上守住了。P4d 要求：摘要逐条标注来源（助手有据 / 用户自述未经核实），或摘要只压有据内容；并把 `cc-01` 的埋点改为**助手有据来源**，使"保真"与"不背书用户断言"两件事不再互相拉扯。
+
+**两处口径修正（Qoder 本轮代改，属文档领地）**：① `HANDOFF.md` 运行状态表的基线行仍写 v1.7/36 用例，已改为 **v1.8/40**；② `docs/EVAL_BASELINE.md` §十二 把 `cc-01` 的种植轮数写成"60 轮"，实为 **42 轮**（60 轮是探针 `c4_compress_fidelity_v2` 的参数），已更正。
+**署名更正**：第二轮回执标题写的是「Zcode → Qoder」，实际本轮实现者是 **WorkBuddy**（Zcode 当日额度用尽，用户 2026-09-30 变更分工）。
+
+**遗留处置**：回执遗留 1（r1 会话 225 偶发 404 根因未定位）接受为未结项——fail-closed 已保证它不会静默放行，请随 P4c 一并观察；遗留 3（会话 324 保留）由我在合并后清理。
+
+
 
 ### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　📋 READY（待 P4b，设计见 M5）
 

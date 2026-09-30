@@ -1,0 +1,38 @@
+{
+  "C2": {
+    "conversation_id": 32,
+    "q1_head": "研究生申请休学应当提交以下材料：本人书面申请、二级甲等以上医院诊断证明（因病休学）、导师意见 。",
+    "q2_head": "是的，研究生申请休学需要导师意见，即导师签字。",
+    "context": {
+      "budget": 85196,
+      "compressed": false,
+      "truncated": false,
+      "history_count": 2,
+      "used": 48,
+      "history_msg_ids": [
+        2601,
+        2602
+      ],
+      "rescued_by_history_query": true
+    }
+  },
+  "C6": {
+    "conv_x": 33,
+    "conv_y": 34,
+    "mx_before": 2,
+    "mx_deleted": 2,
+    "summary_deleted": 0,
+    "my_before": 0,
+    "my_after": 0,
+    "rename_ok": true,
+    "archive_toggle_ok": true,
+    "cross_user_404_same_as_absent": true
+  },
+  "C2_followup_gate_note": "是的，研究生申请休学需要导师签字。",
+  "C4_q2_followup": {
+    "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+    "hits": [],
+    "compressed": true
+  },
+  "C_domain_out_followup": "知识库中暂无相关内容，无法提供今日成都天气情况。建议查询权威气象网站或应用获取实时天气信息。"
+}

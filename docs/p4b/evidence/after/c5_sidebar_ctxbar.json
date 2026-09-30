@@ -1,0 +1,19 @@
+{
+  "sidebar": {
+    "arch_toggle": true,
+    "conv_items": 6,
+    "new_btn": true,
+    "sample": [
+      "C4 压缩保真测试v2",
+      "probe",
+      "C4 压缩保真测试v2"
+    ],
+    "sidebar_exists": true
+  },
+  "ctxProbe": {
+    "conv_id_now": 40,
+    "conv_list_refreshed": 7,
+    "ctx_bar_visible": true,
+    "ctx_text": "上下文 0%（0/85196 tok 估算）"
+  }
+}
