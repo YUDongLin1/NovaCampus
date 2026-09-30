@@ -1,0 +1,30 @@
+{
+  "tag": "qoder_s2_span_separation",
+  "measured_by": "Qoder（复核方）独立探针 docs/p4e/review_qoder_s2_gate.py 前 3 阶段",
+  "when": "2026-10-01 07:05~07:12（两次独立实例，同一份 cases.json ss-01 三段式长问句）",
+  "how": "自己起服务、自己发 SSE 请求、自己算 span=E2E-TTFB；不复用实现方的 probe 与 judge（那是被测物的一部分）",
+  "note_on_source": "本文件由复核方按控制台原始输出誊录（该次脚本因变量名笔误未写出 JSON，见 docs/TASKS.md 复核结论里的自述）",
+  "question_head": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？",
+  "early_window_80": {
+    "server": ":8930 默认配置（NOVA_GROUNDING_EARLY_WINDOW_CHARS=80，闸门开，钩子关）",
+    "runs": [
+      {"ttfb": 7023, "e2e": 12736, "span": 5713, "deltas": 256},
+      {"ttfb": 4719, "e2e": 7623, "span": 2904, "deltas": 121},
+      {"ttfb": 3336, "e2e": 6023, "span": 2687, "deltas": 131}
+    ]
+  },
+  "full_buffer": {
+    "server": ":8931 NOVA_GROUNDING_EARLY_WINDOW_CHARS=0（退回 M4 全缓冲行为）",
+    "runs": [
+      {"ttfb": 7743, "e2e": 7799, "span": 56, "deltas": 150},
+      {"ttfb": 7890, "e2e": 7925, "span": 35, "deltas": 220},
+      {"ttfb": 8939, "e2e": 8986, "span": 47, "deltas": 158}
+    ]
+  },
+  "verdict": {
+    "separation": "全缓冲上界 56ms vs 早窗下界 2687ms ≈ 48 倍",
+    "threshold_150": "150ms 两侧余量：下侧对全缓冲最大 56ms 有 2.7 倍，上侧对早窗最小 2687ms 有 17.9 倍 → 阈值落在分布之外，成立",
+    "delta_count_is_not_discriminating": "全缓冲档同样吐 150~220 个 delta（只是挤在 35~56ms 内）→ 证实实现方的更正：「delta 数 > 1」无区分力，复核方原单据这一点写错了",
+    "important": "注意 deltas 数量在两档都可观，**只有时间分布能区分**；这就是为什么判据必须用 span 而不是事件数"
+  }
+}

@@ -1,0 +1,6 @@
+﻿PID=41452 PARENT=39132 CREATED=10/01/2026 01:08:27
+  CMD="C:\Users\<user>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python.exe"  -m uvicorn novaagent.main:app --port 8923 --host 127.0.0.1
+  PORTS=8923
+PID=41956 PARENT=34984 CREATED=09/30/2026 15:40:54
+  CMD="C:\Users\<user>\AppData\Roaming\uv\python\cpython-3.12-windows-x86_64-none\python.exe"  -m uvicorn novaagent.main:app --port 8900
+  PORTS=8900
