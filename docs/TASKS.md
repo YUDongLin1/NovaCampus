@@ -1089,24 +1089,24 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
   5. sq-01 的 setup 会临时移动真实文档入夹（teardown 复位）；评测中途崩溃可能留下 folder_id 残留（下次运行自愈，不影响检索正确性）。
   6. 运行态：:8900 实例（NOVAAGENT_EVAL_TEMPERATURE=0）已重启加载 P4c 代码供 Review；原 36328 旧实例已按坑 37 流程（netstat 定位 PID → 核 cwd/env/父链 → 显式 PID taskkill）停掉。
 
-### P4d LangGraph 检索编排 + 查询改写重试　📋 READY（待 P4c，设计见 M6）
+### P4d LangGraph 检索编排 + 查询改写重试　🔧 IN_PROGRESS（2026-09-30 下发，持棒 **WorkBuddy**；分支 `task/P4d-graph-rewrite`（从 master `5611c16` 切），开单指令 `docs/p4d/zcode-order.md`；设计见 `docs/P4.md` M6 与 §2.8）
 
-- **目标**：用户问题先经 LangGraph 做意图判断——闲聊、问时间等无需检索的直接回复；需检索的进检索分支，召回质量或数量不达标时自动改写关键词重检索，并设重试次数上限。
-- **允许改**：`novaagent/pyproject.toml`（新增 `langgraph`）、`novaagent/novaagent/{graph.py(新),agent.py,rag.py,config.py,db.py,main.py}`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4D.md`
-- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`（P4a 的硬门控只可调用、不得削弱）
-- **完成标准要点**：
-  - [ ] **只用 LangGraph 做状态机编排**：LLM 仍走 `llm.py`(httpx)、向量仍走 numpy 内存余弦，**不引入 langchain 的模型/向量/retriever 封装**（保持技术栈一致）
-  - [ ] 图：`intent →(chitchat/time/meta) direct_answer` / `→ retrieve → grade →(达标) generate` / `→(不达标) rewrite → retrieve`（`MAX_REWRITE=2`）`→ refuse_with_exit`（复用 P4a 硬门控）
-  - [ ] 问时间/日期类**不调 LLM**（正则 + `datetime` 直答）；意图判定超时/失败 → **降级为默认走检索**（路由挂了不能不答）
-  - [ ] `rag.search` 返回质量信号 `{top_score, n_above_threshold, fused_candidates}`；`grade` 判定 `top_score≥0.3 且 n_above_threshold≥2`（可配）
-  - [ ] 改写策略以**意图归一 + 术语展开**为主（学平险 ↔ 学生平安保险 ↔ 意外伤害保险理赔；实测这是 F2 崩塌主因，**与句子长短无关**），辅以去情境噪声（对应 F1 的拒答失守场景）、学段限定、拆子问题；`retrieval_trace` 落 `conversations`
-  - [ ] 新增评测类型 `intent`（断言 `retrieval_trace.skipped=true`）与 `rewrite`（口语化长问句断言发生改写且最终命中）；**给出实测毫秒数**：闲聊路径首字延迟显著低于检索路径，普通问答不劣化
-  - [ ] **必须把已入库材料的措辞命中率从 3/8 提上来**（本单硬指标）：基线是 2026-09-29 实测的 `evals/query_variant_matrix.py` 输出——同一份学平险材料，8 种自然问法仅「学平险」「学校有学平险吗」「多子句书面全称」3 种命中，其余 5 种（含**学生原句**、「学平险在哪里买」、「学生平安保险是否由学校统一办理？」）全被 `RERANK_MIN_SCORE=0.3` 归零，而**向量层本已把目标排到第 1~4 位**。要求：① 查询改写的**意图归一 + 术语展开**（学平险 ↔ 学生平安保险 ↔ 意外伤害保险理赔）；② 评估 rerank **分级阈值**或"标题命中核心术语时保底候选"，让"排序不佳"不再被放大成"完全无来源"；③ 验收须用 F2 原句断言命中，并**复跑变体矩阵给出新命中率**（目标 ≥6/8）；④ 归因工具 `evals/diag_retrieval.py` 可直接复跑，勿凭"句子长短"直觉下结论（本项初版归因已被变体矩阵证伪，见 `docs/CASE_STUDY.md` §3）
-  - [ ] 评估并**书面记录**两项：① `RERANK_MIN_SCORE` 是否改分级阈值（如 top1 单判 / top1 与 top2 差值判定）；② `db.fts_search()` 整句短语匹配失败后回退的 2-gram 计次是否加停用词过滤（现状"学校/我们/这项"等通用词把教育部令 5 个分块顶上榜单）。**禁止单独调 `MAX_PER_DOC`**（T10 已实测 =1 会挤出关键块）
-  - [ ] **P4b 结转必办（坑 41）**：压缩摘要会把「用户自述的假事实」洗成可采信证据——①b 规定可采信池只收带 `sources_json` 的 assistant 回答 + 压缩摘要，但**摘要本身是从整段历史（含 user 消息）压出来的**，用户断言一旦落进压缩区就带着「摘要」这层外衣回到池里。要求：`COMPRESS_PROMPT` 逐条标注来源（助手有据 / 用户自述未经核实），或摘要只压有据内容；并把 `cc-01` 的埋点改成**助手有据来源**，否则「压缩保真」与「不背书用户断言」两个目标会一直互相拉扯（改一个破另一个）。
-  - [ ] **P4b 结转**：`history_gate_hit` 的「回指命中」档偏宽（含它/该/此 + 1 个 2-gram 或 2 个单字即放行），P4d 的查询改写上线后应重估该判据是否还需要——改写后的问句应能直接命中知识库，从而减少对历史通道的依赖。
-  - [ ] 顺带处理遗留：`qa-09`（离校请销假）R@k 长期 0.0
-- **依赖**：P4c 合并；PyPI 可达（已实测清华源/官方源 langgraph 均 200）
+- **目标**：用户问题先经 LangGraph 做意图判断——闲聊、问时间等无需检索的直接回复；需检索的进检索分支，召回质量或数量不达标时自动改写关键词重检索，并设重试次数上限。**本单是 P4 全线唯一带硬指标的一单：措辞命中率 3/8 → ≥6/8。**
+- **⚠ 立论基础（2026-09-29 实测，别再用直觉归因）**：同一份已入库的"学平险"材料，8 种自然问法**只有 3 种命中**——「学平险」rerank 0.8875 过、「学校有学平险吗」0.8065 过、「多子句书面全称」过；「学平险在哪里买」**0.1007** 归零、「学生平安保险是否由学校统一办理？」**0.0194** 归零、学生原句 0.1136 归零，全部低于 `RERANK_MIN_SCORE=0.3` 且**无候选回退**。崩塌**与问句长度不单调**（7 字崩、48 字反而通过）——**我最初"长问句导致崩塌"的归因已被变体矩阵证伪并全项目更正**（`docs/CASE_STUDY.md` §3）。真正机制：**reranker 对"问句意图与分块字面内容不严格对应"就给极低分 + 一刀切阈值放大成零来源**，而**向量层本已把目标排到第 1~4 位**。任何归因先用 `evals/diag_retrieval.py` 逐层打印再下结论（坑 27）。
+- **允许改**：`novaagent/pyproject.toml`（新增 `langgraph`）、`novaagent/novaagent/{graph.py(新),agent.py,rag.py,config.py,db.py,main.py}`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py,query_variant_matrix.py,diag_retrieval.py}`、`docs/P4D.md`（新）、`docs/p4d/evidence/**`
+- **禁改**：`novaagent/novaagent/refusal.py`（P4a 硬门控**只可调用、不得削弱**）、`evals/faithfulness.py`、`novaagent/web/**`（本单纯后端 + 评测）、`sims/**`、`mcp/**`、`weknora/**`、`corpus/**`、`novaagent/data/agent.db*`
+- **完成标准（C1~C8）**：
+  - [ ] **C1 图落地**：`intent →(chitchat/time/meta) direct_answer` / `→ retrieve → grade ─达标→ generate / ─不达标→ rewrite → retrieve`（`MAX_REWRITE=2`）`→ refuse_with_exit`（复用 P4a 硬门控）。**只用 LangGraph 做状态机编排**——LLM 仍走 `llm.py`(httpx)、向量仍走 numpy 内存余弦，**不引入 langchain 的模型/向量/retriever 封装**。问时间/日期类**不调 LLM**（正则 + `datetime` 直答）；意图判定超时/失败 → **降级为默认走检索**（路由挂了不能不答）。给出**实测毫秒对照表**：闲聊路径首字延迟显著低于检索路径，普通问答不劣化
+  - [ ] **C2 质量信号**：`rag.search` 返回 `{top_score, n_above_threshold, fused_candidates}`；`grade` 判定 `top_score≥0.3 且 n_above_threshold≥2`（可配）。⚠ **返回结构形状变化不得破坏 P4c 的 scope 语义**
+  - [ ] **C3 新评测类型**：`intent`（断言 `retrieval_trace.skipped=true`）与 `rewrite`（口语化长问句断言发生改写且最终命中）。**每条断言必须带非空前置、失败必须判红**（坑 45/39——空集子集与 `try/except` 吞断言都不算断言）
+  - [ ] **C4 硬指标**：**`evals/query_variant_matrix.py` 命中率 3/8 → ≥6/8，且必须包含学生原句**。改前改后矩阵逐条同名配对落盘（`before/variant_matrix_before.txt` vs `after/variant_matrix_after.txt`），列出每条问句的 rerank 分与命中与否。**不接受"明显改善"这类无数字表述**（坑 18）。改前复跑若**不是 3/8 → 硬停上报**（基线已变，先对齐）
+  - [ ] **C4b 改写策略**：主力**意图归一 + 术语展开**（学平险 ↔ 学生平安保险 ↔ 意外伤害保险理赔），辅以去情境噪声（F1 场景）、学段限定（可接 P4c `audience`）、拆子问题；`retrieval_trace` 落 `conversations`，前端可展示「检索尝试 1/2/3」（前端若需改动先在回执提出）
+  - [ ] **C5 书面评估三项**：① `RERANK_MIN_SCORE` 是否改**分级阈值**（top1 单判 / top1 与 top2 差值）或"标题命中核心术语时保底候选"；② `db.fts_search()` 整句短语失败后回退的 2-gram 计次是否加**停用词过滤**（现状"学校/我们/这项"等通用词把无关块顶榜）；③ 遗留 `qa-09`（离校请销假）R@k 长期 0.0 的处理结果。**禁止单独调 `MAX_PER_DOC`**（T10 实测 =1 会挤出关键块）
+  - [ ] **C6 检索必须复用 P4c 的 scope 解析入口**：`_resolve_scope`（main 层）是「越权静默忽略 / 空库不回落 / 不泄露存在性」的唯一实现点，graph 内任何检索调用都必须走它解析出的 scope，**不得绕过它直接 `rag.search(scope=...)`**。要求写一条断言：越权夹经 **graph 路径**仍然 404 同表现、仍然不外泄（Qoder 在 P4c Review 里批准 `_resolve_scope` 留在 main 层，附带此约束）
+  - [ ] **C7 P4b 结转两条**：① `COMPRESS_PROMPT` 产出的摘要**逐条标注来源**（助手有据 / 用户自述未经核实），或摘要只压有据内容——现状是用户自塞假事实会随历史进摘要、再作为"可采信池"成员被复述（**坑 41**；`c4_compress_fidelity_v2` 即该通道演示：7341 元只存在于用户自塞背景资料，真实语料是硕士 7200 元/生·学年），同时把 `cc-01` 埋点改成**助手有据来源**；② 改写上线后**重估 `history_gate_hit` 的"回指命中"档**（现规则含它/该/此 + 1 个 2-gram 或 2 个单字即放行，偏宽）
+  - [ ] **C8 零回归与口径**：**v1.9 = 43 用例**不回退（43/43、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3、`scoped_qa` 3/3、四类 P4b 新路径用例全过、隔离全量 ok）；**忠实度中位一并观察**——v1.9 两轮均 **0.9412**，比 v1.8 中位 0.9706 低一档，**不得当纯噪声沉默**，若继续下滑必须解释并记账；若扩用例集，**必须同步 `cases.json` 的 `version` 字段 + `EVAL_BASELINE` + `HANDOFF` 三处口径**（坑 40；P4c 复核发现该字段长期停在 v1.7）。冒烟 exit 0、`documents 65→65`、`chunks 487→487`；**探针与证据脚本一律与证据同批 commit**（P4c 的"`.tmp` 探针未入库"别再犯）
+- **测试节奏（用户 2026-09-30 要求）**：实现期只跑针对性最小检查（`diag_retrieval.py` 逐层归因、`query_variant_matrix.py` 主指标可多次跑、新用例 targeted），**全部落地后集中跑一轮**完整评测 + 冒烟。
+- **依赖**：P4c 合并（已满足，master 含文件夹与 scope）；PyPI 可达（Qoder 实测清华源/官方源 langgraph 均 200）；`docs/P4.md` M6、§2.8；`docs/CASE_STUDY.md` §3
 
 ### P4e 联网搜索开关 + 来源分区标注　📋 READY（待 P4d，设计见 M7）
 
