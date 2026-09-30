@@ -395,8 +395,10 @@ class AgentService:
         return {"model": s["model"] or config.LLM_MODEL, "base_url": "", "api_key": ""}
 
     async def chat_for(self, user_id: int, username: str, role: str, question: str,
-                       conversation_id: int | None = None) -> dict[str, Any]:
-        # P4b: 会话解析——传入则校验属主(不存在/越权同表现),缺省自动新建(标题=首问前 20 字)
+                       conversation_id: int | None = None,
+                       scope: dict | None = None) -> dict[str, Any]:
+        # P4c C4: scope 为 main.resolve_scope 解析后的生效范围(folder_ids/categories/audience),
+        # 本函数只把它透传给 rag.search_with_quality,并把生效 scope 原样带回响应(P4c 白名单边界)。
         if conversation_id:
             if not db.get_conversation(conversation_id, user_id):
                 raise LookupError("会话不存在")
@@ -406,7 +408,9 @@ class AgentService:
         min_rank = db.config.ROLE_RANK[role]
         # P4b: 历史注入(过去轮次)先于检索与当前问题落库——本问不计入自身历史
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
-        sources, quality = await rag.search_with_quality(question, min_rank)
+        sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
+        if scope:
+            ctx_info["scope"] = scope
         # P4a C1 拒答硬门控:无来源/相关度不足 → 确定性模板(代码拼装,不经 LLM)。
         # P4b C2/C4 多轮分支:追问轮的证据不只来自知识库——本会话历史(含压缩摘要)已注入
         # 上下文。首问(无历史)维持硬拒答不变(refusal_indomain 评测即此路径);追问轮检索
@@ -489,7 +493,8 @@ class AgentService:
             raise
 
     async def chat_stream_for(self, user_id: int, username: str, role: str, question: str,
-                              conversation_id: int | None = None):
+                              conversation_id: int | None = None,
+                              scope: dict | None = None):
         """T8: 流式对话路径——工具循环(非流式判定工具调用)后流式输出最终答案。
         异步生成器逐段 yield 事件:
           {"type": "sources", "sources": [...]}          检索来源(一次性,最先)
@@ -508,7 +513,9 @@ class AgentService:
         eff = self.effective_llm(user_id)
         min_rank = db.config.ROLE_RANK[role]
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
-        sources, quality = await rag.search_with_quality(question, min_rank)
+        sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
+        if scope:
+            ctx_info["scope"] = scope  # P4c C4: 生效 scope 原样回传(纯 echo)
         # P4b-fix ①(与 chat_for 同款代码门控):命中才注入历史依据指令;未命中维持硬拒。
         do_refuse, reason = refusal.should_refuse(sources, quality)
         followup_note = ""

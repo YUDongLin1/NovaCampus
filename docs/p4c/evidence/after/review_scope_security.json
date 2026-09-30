@@ -1,0 +1,60 @@
+{
+  "T1_privilege_escalation": {
+    "move_status": 200,
+    "student_status": 200,
+    "student_sources": [],
+    "leaked": false,
+    "counselor_sources": [
+      "P4C-REVIEW-提权探针"
+    ]
+  },
+  "T2_existence_leak": {
+    "hidden_folder": 27,
+    "hidden_status": 404,
+    "nonexistent_status": 404,
+    "hidden_body": "{\"detail\":\"指定的知识库不存在或无权访问\"}",
+    "nonexistent_body": "{\"detail\":\"指定的知识库不存在或无权访问\"}",
+    "identical": true
+  },
+  "T3_empty_no_fallback": {
+    "status": 200,
+    "n_sources": 0,
+    "answer_head": "您指定的知识库范围下没有可检索的文档，本次回答**未做全库检索**。请确认所选文件夹/学段是否有内容，或去掉 @ 范围后重新提问。",
+    "fell_back_to_full_kb": false,
+    "context": {
+      "scope_empty": true,
+      "scope": {
+        "folder_ids": [
+          28
+        ],
+        "categories": null,
+        "audience": "postgrad"
+      }
+    }
+  },
+  "T4_partial_invisible": {
+    "status": 200,
+    "n_sources": 1,
+    "echoed_scope": {
+      "folder_ids": [
+        26
+      ],
+      "categories": null,
+      "audience": "postgrad"
+    }
+  },
+  "T5_narrowed": {
+    "status": 200,
+    "n_sources": 2,
+    "titles": [
+      "P4C-窄夹0",
+      "P4C-窄夹1"
+    ],
+    "all_within_scope": true
+  },
+  "cleanup": {
+    "folders_deleted": 4,
+    "docs_deleted": 3,
+    "documents_after": 65
+  }
+}

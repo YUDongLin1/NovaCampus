@@ -15,7 +15,7 @@ async function send() {
     const resp = await fetch('/api/chat/stream', {
       method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {}),
-      body: JSON.stringify(Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {})),
+      body: JSON.stringify(buildChatPayload(q)),
       signal: window._convAbort.signal
     });
     if (!resp.ok || !resp.body) throw new Error('HTTP ' + resp.status);
@@ -67,7 +67,7 @@ async function send() {
     bot.classList.remove('streaming');
     if (!got) {
       try {
-        const d = await api('/api/chat', { method: 'POST', json: Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {}) });
+        const d = await api('/api/chat', { method: 'POST', json: buildChatPayload(q) });
         bot.textContent = d.answer || '(空回复)';
         bot.className = 'msg bot' + (d.answer ? '' : ' error');
         if (d.conversation_id) window._convId = d.conversation_id;
@@ -82,8 +82,90 @@ async function send() {
       bot.textContent += '\n(流中断)';
     }
   }
+  clearScope();
   btn.disabled = false; $('messages').scrollTop = $('messages').scrollHeight;
 }
+
+/* ===== P4c C4: @ 选择器——@ 只是唤起符号, 选中的库以 scope 分离传参, question 永不含 @xxx ===== */
+window._scope = { folder_ids: [], categories: [] };
+
+function buildChatPayload(q) {
+  const p = Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {});
+  const scope = {};
+  if (window._scope.folder_ids.length) scope.folder_ids = window._scope.folder_ids.slice();
+  if (window._scope.categories.length) scope.categories = window._scope.categories.slice();
+  if (Object.keys(scope).length) p.scope = scope;
+  return p;
+}
+
+function clearScope() {
+  window._scope = { folder_ids: [], categories: [] };
+  renderScopeChips();
+}
+
+function composerKey(ev) {
+  if (ev.key === 'Enter') { send(); return; }
+  if (ev.key === '@') setTimeout(openAtPicker, 0);   // '@' 只作唤起符号, openAtPicker 会把它从问句里移除
+}
+
+async function openAtPicker() {
+  const input = $('q');
+  input.value = input.value.replace(/@/g, '');
+  let folders = [], cats = [];
+  try { folders = (await api('/api/kb/folders')).folders || []; } catch (e) {}
+  try { cats = (await api('/api/kb/documents')).categories || []; } catch (e) {}
+  const items = folders.map(f => ({ kind: 'folder', id: f.id, label: '📁 ' + f.name + '（' + f.doc_count + '）' }))
+    .concat(cats.map(cn => ({ kind: 'category', id: cn, label: '🏷 ' + cn })));
+  const el = $('at-picker'); if (!el) return;
+  el.innerHTML = items.length
+    ? items.map((it, i) => `<button type="button" class="at-item${isPicked(it) ? ' picked' : ''}" data-i="${i}">${esc(it.label)}</button>`).join('')
+    : '<div class="at-empty">没有可选的知识库</div>';
+  el.querySelectorAll('.at-item').forEach(btn => {
+    btn.onclick = () => { togglePick(items[+btn.dataset.i]); closeAtPicker(); };
+  });
+  el.style.display = 'block';
+}
+
+function isPicked(it) {
+  return it.kind === 'folder' ? window._scope.folder_ids.includes(it.id)
+                              : window._scope.categories.includes(it.id);
+}
+
+function togglePick(it) {
+  const arr = it.kind === 'folder' ? window._scope.folder_ids : window._scope.categories;
+  const i = arr.indexOf(it.id);
+  if (i >= 0) arr.splice(i, 1); else arr.push(it.id);
+  renderScopeChips();
+}
+
+function closeAtPicker() { const el = $('at-picker'); if (el) el.style.display = 'none'; }
+
+function renderScopeChips() {
+  const el = $('scope-chips'); if (!el) return;
+  const chips = [];
+  window._scope.folder_ids.forEach(id => {
+    const f = (window._kbFolders || []).find(x => x.id === id);
+    chips.push({ kind: 'folder', id, label: '📁 ' + (f ? f.name : '#' + id) });
+  });
+  window._scope.categories.forEach(cn => chips.push({ kind: 'category', id: cn, label: '🏷 ' + cn }));
+  if (!chips.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<span class="chip-label">检索范围：</span>' + chips.map(c =>
+    `<span class="chip" data-kind="${c.kind}" data-id="${c.id}">${esc(c.label)} ✕</span>`).join('');
+  el.querySelectorAll('.chip').forEach(x => {
+    x.onclick = () => {
+      const kind = x.dataset.kind, id = x.dataset.id;
+      const arr = kind === 'folder' ? window._scope.folder_ids : window._scope.categories;
+      const i = arr.indexOf(kind === 'folder' ? +id : id);
+      if (i >= 0) arr.splice(i, 1);
+      renderScopeChips();
+    };
+  });
+}
+
+document.addEventListener('click', (ev) => {
+  const el = $('at-picker');
+  if (el && el.style.display === 'block' && !el.contains(ev.target) && ev.target.id !== 'q') closeAtPicker();
+});
 
 function renderMeta(bot, srcs, trace) {
   if (srcs && srcs.length) {

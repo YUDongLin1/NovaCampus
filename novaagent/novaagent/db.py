@@ -166,6 +166,37 @@ def _migrate() -> None:
            )"""
     )
     _conn.commit()
+
+    # P4c C1: KB 文件夹 + documents.audience 学段元数据。
+    # 迁移纪律(C1): 不删数据——只 CREATE IF NOT EXISTS / 幂等加列 / 建索引,
+    # 不 UPDATE 任何既有行(folder_id 恒 NULL=根、audience 恒 'common'),
+    # 重复启动不重复建表不重复赋值;计数守恒由 tests/test_p4c_kb.py 断言。
+    _conn.execute(
+        """CREATE TABLE IF NOT EXISTS folders (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               name TEXT NOT NULL,
+               parent_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
+               owner_id INTEGER NOT NULL REFERENCES users(id),
+               -- private=仅建者可见( admin 例外);student/counselor/admin=该角色及以上可见
+               visibility TEXT NOT NULL DEFAULT 'private'
+                   CHECK(visibility IN ('private','student','counselor','admin')),
+               created_at TEXT NOT NULL
+           )"""
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_folders_owner ON folders(owner_id, parent_id)")
+    dcols = [r["name"] for r in _conn.execute("PRAGMA table_info(documents)")]
+    with _lock:
+        if "folder_id" not in dcols:
+            _conn.execute("ALTER TABLE documents ADD COLUMN folder_id INTEGER REFERENCES folders(id)")
+        if "audience" not in dcols:
+            _conn.execute(
+                "ALTER TABLE documents ADD COLUMN audience TEXT NOT NULL DEFAULT 'common' "
+                "CHECK(audience IN ('undergrad','postgrad','common'))"
+            )
+        _conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_folder ON documents(folder_id)")
+        _conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_audience ON documents(audience)")
+        _conn.commit()
+
     _migrate_messages_to_conversations()
 
 
@@ -308,11 +339,15 @@ def user_by_token(token: str) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def insert_document(title: str, filename: str, role_min: str, uploaded_by: str, category: str = "其他") -> int:
+def insert_document(title: str, filename: str, role_min: str, uploaded_by: str,
+                    category: str = "其他", folder_id: int | None = None,
+                    audience: str = "common") -> int:
+    """P4c C5: 上传时可带 folder_id 与 audience 学段标注(缺省=根目录/通用)。"""
     with _lock:
         cur = _conn.execute(
-            "INSERT INTO documents (title, filename, role_min, uploaded_by, created_at, category) VALUES (?,?,?,?,?,?)",
-            (title, filename, role_min, uploaded_by, _now(), category),
+            "INSERT INTO documents (title, filename, role_min, uploaded_by, created_at, category,"
+            " folder_id, audience) VALUES (?,?,?,?,?,?,?,?)",
+            (title, filename, role_min, uploaded_by, _now(), category, folder_id, audience),
         )
         _conn.commit()
         return cur.lastrowid
@@ -343,17 +378,27 @@ def find_document_by_url(url: str) -> dict | None:
     return dict(row) if row else None
 
 
-def list_documents(min_rank: int, category: str = "") -> list[dict]:
+def list_documents(min_rank: int, category: str = "", folder_id: int | None = None,
+                   audience: str = "") -> list[dict]:
+    """KB 文档列表。P4c C5/C6: 增加 folder_id(含 'root' 语义=None 根目录)与 audience 筛选。"""
     allowed = [r for r, rank in config.ROLE_RANK.items() if rank <= min_rank]
     q = ",".join("?" * len(allowed))
     sql = f"""SELECT d.id, d.title, d.filename, d.role_min, d.uploaded_by, d.created_at, d.category,
-                     COUNT(c.id) AS chunk_count
+                     d.folder_id, d.audience, COUNT(c.id) AS chunk_count
               FROM documents d LEFT JOIN chunks c ON c.doc_id = d.id
               WHERE d.role_min IN ({q})"""
     args: list = list(allowed)
     if category:
         sql += " AND d.category = ?"
         args.append(category)
+    if folder_id == "root":
+        sql += " AND d.folder_id IS NULL"
+    elif isinstance(folder_id, int):
+        sql += " AND d.folder_id = ?"
+        args.append(folder_id)
+    if audience in ("undergrad", "postgrad", "common"):
+        sql += " AND d.audience = ?"
+        args.append(audience)
     sql += " GROUP BY d.id ORDER BY d.id DESC"
     rows = _conn.execute(sql, args).fetchall()
     return [dict(r) for r in rows]
@@ -367,6 +412,190 @@ def list_categories(min_rank: int) -> list[str]:
         allowed,
     ).fetchall()
     return [r["category"] for r in rows]
+
+
+# ---------- P4c C2/C3: 文件夹与检索 scope ----------
+
+def _folder_visible_where(rank: int, user_id: int) -> tuple[str, list]:
+    """文件夹可见性(沿用「不可见=不存在」约定,不泄露存在性):
+    visibility='student' 所有人可见;'counselor'/'admin' 对应角色及以上;
+    'private' 仅建者;admin(rank=3) 管全部。"""
+    if rank >= 3:
+        return ("1=1", [])
+    conds = ["visibility='student'"]
+    args: list = []
+    if rank >= 2:
+        conds.append("visibility='counselor'")
+    conds.append("(visibility='private' AND owner_id=?)")
+    args.append(user_id)
+    return ("(" + " OR ".join(conds) + ")", args)
+
+
+def visible_folder_ids(user_id: int, role: str) -> set[int]:
+    """P4c 硬约束 1: scope 解析用——请求的 folder_ids 与此集合取交集,
+    越权/不存在的 folder 一律静默忽略,响应不得泄露其是否存在。"""
+    rank = config.ROLE_RANK[role]
+    w, args = _folder_visible_where(rank, user_id)
+    rows = _conn.execute(f"SELECT id FROM folders WHERE {w}", args).fetchall()
+    return {r[0] for r in rows}
+
+
+def folder_name_exists(name: str, parent_id: int | None, exclude_id: int | None = None,
+                       requester_visible: set[int] | None = None) -> bool:
+    """C2 同层重名检查:requester_visible 传入时只对"请求者看得见的重名"拒绝,
+    避免误伤别人 private 文件夹的同名。"""
+    sql = "SELECT id FROM folders WHERE name=? AND parent_id IS ?"
+    args: list = [name, parent_id]
+    if exclude_id:
+        sql += " AND id != ?"
+        args.append(exclude_id)
+    rows = [r[0] for r in _conn.execute(sql, args).fetchall()]
+    if not rows:
+        return False
+    if requester_visible is None:
+        return True
+    return any(rid in requester_visible for rid in rows)
+
+
+def create_folder(name: str, parent_id: int | None, owner_id: int, visibility: str) -> int:
+    with _lock:
+        cur = _conn.execute(
+            "INSERT INTO folders (name, parent_id, owner_id, visibility, created_at) VALUES (?,?,?,?,?)",
+            (name, parent_id, owner_id, visibility, _now()),
+        )
+        _conn.commit()
+        return cur.lastrowid
+
+
+def get_folder(folder_id: int) -> dict | None:
+    row = _conn.execute("SELECT * FROM folders WHERE id=?", (folder_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def update_folder(folder_id: int, **fields) -> None:
+    sets = ",".join(f"{k}=?" for k in fields)
+    with _lock:
+        _conn.execute(f"UPDATE folders SET {sets} WHERE id=?", (*fields.values(), folder_id))
+        _conn.commit()
+
+
+def folder_child_ids(folder_id: int) -> list[int]:
+    """直接子文件夹 id(不含自身)。"""
+    return [r[0] for r in _conn.execute(
+        "SELECT id FROM folders WHERE parent_id=?", (folder_id,)).fetchall()]
+
+
+def folder_descendant_ids(folder_id: int) -> list[int]:
+    """子树全部 id(BFS;用于删除范围与环检测,不含 folder_id 自身)。"""
+    out: list[int] = []
+    frontier = [folder_id]
+    while frontier:
+        qs = ",".join("?" * len(frontier))
+        rows = _conn.execute(
+            f"SELECT id FROM folders WHERE parent_id IN ({qs})", frontier).fetchall()
+        ids = [r[0] for r in rows]
+        out += ids
+        frontier = ids
+    return out
+
+
+def folder_visible_doc_count(folder_ids: list[int], min_rank: int) -> int:
+    """这些文件夹下、对该角色可见的文档数(判定"空库"用,硬约束 3)。"""
+    if not folder_ids:
+        return 0
+    allowed = [r for r, rank in config.ROLE_RANK.items() if rank <= min_rank]
+    fq = ",".join("?" * len(folder_ids))
+    aq = ",".join("?" * len(allowed))
+    row = _conn.execute(
+        f"SELECT COUNT(*) FROM documents WHERE folder_id IN ({fq}) AND role_min IN ({aq})",
+        [*folder_ids, *allowed],
+    ).fetchone()
+    return row[0]
+
+
+def delete_folders(folder_ids: list[int]) -> int:
+    """删除文件夹子树;其下文档 folder_id 置 NULL(移回根)——**不删文档**,保证 KB 守恒(C9)。"""
+    if not folder_ids:
+        return 0
+    qs = ",".join("?" * len(folder_ids))
+    with _lock:
+        cur = _conn.execute(f"UPDATE documents SET folder_id=NULL WHERE folder_id IN ({qs})", folder_ids)
+        _conn.execute(f"DELETE FROM folders WHERE id IN ({qs})", folder_ids)
+        _conn.commit()
+    return cur.rowcount
+
+
+_UNSET = object()
+
+
+def update_document_meta(doc_id: int, folder_id=_UNSET,
+                         audience: str | None = None) -> None:
+    """P4c C2/C5: 移动/标注学段。folder_id 传 **None=移回根目录**、不传(默认哨兵)=不改;
+    必须用哨兵区分"显式移回根"与"未提供"——否则 null 会被当成"未提供"丢掉。"""
+    sets: list[str] = []
+    args: list = []
+    if folder_id is not _UNSET:
+        sets.append("folder_id=?")
+        args.append(folder_id)
+    if audience is not None:
+        sets.append("audience=?")
+        args.append(audience)
+    if not sets:
+        return
+    with _lock:
+        _conn.execute(f"UPDATE documents SET {','.join(sets)} WHERE id=?", (*args, doc_id))
+        _conn.commit()
+
+
+def move_documents(doc_ids: list[int], folder_id: int | None) -> int:
+    """P4c C2: 批量移动(含移回根)。返回实际更新条数。"""
+    if not doc_ids:
+        return 0
+    qs = ",".join("?" * len(doc_ids))
+    with _lock:
+        cur = _conn.execute(
+            f"UPDATE documents SET folder_id=? WHERE id IN ({qs})", (folder_id, *doc_ids))
+        _conn.commit()
+    return cur.rowcount
+
+
+def list_folders_with_counts(user_id: int, role: str) -> list[dict]:
+    """文件夹树(仅可见项)+ 每夹对该角色可见的文档数。"""
+    rank = config.ROLE_RANK[role]
+    w, args = _folder_visible_where(rank, user_id)
+    rows = _conn.execute(
+        f"SELECT * FROM folders WHERE {w} ORDER BY parent_id IS NOT NULL, name", args).fetchall()
+    allowed = [r for r, rk in config.ROLE_RANK.items() if rk <= rank]
+    aq = ",".join("?" * len(allowed))
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["doc_count"] = _conn.execute(
+            f"SELECT COUNT(*) FROM documents WHERE folder_id=? AND role_min IN ({aq})",
+            [d["id"], *allowed]).fetchone()[0]
+        out.append(d)
+    return out
+
+
+def audience_conflict(question_keywords: list[str], min_rank: int) -> bool:
+    """P4c C5/F3: 问题命中学段敏感词时,检查 KB 是否**同时**存在本科/研究生两段的已标注材料。
+
+    两边都有才值得追问学段(不猜)。当前库全部为 audience='common' → 恒 False,
+    追问路径不会被存量评测用例触发(零回归);一旦后续按学段标注出成对材料即自动生效。
+    """
+    allowed = [r for r, rank in config.ROLE_RANK.items() if rank <= min_rank]
+    aq = ",".join("?" * len(allowed))
+    for kw in question_keywords:
+        like = f"%{kw}%"
+        rows = _conn.execute(
+            f"""SELECT DISTINCT d.audience FROM documents d JOIN chunks c ON c.doc_id=d.id
+                WHERE d.role_min IN ({aq}) AND d.audience IN ('undergrad','postgrad')
+                  AND (d.title LIKE ? OR c.content LIKE ?)""",
+            [*allowed, like, like],
+        ).fetchall()
+        if {"undergrad", "postgrad"} <= {r[0] for r in rows}:
+            return True
+    return False
 
 
 def get_user_model(user_id: int) -> str:
@@ -399,15 +628,48 @@ def get_chunks(doc_id: int) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def all_chunks_for_search(min_rank: int) -> list[dict]:
-    """取出当前角色可见的全部分块(含向量),供内存检索。"""
+def _scope_where(folder_ids: list[int] | None, categories: list[str] | None,
+                 audience: str | None) -> tuple[str, list]:
+    """P4c C3: scope 过滤片段(只收窄、不放宽,与 RBAC 的 role_min IN (...) 取交集)。
+
+    folder_ids 传入前必须已由 main.resolve_scope 完成"越权 folder 静默忽略"
+    (可见性解析),本函数只做纯过滤;audience 学段过滤始终放行 common,
+    避免误杀未标注文档。返回 (where 片段, 参数列表)。
+    """
+    where: list[str] = []
+    args: list = []
+    if folder_ids:
+        where.append(f"d.folder_id IN ({','.join('?' * len(folder_ids))})")
+        args += [int(f) for f in folder_ids]
+    if categories:
+        where.append(f"d.category IN ({','.join('?' * len(categories))})")
+        args += [str(c) for c in categories]
+    if audience in ("undergrad", "postgrad"):
+        where.append("d.audience IN (?, 'common')")
+        args.append(audience)
+    return (" AND " + " AND ".join(where)) if where else "", args
+
+
+def all_chunks_for_search(min_rank: int, folder_ids: list[int] | None = None,
+                          categories: list[str] | None = None,
+                          audience: str | None = None) -> list[dict]:
+    """取出当前角色可见的全部分块(含向量),供内存检索。
+
+    P4c C3: scope 与 RBAC 取交集——folder_ids/categories/audience 只会收窄候选集,
+    不可能放宽 role_min 过滤(文档自身 role_min 恒生效,文件夹可见性无法提权)。
+    folder_ids=None 表示未指定 scope(全库,原行为);folder_ids==[] 表示"指定了
+    scope 但解析后为空"→ 直接返回空列表(硬约束 3: 绝不静默回落全库)。
+    """
     allowed = [r for r, rank in config.ROLE_RANK.items() if rank <= min_rank]
     q = ",".join("?" * len(allowed))
+    if folder_ids is not None and not folder_ids:
+        return []
+    where_extra, extra_args = _scope_where(folder_ids, categories, audience)
     rows = _conn.execute(
         f"""SELECT c.id, c.content, c.embedding, d.title, d.role_min, d.id AS doc_id
             FROM chunks c JOIN documents d ON d.id=c.doc_id
-            WHERE d.role_min IN ({q})""",
-        allowed,
+            WHERE d.role_min IN ({q}){where_extra}""",
+        allowed + extra_args,
     ).fetchall()
     return [
         {
@@ -422,12 +684,31 @@ def all_chunks_for_search(min_rank: int) -> list[dict]:
     ]
 
 
+def count_visible_documents(min_rank: int, folder_ids: list[int] | None = None,
+                            categories: list[str] | None = None,
+                            audience: str | None = None) -> int:
+    """P4c 硬约束 3: 判定 scope 指定的范围内是否**真的有可见文档**——
+    为 0 时 main 层返回明确提示,绝不静默回落全库检索。"""
+    allowed = [r for r, rank in config.ROLE_RANK.items() if rank <= min_rank]
+    q = ",".join("?" * len(allowed))
+    if folder_ids is not None and not folder_ids:
+        return 0
+    extra_where, extra_args = _scope_where(folder_ids, categories, audience)
+    row = _conn.execute(
+        f"SELECT COUNT(*) FROM documents d WHERE d.role_min IN ({q}){extra_where}",
+        allowed + extra_args,
+    ).fetchone()
+    return row[0]
+
+
 def fts_available() -> bool:
     """T6 ⑥b: FTS5 全文索引是否可用(_migrate 探测)。"""
     return _fts_ok
 
 
-def fts_search(query: str, role_mins: list[str], top_k: int) -> list[tuple[int, float]] | None:
+def fts_search(query: str, role_mins: list[str], top_k: int,
+               folder_ids: list[int] | None = None, categories: list[str] | None = None,
+               audience: str | None = None) -> list[tuple[int, float]] | None:
     """T6 ⑥b: FTS5 关键词检索(bm25 排序,限定角色可见集)。
 
     匹配串为整句引号短语(短语在 trigram 分词下等价于其三连字的连续匹配,
@@ -435,20 +716,25 @@ def fts_search(query: str, role_mins: list[str], top_k: int) -> list[tuple[int, 
     返回 None,由调用方回退内存 2-gram 计次(行为不变)。
     返回 [(chunk_id, bm25 分数)] 按 bm25 升序(越小越相关);
     FTS5 不可用/异常/零命中返回 None(调用方回退,拒答阈值行为不变)。
+    P4c C3: scope 过滤在 FTS 层同步生效——否则 top_k 会被 scope 外的块占满,
+    指定小库时表现为"假性空结果"(坑 22 同源:指标好看 ≠ 真的检索到了)。
     """
     if not _fts_ok or not query.strip():
+        return None
+    if folder_ids is not None and not folder_ids:
         return None
     try:
         q = '"' + query.replace('"', '""') + '"'
         roles = ",".join("?" * len(role_mins))
+        extra_where, extra_args = _scope_where(folder_ids, categories, audience)
         rows = _conn.execute(
             f"""SELECT c.id, bm25(chunks_fts) AS score
                 FROM chunks_fts f
                 JOIN chunks c ON c.id = f.rowid
                 JOIN documents d ON d.id = c.doc_id
-                WHERE chunks_fts MATCH ? AND d.role_min IN ({roles})
+                WHERE chunks_fts MATCH ? AND d.role_min IN ({roles}){extra_where}
                 ORDER BY score LIMIT ?""",
-            [q, *role_mins, top_k],
+            [q, *role_mins, *extra_args, top_k],
         ).fetchall()
         if not rows:
             return None

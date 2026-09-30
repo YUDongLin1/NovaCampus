@@ -14,7 +14,14 @@ async function api(path, opts = {}) {
   if (opts.json) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
   const resp = await fetch(path, opts);
   const data = await resp.json().catch(() => ({}));
-  if (!resp.ok) throw new Error(typeof data.detail === 'string' ? data.detail : ('HTTP ' + resp.status));
+  if (!resp.ok) {
+    // 坑 30 消费端同步(P4c): {code,reason,hint} 结构化错误渲染为可读文案
+    const dt = data.detail;
+    let msg = 'HTTP ' + resp.status;
+    if (typeof dt === 'string') msg = dt;
+    else if (dt && typeof dt === 'object') msg = [dt.reason, dt.hint].filter(Boolean).join('：') || msg;
+    throw new Error(msg);
+  }
   return data;
 }
 

@@ -251,6 +251,83 @@ def run_conversation_case(c: httpx.Client, tokens: dict, case: dict) -> tuple[bo
         return False, f"HTTP {e.response.status_code}: {e.response.text[:120]}", "", [], turns_sent, cid, last_ctx, turn_contexts
 
 
+def run_scoped_qa(c: httpx.Client, tokens: dict, case: dict) -> tuple[bool, str, str, list]:
+    """P4c C7: @ 指定检索范围用例(自备夹 + 自清理,坑 23/39)。
+
+    setup.folder            建夹参数(name/visibility);夹由 counselor 建
+    setup.move_doc_title    可选:把标题前缀匹配的既有文档移入该夹(验证"来源全属该夹")
+    断言(全部能失败且失败即 total_pass 不满):
+      expect_status            期待 HTTP 状态(越权 folder 与不存在同表现 404)
+      expect_sources_titles    来源标题前缀必须全落在集合内(scope 生效的直接证明)
+      expect_no_sources        必须零来源(空库提示路径,防"回落全库"回归)
+      expect_context           context 标志断言(scope_empty 等)
+      expect_keywords          答案关键词(any-of 语义同 qa)
+    teardown: 文档 folder_id 复位 + 级联删夹(只删壳,不删文档) → KB 元数据守恒。
+    """
+    co = {"Authorization": f"Bearer {tokens['counselor']}"}
+    setup = case.get("setup") or {}
+    fid = None
+    moved_doc = None
+    try:
+        r = c.post(f"{BASE}/api/kb/folders", headers=co, json=setup["folder"])
+        r.raise_for_status()
+        fid = r.json()["folder_id"]
+        moved_title = setup.get("move_doc_title")
+        if moved_title:
+            docs = c.get(f"{BASE}/api/kb/documents", headers=co).json()["documents"]
+            moved_doc = next((d for d in docs if d["title"].startswith(moved_title)), None)
+            assert moved_doc, f"setup 失败: 找不到待移入文档(前缀 {moved_title})"
+            r = c.patch(f"{BASE}/api/kb/documents/{moved_doc['id']}", headers=co,
+                        json={"folder_id": fid})
+            r.raise_for_status()
+        raw_scope = {"folder_ids": [fid],
+                     "categories": setup.get("categories"),
+                     "audience": setup.get("audience")}
+        scope = {k: v for k, v in raw_scope.items() if v}
+        r = c.post(f"{BASE}/api/chat", headers={"Authorization": f"Bearer {tokens[case['role']]}"},
+                   json={"question": case["question"], "scope": scope})
+        if case.get("expect_status"):
+            ok = r.status_code == case["expect_status"]
+            return ok, f"HTTP {r.status_code}(期待 {case['expect_status']}) body={r.text[:100]}", "", []
+        r.raise_for_status()
+        d = r.json()
+        sources = d.get("sources") or []
+        ctx = d.get("context") or {}
+        answer = d.get("answer") or ""
+        bad: list[str] = []
+        for k, v in (case.get("expect_context") or {}).items():
+            if ctx.get(k) != v:
+                bad.append(f"context.{k}={ctx.get(k)!r}(期待 {v!r})")
+        if case.get("expect_no_sources") and sources:
+            bad.append(f"期待零来源却得 {len(sources)} 条(疑似回落全库): "
+                       f"{[s['title'] for s in sources][:3]}")
+        allow = tuple(case.get("expect_sources_titles") or ())
+        if allow:
+            if not sources:
+                bad.append("期待有来源却为空")
+            else:
+                bad += [f"来源越界: {s['title']}" for s in sources
+                        if not s["title"].startswith(allow)]
+        if case.get("expect_keywords"):
+            miss = kw_missing(case["expect_keywords"], answer)
+            if miss:
+                bad.append(f"答案未命中: {miss}; 头部: {answer[:80]!r}")
+        detail = "; ".join(bad) if bad else f"sources={len(sources)}, scope 断言全过"
+        return (not bad), detail, answer, sources
+    finally:
+        if moved_doc:
+            try:
+                c.patch(f"{BASE}/api/kb/documents/{moved_doc['id']}", headers=co,
+                        json={"folder_id": None})
+            except Exception:  # noqa: BLE001
+                pass
+        if fid:
+            try:
+                c.delete(f"{BASE}/api/kb/folders/{fid}", headers=co, params={"cascade": "true"})
+            except Exception:  # noqa: BLE001
+                pass
+
+
 def run() -> int:
     global BASE
     ap = argparse.ArgumentParser()
@@ -295,6 +372,12 @@ def run() -> int:
                     first_question = case["turns"][0]["question"]
                     if (case.get("plant") or {}).get("turns"):
                         first_question = build_plant_text(0, case["plant"]["facts"], case["plant"]["chars"])
+                elif case["type"] == "scoped_qa":
+                    # P4c C7: @ 指定检索范围——setup 自备夹(必要时移入既有文档),带 scope 提问,
+                    # 断言来源全属该夹 / 空库提示不回落 / 越权 404 同表现;teardown 恢复 KB 元数据。
+                    ok, detail, answer, sources = run_scoped_qa(c, tokens, case)
+                    turns_sent = 1
+                    first_question = case["question"]
                 else:
                     r = c.post(f"{BASE}/api/chat", headers={"Authorization": f"Bearer {tokens[case['role']]}"},
                                json={"question": case["question"]})

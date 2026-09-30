@@ -163,11 +163,23 @@ async def kb_upload(
     file: UploadFile = File(...),
     role_min: str = Form("student"),
     category: str = Form("其他"),
+    folder_id: str = Form(""),
+    audience: str = Form("common"),
     user=Depends(require_role("counselor")),
 ):
     if role_min not in ROLE_RANK:
         raise HTTPException(400, f"role_min 必须是 {list(ROLE_RANK)}")
     category = (category or "其他").strip()[:20] or "其他"
+    # P4c C5: 上传即可标注文件夹与学段
+    fid: int | None = None
+    if str(folder_id).strip():
+        try:
+            fid = int(folder_id)
+        except ValueError:
+            raise HTTPException(400, "folder_id 必须是整数")
+        _folder_visible_or_404(fid, user)  # 不可见 = 不存在(硬约束 1)
+    if audience not in AUDIENCE_VALUES:
+        raise HTTPException(400, f"audience 必须是 {list(AUDIENCE_VALUES)}")
     raw = await file.read()
     name = file.filename or "untitled"
     suffix = Path(name).suffix.lower()
@@ -191,15 +203,16 @@ async def kb_upload(
         raise HTTPException(400, "切分结果为空")
     vectors = await rag.embed_texts(chunks)
     doc_id = db.insert_document(title=Path(name).stem, filename=name, role_min=role_min,
-                                uploaded_by=user["username"], category=category)
+                                uploaded_by=user["username"], category=category,
+                                folder_id=fid, audience=audience)
     db.insert_chunks(doc_id, list(zip(range(len(chunks)), chunks, vectors)))
     eff = agent.effective_llm(user["id"])
     summary = await agent.summarize_document(Path(name).stem, chunks, eff["model"], eff["base_url"], eff["api_key"])
     db.update_document_summary(doc_id, summary)
-    logger.info("ingested doc=%s chunks=%d role_min=%s category=%s by %s",
-                name, len(chunks), role_min, category, user["username"])
+    logger.info("ingested doc=%s chunks=%d role_min=%s category=%s folder=%s audience=%s by %s",
+                name, len(chunks), role_min, category, fid, audience, user["username"])
     return {"doc_id": doc_id, "chunks": len(chunks), "role_min": role_min,
-            "category": category, "summary": summary}
+            "category": category, "summary": summary, "folder_id": fid, "audience": audience}
 
 
 @app.post("/api/kb/import_url")
@@ -462,9 +475,24 @@ def _gate_or_400(url: str, title: str, text: str) -> None:
 
 
 @app.get("/api/kb/documents")
-async def kb_documents(category: str = "", user=Depends(current_user)):
+async def kb_documents(category: str = "", folder_id: str = "", audience: str = "",
+                       user=Depends(current_user)):
+    """P4c C6: 列表增加 folder_id('root'=根目录/整数=指定夹)与 audience 筛选。"""
     rank = ROLE_RANK[user["role"]]
-    return {"documents": db.list_documents(rank, category), "categories": db.list_categories(rank)}
+    fid: int | str | None = None
+    if folder_id == "root":
+        fid = "root"
+    elif folder_id:
+        try:
+            fid = int(folder_id)
+        except ValueError:
+            raise HTTPException(400, "folder_id 必须是整数或 root")
+        _folder_visible_or_404(fid, user)  # 不可见 = 不存在(硬约束 1)
+    if audience and audience not in AUDIENCE_VALUES:
+        raise HTTPException(400, f"audience 必须是 {list(AUDIENCE_VALUES)}")
+    docs = db.list_documents(rank, category, folder_id=fid, audience=audience or "")
+    return {"documents": docs, "categories": db.list_categories(rank),
+            "audience_values": list(AUDIENCE_VALUES)}
 
 
 @app.get("/api/kb/documents/{doc_id}/chunks")
@@ -475,12 +503,157 @@ async def kb_chunks(doc_id: int, user=Depends(current_user)):
     return {"document": doc, "chunks": db.get_chunks(doc_id)}
 
 
+@app.patch("/api/kb/documents/{doc_id}")
+async def kb_document_patch(doc_id: int, body: dict, user=Depends(require_role("counselor"))):
+    """P4c C2/C5: 单条移动(folder_id, null=移回根)与学段标注(audience)。"""
+    rank = ROLE_RANK[user["role"]]
+    doc = db.get_document(doc_id, rank)
+    if doc is None:
+        raise HTTPException(404, "文档不存在或无权修改")
+    has_folder = "folder_id" in body
+    fid = body.get("folder_id")
+    if has_folder and fid is not None and not isinstance(fid, bool):
+        if not isinstance(fid, int):
+            raise HTTPException(400, "folder_id 必须是整数或 null")
+        _folder_visible_or_404(fid, user)
+    aud = body.get("audience")
+    if aud is not None and aud not in AUDIENCE_VALUES:
+        raise HTTPException(400, f"audience 必须是 {list(AUDIENCE_VALUES)}")
+    db.update_document_meta(doc_id,
+                            folder_id=fid if has_folder else db._UNSET,
+                            audience=aud)
+    return {"updated": True, "folder_id": fid if has_folder else doc["folder_id"],
+            "audience": aud or doc["audience"]}
+
+
+@app.post("/api/kb/documents/move")
+async def kb_documents_move(body: dict, user=Depends(require_role("counselor"))):
+    """P4c C2: 批量移动。只移动请求者可见的文档(不可见 = 不存在,跳过不泄露)。"""
+    rank = ROLE_RANK[user["role"]]
+    doc_ids = body.get("doc_ids") or []
+    if not isinstance(doc_ids, list) or not doc_ids:
+        raise HTTPException(400, "doc_ids 不能为空")
+    doc_ids = [int(d) for d in doc_ids if str(d).strip().lstrip("-").isdigit()][:100]
+    fid = body.get("folder_id", None)
+    if fid is not None:
+        if not isinstance(fid, int):
+            raise HTTPException(400, "folder_id 必须是整数或 null")
+        _folder_visible_or_404(fid, user)
+    visible_docs = {d["id"] for d in db.list_documents(rank) }
+    targets = [d for d in doc_ids if d in visible_docs]
+    moved = db.move_documents(targets, fid)
+    return {"moved": moved, "skipped": len(doc_ids) - moved, "folder_id": fid}
+
+
 @app.delete("/api/kb/documents/{doc_id}")
 async def kb_delete(doc_id: int, user=Depends(require_role("counselor"))):
     if db.get_document(doc_id, ROLE_RANK[user["role"]]) is None:
         raise HTTPException(404, "文档不存在或无权删除")
     db.delete_document(doc_id)
     return {"deleted": True}
+
+
+# ---------- P4c C2: 文件夹 CRUD ----------
+
+def _folder_visible_or_404(folder_id: int, user) -> dict:
+    """「不可见 = 不存在」:越权与不存在同表现 404,不泄露文件夹是否存在(硬约束 1)。"""
+    f = db.get_folder(folder_id)
+    if f is None or folder_id not in db.visible_folder_ids(user["id"], user["role"]):
+        raise HTTPException(404, "文件夹不存在或无权访问")
+    return f
+
+
+def _folder_owned_or_404(folder_id: int, user) -> dict:
+    f = _folder_visible_or_404(folder_id, user)
+    if user["role"] != "admin" and f["owner_id"] != user["id"]:
+        raise HTTPException(404, "文件夹不存在或无权访问")  # 只读可见 ≠ 可管理,同样不泄露
+    return f
+
+
+def _folder_cycle_check(folder_id: int, new_parent_id: int | None) -> None:
+    """重挂父级不得落入自己的子树(成环会让子树列表/删除死循环)。"""
+    if new_parent_id is None:
+        return
+    if new_parent_id == folder_id or new_parent_id in set(db.folder_descendant_ids(folder_id)):
+        raise HTTPException(400, "parent_id 不能是自身或自己的子孙文件夹")
+
+
+@app.get("/api/kb/folders")
+async def kb_folders(user=Depends(current_user)):
+    """文件夹树(仅可见项,admin 管全部)+ 每夹可见文档数;@ 选择器与 KB 页共用。"""
+    return {"folders": db.list_folders_with_counts(user["id"], user["role"])}
+
+
+@app.post("/api/kb/folders")
+async def kb_folder_create(body: dict, user=Depends(require_role("counselor"))):
+    name = (body.get("name") or "").strip()
+    if not name or len(name) > 50:
+        raise HTTPException(400, "name 必填且不超过 50 字")
+    visibility = body.get("visibility") or "private"
+    if visibility not in FOLDER_VISIBILITY:
+        raise HTTPException(400, f"visibility 必须是 {list(FOLDER_VISIBILITY)}")
+    parent_id = body.get("parent_id")
+    if parent_id is not None:
+        if not isinstance(parent_id, int):
+            raise HTTPException(400, "parent_id 必须是整数或 null")
+        _folder_visible_or_404(parent_id, user)
+    visible = db.visible_folder_ids(user["id"], user["role"])
+    if db.folder_name_exists(name, parent_id, requester_visible=visible):
+        raise HTTPException(409, "同级已存在同名文件夹")
+    fid = db.create_folder(name, parent_id, user["id"], visibility)
+    return {"folder_id": fid, "name": name, "parent_id": parent_id, "visibility": visibility}
+
+
+@app.patch("/api/kb/folders/{folder_id}")
+async def kb_folder_patch(folder_id: int, body: dict, user=Depends(require_role("counselor"))):
+    f = _folder_owned_or_404(folder_id, user)
+    fields: dict = {}
+    if "name" in body:
+        name = (body.get("name") or "").strip()
+        if not name or len(name) > 50:
+            raise HTTPException(400, "name 必填且不超过 50 字")
+        visible = db.visible_folder_ids(user["id"], user["role"])
+        if db.folder_name_exists(name, body.get("parent_id", f["parent_id"]),
+                                 exclude_id=folder_id, requester_visible=visible):
+            raise HTTPException(409, "同级已存在同名文件夹")
+        fields["name"] = name
+    if "parent_id" in body:
+        pid = body.get("parent_id")
+        if pid is not None:
+            if not isinstance(pid, int):
+                raise HTTPException(400, "parent_id 必须是整数或 null")
+            _folder_visible_or_404(pid, user)
+        _folder_cycle_check(folder_id, pid)
+        fields["parent_id"] = pid
+    if "visibility" in body:
+        v = body.get("visibility")
+        if v not in FOLDER_VISIBILITY:
+            raise HTTPException(400, f"visibility 必须是 {list(FOLDER_VISIBILITY)}")
+        fields["visibility"] = v
+    if fields:
+        db.update_folder(folder_id, **fields)
+    return {"updated": True, **db.get_folder(folder_id)}
+
+
+@app.delete("/api/kb/folders/{folder_id}")
+async def kb_folder_delete(folder_id: int, cascade: bool = False,
+                           user=Depends(require_role("counselor"))):
+    """删除文件夹。**非空默认拒绝**(C2/边界):提示先移动;级联需显式 cascade=true,
+    且级联只是删除文件夹壳、其下文档移回根目录(不删文档,KB 守恒)。"""
+    f = _folder_owned_or_404(folder_id, user)
+    subtree = [folder_id] + db.folder_descendant_ids(folder_id)
+    rank = ROLE_RANK[user["role"]]
+    docs_inside = db.folder_visible_doc_count(subtree, rank)
+    children = len(subtree) - 1
+    if (docs_inside or children) and not cascade:
+        raise HTTPException(409, {
+            "code": "folder_not_empty",
+            "reason": "文件夹非空",
+            "hint": f"该文件夹含 {docs_inside} 篇可见文档、{children} 个子文件夹;"
+                    "请先移动，或确认级联删除(cascade=true，文档将移回根目录、不会被删除)",
+        })
+    moved_docs = db.delete_folders(subtree)
+    return {"deleted": True, "folders_removed": len(subtree), "docs_moved_to_root": moved_docs}
 
 
 # ---------- 对话 ----------
@@ -500,14 +673,120 @@ def _resolve_conversation(body: dict, user_id: int) -> int:
     return 0
 
 
+# ---------- P4c: scope 解析 / F3 学段追问 / 空库提示 ----------
+
+FOLDER_VISIBILITY = ("private", "student", "counselor", "admin")
+AUDIENCE_VALUES = ("undergrad", "postgrad", "common")
+# F3 学段敏感主题清单(P4.md M5):命中且问句未自带学段、且库内确有本/研两段标注材料时才追问
+_AUDIENCE_SENSITIVE = ("荣誉称号", "奖学金", "评优", "学籍", "请假", "休学", "复学", "助学金")
+_STAGE_WORDS = (("本科生", "undergrad"), ("本科", "undergrad"), ("专科", "undergrad"),
+                ("大一", "undergrad"), ("大二", "undergrad"), ("大三", "undergrad"),
+                ("大四", "undergrad"), ("研究生", "postgrad"), ("硕士", "postgrad"),
+                ("博士", "postgrad"), ("研一", "postgrad"), ("研二", "postgrad"),
+                ("研三", "postgrad"))
+
+_AUDIENCE_CLARIFY_TEXT = ("您的问题涉及本科生与研究生的不同规定，为避免答错学段，请先告诉我："
+                          "您想咨询的是本科生还是研究生的相关规定？")
+_SCOPE_EMPTY_TEXT = ("您指定的知识库范围下没有可检索的文档，本次回答**未做全库检索**。"
+                     "请确认所选文件夹/学段是否有内容，或去掉 @ 范围后重新提问。")
+_SCOPE_MISSING_TEXT = "指定的知识库不存在或无权访问"
+
+
+def _resolve_scope(body: dict, user, question_text: str = "") -> dict | None:
+    """P4c C3/C4: 解析请求里的 scope(前端已把 @ 与问句分离,这里做服务端解析与 RBAC 交集)。
+
+    硬约束 1(RBAC 优先): 请求的 folder_ids 与该用户可见集合取交集,**越权/不存在的
+    folder 静默忽略**;全部不可见 → 404,文案与"不存在"一致,不泄露存在性。
+    """
+    raw = body.get("scope") or {}
+    if not isinstance(raw, dict):
+        raise HTTPException(400, "scope 必须是对象")
+    folder_ids = raw.get("folder_ids") or []
+    categories = raw.get("categories") or []
+    audience = (raw.get("audience") or body.get("audience_hint") or "").strip() or None
+    if audience and audience not in AUDIENCE_VALUES:
+        raise HTTPException(400, f"audience 必须是 {list(AUDIENCE_VALUES)}")
+    if not isinstance(folder_ids, list) or not isinstance(categories, list):
+        raise HTTPException(400, "scope.folder_ids / scope.categories 必须是数组")
+    folder_ids = [int(f) for f in folder_ids if str(f).strip().lstrip("-").isdigit()]
+    categories = [str(c).strip() for c in categories if str(c).strip()][:5]
+    if not audience:
+        # P4c C5: 问句自带学段词(本科生/研究生/硕士…) → 自动映射 audience(未标注文档恒 common,零回归)
+        audience = _audience_stage_of(question_text) or None
+    if not folder_ids and not categories and not audience:
+        return None
+    resolved: list[int] | None = None
+    if folder_ids:
+        visible = db.visible_folder_ids(user["id"], user["role"])
+        resolved = [f for f in folder_ids if f in visible]
+        if not resolved:  # 全部不可见 → 与"不存在"同表现(硬约束 1)
+            raise HTTPException(404, _SCOPE_MISSING_TEXT)
+    scope = {"folder_ids": resolved, "categories": categories or None, "audience": audience}
+    return scope if any(scope.values()) else None
+
+
+def _audience_stage_of(question: str) -> str | None:
+    for word, aud in _STAGE_WORDS:
+        if word in question:
+            return aud
+    return None
+
+
+def _audience_clarify(question: str, min_rank: int, scope: dict | None) -> dict | None:
+    """P4c C5/F3: 学段敏感 + 未自带学段 + 无 hint + 库内确有本/研两段标注材料 → 追问学段(不猜)。
+
+    库内没有成对标注时恒不触发(当前全为 common → 零回归);编排式多轮留给 P4d。
+    """
+    if scope and scope.get("audience"):
+        return None
+    if _audience_stage_of(question):
+        return None
+    hits = [k for k in _AUDIENCE_SENSITIVE if k in question]
+    if not hits or not db.audience_conflict(hits, min_rank):
+        return None
+    return {
+        "answer": _AUDIENCE_CLARIFY_TEXT,
+        "sources": [], "tool_trace": [],
+        "clarify": {"type": "audience", "options": ["本科生", "研究生"],
+                    "hint_param": "audience_hint"},
+        "context": {"audience_clarify": True},
+    }
+
+
+def _scope_empty_response(scope: dict, min_rank: int) -> dict | None:
+    """P4c 硬约束 3: scope 指定范围内没有可见文档 → 明确提示,**绝不回落全库**。"""
+    if not scope:
+        return None
+    if db.count_visible_documents(min_rank, scope.get("folder_ids"),
+                                  scope.get("categories"), scope.get("audience")) > 0:
+        return None
+    return {"answer": _SCOPE_EMPTY_TEXT, "sources": [], "tool_trace": [],
+            "context": {"scope_empty": True, "scope": scope}}
+
+
 @app.post("/api/chat")
 async def chat(body: dict, user=Depends(current_user)):
     question = (body.get("question") or "").strip()
     if not question:
         raise HTTPException(400, "question 不能为空")
+    if question.startswith("@"):
+        # P4c 硬约束 2 的服务端兜底: @ 语法由前端解析成 scope,@xxx 残留进问句会污染 embedding/FTS
+        raise HTTPException(400, "问题文本不能以 @ 开头：请用 @ 选择器指定知识库（scope 参数）")
     cid = _resolve_conversation(body, user["id"]) or None
     try:
-        d = await agent.chat_for(user["id"], user["username"], user["role"], question, cid)
+        scope = _resolve_scope(body, user, question)
+    except HTTPException:
+        raise
+    rank = ROLE_RANK[user["role"]]
+    clarify = _audience_clarify(question, rank, scope)
+    if clarify:
+        return clarify
+    empty = _scope_empty_response(scope, rank)
+    if empty:
+        return empty
+    try:
+        d = await agent.chat_for(user["id"], user["username"], user["role"], question, cid,
+                                 scope=scope)
     except LookupError as e:
         raise HTTPException(404, str(e))
     return d
@@ -519,15 +798,31 @@ async def chat_stream(body: dict, user=Depends(current_user)):
     question = (body.get("question") or "").strip()
     if not question:
         raise HTTPException(400, "question 不能为空")
+    if question.startswith("@"):
+        raise HTTPException(400, "问题文本不能以 @ 开头：请用 @ 选择器指定知识库（scope 参数）")
     cid = _resolve_conversation(body, user["id"]) or None
+    scope = _resolve_scope(body, user, question)
+    rank = ROLE_RANK[user["role"]]
+    pre = _audience_clarify(question, rank, scope) or _scope_empty_response(scope, rank)
 
     async def gen():
         answer_parts: list[str] = []
         try:
-            async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"], question, cid):
-                if ev["type"] == "delta":
-                    answer_parts.append(ev["content"])
-                yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
+            if pre:  # P4c: 学段追问 / 空库提示——确定性响应,不经 LLM
+                ctx = pre.get("context") or {}
+                yield f"data: {json.dumps({'type': 'sources', 'sources': []}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'context', **ctx}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'delta', 'content': pre['answer']}, ensure_ascii=False)}\n\n"
+                answer_parts.append(pre["answer"])
+                done_ev = {"type": "done", "answer": pre["answer"], "sources": [],
+                           "tool_trace": [], "conversation_id": None, "context": ctx}
+                yield f"data: {json.dumps(done_ev, ensure_ascii=False)}\n\n"
+            else:
+                async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"],
+                                                      question, cid, scope=scope):
+                    if ev["type"] == "delta":
+                        answer_parts.append(ev["content"])
+                    yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
         except LookupError as e:
             yield f"data: {json.dumps({'type': 'error', 'error': str(e)}, ensure_ascii=False)}\n\n"
         except Exception as e:  # 流中途异常:通知前端(已渲染增量保留,不落库)

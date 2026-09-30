@@ -1,0 +1,53 @@
+{
+ "kb_rows": 63,
+ "kb_png_bytes": 729688,
+ "at_png_bytes": 732898,
+ "at_items": 4,
+ "console": {
+  "error": [],
+  "exceptions": []
+ },
+ "steps": [
+  {
+   "step": "C6 文件夹树渲染(全部文档/根目录入口)",
+   "pass": true,
+   "detail": "items=2"
+  },
+  {
+   "step": "C6 新建文件夹按钮对员工可见",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "step": "C6 学段筛选下拉存在",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "step": "C6 UI 新建文件夹出现在树",
+   "pass": true,
+   "detail": ""
+  },
+  {
+   "step": "C4 @ 选择器弹出且选项非空",
+   "pass": true,
+   "detail": "items=4"
+  },
+  {
+   "step": "C4 选中后 question 无 @ 残留",
+   "pass": true,
+   "detail": "q=''"
+  },
+  {
+   "step": "C4 选中后范围芯片渲染",
+   "pass": true,
+   "detail": "chips=1"
+  },
+  {
+   "step": "控制台零 error",
+   "pass": true,
+   "detail": "[]"
+  }
+ ],
+ "all_pass": true
+}

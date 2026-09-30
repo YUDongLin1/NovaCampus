@@ -47,9 +47,13 @@
     <div id="messages">
       <div class="hint">知识库问答自动检索并标注引用 [n]；「记一条碎片…」「生成本周周报」会触发周报工具；右下角可切换模型与账户设置。</div>
     </div>
+    <div id="at-picker"></div>
     <div id="composer">
-      <input id="q" placeholder="输入问题，例如：休学需要哪些材料？" onkeydown="if(event.key==='Enter')send()">
+      <div id="scope-chips"></div>
+      <div class="composer-row">
+      <input id="q" placeholder="输入问题，例如：休学需要哪些材料？输入 @ 可指定检索范围" onkeydown="composerKey(event)">
       <button id="send" onclick="send()">发送</button>
+      </div>
     </div>
   </div>
 
@@ -72,16 +76,41 @@
           <option>政策文件</option><option>学生事务</option><option>奖助学金</option>
           <option>工作制度</option><option>运维手册</option><option selected>其他</option>
         </select>
+        <select id="up-audience" title="适用学段">
+          <option value="common">通用</option>
+          <option value="undergrad">本科生</option>
+          <option value="postgrad">研究生</option>
+        </select>
+        <select id="up-folder" title="存入文件夹"><option value="">根目录</option></select>
         <button class="btn" onclick="upload()">上传解析</button>
       </div>
       <div class="row" id="import-row" style="display:none">
         <input id="page-url" placeholder="粘贴网页链接，如 https://xxx.swjtu.edu.cn/xx.htm">
         <button class="btn ghost" onclick="importUrl()">导入网页</button>
       </div>
-      <div class="row">
+      <div class="row" id="kb-toolbar">
+        <select id="kb-folder-filter" onchange="loadDocs()">
+          <option value="">全部位置</option>
+        </select>
         <select id="kb-cat-filter" onchange="loadDocs()">
           <option value="">全部分类</option>
         </select>
+        <select id="kb-audience-filter" onchange="loadDocs()">
+          <option value="">全部学段</option>
+          <option value="undergrad">本科</option>
+          <option value="postgrad">研究生</option>
+          <option value="common">通用</option>
+        </select>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="kb-new-folder" style="display:none" onclick="newFolder()">＋ 新建文件夹</button>
+      </div>
+      <div id="folder-tree"></div>
+      <div id="batch-bar" style="display:none">
+        <span>已选 <b id="batch-n">0</b> 篇</span>
+        <button class="link" onclick="moveDocModal(checkedIds())">移动到…</button>
+        <button class="link" onclick="batchAudience('undergrad')">标为本科</button>
+        <button class="link" onclick="batchAudience('postgrad')">标为研究生</button>
+        <button class="link" onclick="batchAudience('common')">标为通用</button>
       </div>
       <table>
         <thead><tr><th>文档</th><th>可见</th><th>分块</th><th>操作</th></tr></thead>
