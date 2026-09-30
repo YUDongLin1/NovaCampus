@@ -1,0 +1,486 @@
+{
+  "qa-12": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          6
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 3,
+      "titles": [
+        "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025",
+        "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025",
+        "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔20"
+      ],
+      "target_in_final": false,
+      "top_score": 0.9659,
+      "n_above_threshold": 7,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 2
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          6
+        ]
+      ],
+      "target_in_fused": [
+        true
+      ],
+      "n_sources": 4,
+      "titles": [
+        "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025",
+        "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025",
+        "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔20",
+        "EVAL-研究生奖学金评定办法"
+      ],
+      "target_in_final": true,
+      "top_score": 0.9669,
+      "n_above_threshold": 7,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 4
+    }
+  },
+  "qa-17": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          16
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 2,
+      "titles": [
+        "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025",
+        "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025"
+      ],
+      "target_in_final": false,
+      "top_score": 0.5093,
+      "n_above_threshold": 3,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 3
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          16
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 2,
+      "titles": [
+        "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025",
+        "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025"
+      ],
+      "target_in_final": false,
+      "top_score": 0.5109,
+      "n_above_threshold": 4,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 5
+    }
+  },
+  "rind-07": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 1,
+      "titles": [
+        "普通高等学校学生管理规定（教育部令第41号）"
+      ],
+      "target_in_final": false,
+      "top_score": 0.3585,
+      "n_above_threshold": 1,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 5
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 1,
+      "titles": [
+        "普通高等学校学生管理规定（教育部令第41号）"
+      ],
+      "target_in_final": false,
+      "top_score": 0.3553,
+      "n_above_threshold": 1,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 6
+    }
+  },
+  "rind-01": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.2728,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 4
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.2691,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 5
+    }
+  },
+  "rind-03": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.1081,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 7
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.1023,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 8
+    }
+  },
+  "rind-04": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.0247,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 4
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.0245,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 5
+    }
+  },
+  "rind-05": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.0022,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 5
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.0022,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 7
+    }
+  },
+  "rind-06": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.001,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 5
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.001,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 8
+    }
+  },
+  "rewrite-01": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.0779,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 6
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.0779,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 8
+    }
+  },
+  "rewrite-02": {
+    "8": {
+      "slots": 8,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.1008,
+      "n_above_threshold": 0,
+      "fused_candidates": 8,
+      "fused_candidate_docs": 4
+    },
+    "12": {
+      "slots": 12,
+      "target_chunk_idx": [
+        12
+      ],
+      "target_vector_rank": [
+        [
+          12,
+          null
+        ]
+      ],
+      "target_in_fused": [
+        false
+      ],
+      "n_sources": 0,
+      "titles": [],
+      "target_in_final": false,
+      "top_score": 0.1007,
+      "n_above_threshold": 0,
+      "fused_candidates": 12,
+      "fused_candidate_docs": 5
+    }
+  },
+  "_verdict": {
+    "fails": [],
+    "RERANK_MIN_SCORE": 0.3,
+    "fusion_default": 12
+  }
+}

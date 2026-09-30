@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（**P4d 已合并 `master`**，2026-09-30 第二回 Review 通过；**P4e 的 C0 前置收口两条已交回 `IN_REVIEW`**，commit `0d50e31`，分支 `task/P4e-web-search`，**未合并 master**。`cases.json` 已升 **v2.2 / 48 用例**（`rind-07` 断言两段化 + `FUSION_TOP_K` 8→12，**检索行为变更非纯口径**，记账见 `docs/EVAL_BASELINE.md` §十七）。**集中验证 47/48、退出码 1，未达 48/48** —— `qa-12` 已清红，卡在 `qa-17`（生成侧偶发只输出学段声明不复述正文条款，判据判红正确），**待 Qoder 按 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` §二 的 B/C 裁决**。**P4e 主体暂缓**，等增补规格（引用语义已定稿为「分区展示 + 整体级标注」，`docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`））
+> **当前持棒：WorkBuddy**（**P4d 已合并 `master`**，2026-09-30 第二回 Review 通过；**P4e 的 C0 第 1 回复核 = ❌ 打回**（分支 `task/P4e-web-search`，commit `0d50e31`+`b2db785`，**未合并 master**）。**C0-① 达标**：我自己起 :8904 显式 `--base` 端到端复验，`qa-12` sources=4 且第 4 条正是 `EVAL-研究生奖学金评定办法`，我独立跑的整轮 **48/48、退出码 0**（`reports/eval_report_20260930_215743.json`）。`cases.json` 已升 **v2.2 / 48 用例**（`FUSION_TOP_K` 8→12 属**检索行为变更**，与 v2.1 的 8 槽口径不可直接比较，记账见 `docs/EVAL_BASELINE.md` §十七）。**打回的是 C0-② 的三条必改 + `qa-17` 裁决落地**：① 共现段仍含 `录取通知书`（实测 student 可见 5 块、与「证明」同句共现于助学贷款办法）→ 必然假红；② 共现段词频无证据且代码注释把它写成「零命中处置词」（事实错误）；③ `len(pair)<2` 静默跳过；④ `qa-17` 我已裁决 = 生成出口加**确定性闸门**（禁止放宽判据）。打回指令 `docs/p4e/workbuddy-reject-order.md`，Review 结论见 `docs/TASKS.md` 同名小节。**负责人自认两条错**：「证明 44 块」应为 42（坑 58）、开单示例没带 `--base` 害实现方白跑六轮整轮评测（坑 57）。**P4e 主体暂缓**，等 C0 第 2 回交回后下发增补规格（引用语义已定稿「分区展示 + 整体级标注」）
 > ✅ **P4c Review 结论（Qoder，2026-09-30，独立复跑）**：**通过并合并 master**。**边界**：33 文件全在白名单与 Qoder 领地内，`refusal.py`/`llm.py`/`evals/faithfulness.py` **0 变更**，`agent.py` 只有 scope 透传与回显（P4b 的门控/池/压缩一行未动，逐行读过 diff）。**`cases.json` 语义级比对**（494 删/560 增看着像整档重写，所以不只看 diff）：40→43、**无一条旧用例丢失、40 条共有用例逐字段完全一致**，那串数字只是 JSON 重新序列化。**我自写五条安全探针实测三条硬约束**（`docs/p4c/review_scope_security_probe.py` → `after/review_scope_security.json`）：T1 把 counselor 专属文档移进 student 可见夹后以学生 scoped 检索 → **不外泄**；T2 越权夹 vs 不存在夹 → 404/404 且**响应体逐字节一致**（不泄露存在性）；T3 scoped 空夹 → 0 来源 + 明确提示「未做全库检索」，**不回落**；T4 部分越权静默丢弃；T5 scoped 检索来源 2/2 全属该夹。**迁移与 db 层**：在**库副本**上跑三次迁移，`documents 65→65→65`、`chunks 487→487→487`、`folder_id` 全 NULL、`audience` 全 common、schema 三次一致 → **不 UPDATE 既有行且幂等**；db 层 scope 10 项（含 `folder_ids==[]` 直接空、FTS 下推真实过滤：全库 20 → 夹A 3 且全在夹A、夹B 1 且不含夹A块、文件夹可见性不得放宽 `role_min`）→ **18/18 全过**（`after/review_migration_db_probe.json`）。**集中评测我这轮 43/43、exit 0、R@k 0.9412、忠实度 0.9412、拒答 1.0、隔离全量核对 ok**，与 WorkBuddy 那轮**逐值一致**；冒烟 exit 0、`documents 65→65`、`chunks 487`。**C5 追问路径确认被执行**（step 26：合成一对本/研标注文档触发 `audience_conflict` → 返回追问而非猜），另发现服务端还会**拒绝以 `@` 开头的问句（400）**，比我要求的更严。
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
@@ -1233,7 +1233,35 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 
 **流程表扬**：6 项遗留全部上交裁决而不是自己拍板（尤其 `rind-02` 明知会红仍保留并说明理由、`cases.json` 遵守「只准新增不动旧用例」），这比悄悄改绿要值钱得多。修完这三条交回，我仍按「集中一次把关」的方式复核。
 
-### P4e 联网搜索开关 + 来源分区标注 + **C0 前置收口两条**　🔶 **IN_REVIEW（C0 已交回）/ 主体暂缓**（2026-09-30，**当前持棒 = Qoder**，分支 `task/P4e-web-search`，commit **`0d50e31`**（C0 独立 commit），**未合并 `master`**。设计见 M7，开单指令 `docs/p4e/workbuddy-order.md`，裁决记录 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`，集中验证纪要 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md`）
+
+#### Review 结论（Qoder，2026-09-30 C0 第 1 回）——❌ **打回**（范围窄：C0-① 已达标，卡在 C0-② 的 3 条 + `qa-17` 裁决）
+
+**我这次自己跑的（全部实测，命令与产物已入库）**
+
+| 复核动作 | 结果 |
+|---|---|
+| 边界 `git diff --numstat master..HEAD` | 22 文件；`refusal.py`/`faithfulness.py`/`config.py`/`main.py`/`web/**` **0 变更**；`RERANK_MIN_SCORE` 实测 **0.3**（config 与 rag 别名两处） |
+| **端口自证**：我自己起 `:8904` 并显式 `--base` | `qa-12` 端到端 **sources=4，第 4 条 = `EVAL-研究生奖学金评定办法`**，答案带 `[4]` 并复述「平均绩点不低于 3.5」→ **C0-① 是真修，不是改绿** |
+| **整轮评测独立复跑** | **48/48、退出码 0**、R@k 1.0、忠实度 0.9167、拒答 1.0、隔离 41 会话全量 ok （`reports/eval_report_20260930_215743.json`） |
+| rag 层 8/12 槽 A/B（`docs/p4e/review_fusion_gate.py`） | `refusal_indomain` 6 条 + `qa-12`/`qa-17`/`rewrite-01`/`rewrite-02` 的 **`n_above_threshold` 与来源数逐条相同**（实现方证据没记这个门控变量，我补测了） |
+| `录取通知书` 词频实测 | student 可见块 **5 块**；与「证明」**同句**共现于《国家助学贷款实施办法》第十一条、第十七条 |
+| 尺子自测复跑 | `probe_ruler_selftest.py` 32 条断言全过、退出码 0；**但没有一条校验共现段词的零命中性** |
+| KB 残留自查与清理 | 我的冒烟副本中途失败，在库里留了残留（69/491）；已按 API 删净，`kb_doctor` 回到 **65 / 487、danger 0** |
+
+**必改四条（详见 `docs/p4e/workbuddy-reject-order.md`）**
+
+1. **M1**：共现段删 `录取通知书`，并把共现判据从「整篇两词都在」改成**窗口邻近**。现状会让据实引用助学贷款条款的正常答案被判「夹带无据断言」——**这就是坑 54 在改进后的断言里复发**，而它恰恰是 C0-② 要消除的那类缺陷。
+2. **M2**：共现段每个词纳入同一把零命中计数尺子并落盘；同时改掉 `run_evals.py` 注释与回执里「共现词一律取零命中的处置动词」这句**与实测不符的事实陈述**（错在代码注释里最危险，后人会当依据）。
+3. **M3**：`len(pair) < 2 → continue` 改为显式 `raise`，并补 `all(len(p) >= 2 and p[1] ...)` 断言（坑 45/52）。
+4. **M4（裁决 `qa-17`）**：**不选 A（放宽判据）**——两次 FAIL 样本（41 字 / 156 字，零 `[n]` 零数字）确实是真非答案。**选 B 的代码化版本**：按本项目铁律「判定放代码不放 prompt」（P4a C1 / 坑 21），在生成出口加确定性闸门（`sources 非空` 且答案既无 `[n]` 又无数字 → 一次带硬约束重生；仍不合格 → 写 trace flag + badcase，评测照旧判红，不许静默兜底）。验收 = `qa-17` 连测 ≥10 次 FAIL=0 + 整轮 48/48 且退出码 0 + 拒答面零回退。
+
+**责任在我身上的两条（已写进 HANDOFF 坑 57/58）**
+
+- **「证明 44 块」是错的，稳定值 42**。我把只读探针与自己那一轮整轮评测**并发**跑，取到的是 `seed_corpus_if_needed` 正在塞种子文档的 **70 篇**中间态（我自己的输出第一行就印着「全库文档 = 70」，异常信号摆在眼前却没停手——按纪律这是硬停项，我违反了）。错误数值被写进 HANDOFF / TASKS / EVAL_BASELINE 三处，并被实现方回执继承。实现方代码注释写的 42 才是对的。
+- 我在开单指令里给的 `bash docs/p4d/run_with_server.sh 8902 ../evals/run_evals.py` **没带 `--base`**，而 `run_evals.py` 的 `BASE` 默认 `:8900` → 实现方**六轮整轮评测全打在他人 15:40 起的 8 槽旧实例上**。根因是它自己查出来的（`docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` §一），它给的「整轮前先做一次单请求端到端自证，看 trace 里有没有本次新增字段」我提为通用验收纪律。
+
+**已成立、不必重做**：C0-① 融合层扩槽位（纯加法）、矩阵 8/8、延迟量化（954.9→1121.4 ms 中位，+17.4%）、`badcases.json` 集合比对后还原、`rag.py:19` 重复常量清除、主体未开工与硬停判断（我实测四入口确认）。
+### P4e 联网搜索开关 + 来源分区标注 + **C0 前置收口两条**　❌ 打回**（原 🔶 IN_REVIEW（C0 已交回）/ 主体暂缓**（2026-09-30，**当前持棒 = Qoder**，分支 `task/P4e-web-search`，commit **`0d50e31`**（C0 独立 commit），**未合并 `master`**。设计见 M7，开单指令 `docs/p4e/workbuddy-order.md`，裁决记录 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`，集中验证纪要 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md`）
 
 - **🔴 阻塞项（需 Qoder 裁决）**：集中验证 **47/48、退出码 1，未达 48/48**。卡在 `qa-17`——
   根因已定性为**生成侧偶发只输出「学段声明 + 免责」而不复述正文条款**（5 连测 `FAIL=2/5`，检索侧 `R@k` 全 1.0、来源全对）。
@@ -1286,6 +1314,7 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 - **目标**：提供联网搜索开关由用户自主决定是否启用；回答中**区分标注本地检索来源与联网来源**。
 - **允许改**：`novaagent/novaagent/{websearch.py(新),graph.py,agent.py,config.py,db.py,main.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4E.md`
 - **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py` —— ✅ **本轮零改动**
+  - **⚠ 白名单增补（2026-09-30 第 1 回 Review，责任在负责人）**：本单再允许改 `docs/p4d/**`（`probe_ruler_selftest.py` 与 `run_with_server.sh`——前者是 C0-② 要求它改的却没进白名单，后者是 `--base` 自检要落的文件）与 `novaagent/tests/smoke_test.py` 的 `--base` 参数化。原始规格的这两处缺口由 Qoder 负责，不计入实现方越界。
 - **⚠ 技术前提已失效（原开单假设被实测推翻，见 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`）**：
   开单写的 DashScope 原生 `text-generation + search_options` **不回 `search_info`**；兼容模式 `enable_search=true` 检索真执行但**来源被静默丢弃**。
   **唯一可用入口是 Responses API `tools=[{"type":"web_search"}]`**，但每条只给 `{type,url}`，**正文无 `[n]` 角标、无内联 URL、`annotations` 为空**（四入口全矩阵实测，退出码 0）。
