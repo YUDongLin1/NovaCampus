@@ -1010,19 +1010,30 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 
 
 
-### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　📋 READY（待 P4b，设计见 M5）
+### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　🔧 IN_PROGRESS（2026-09-30 下发，持棒 **WorkBuddy**；分支 `task/P4c-kb-folders`，开单指令 `docs/p4c/zcode-order.md`；设计见 `docs/P4.md` M5）
 
-- **目标**：知识库界面支持用户自建文件夹，对文件分类/归类/移动；输入框支持 `@` 语法指定本次检索所用的知识库（可多选）；补 `audience`（本科生/研究生/通用）元数据以支撑反馈 F3 的学段区分。
-- **允许改**：`novaagent/novaagent/{db.py,rag.py,main.py,config.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4C.md`
-- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`corpus/**`
-- **完成标准要点**：
-  - [ ] `folders` 表（支持 parent_id 层级）+ `documents.folder_id` + `documents.audience`；文件夹与文档的 CRUD/移动/批量移动 API
-  - [ ] `rag.search(query, min_rank, scope=None)`；**RBAC 优先于 scope**：取交集，越权 folder **静默忽略**（沿用"不可见=不存在"约定，不泄露存在性）
-  - [ ] `@` 解析在**前端**完成，`question` 与 `scope` **分离传参**（`@xxx` 不得混进 question 文本污染 embedding/FTS）
-  - [ ] 删除非空文件夹**默认拒绝**并提示先移动（级联删除需显式二次确认）；`@` 指定的库为空 → 明确提示，**不得静默回落全库检索**
-  - [ ] 前端 KB 页改为「文件夹树 + 文档列表」，支持移动/归类
-  - [ ] 新增评测类型 `scoped_qa`（`@` 指定库后来源全属该库；`@` 空库返回提示）
-- **依赖**：P4b 合并；`docs/P4.md` M5
+- **目标**：知识库界面支持用户自建文件夹并对文件分类/归类/移动；输入框支持 `@` 语法指定本次检索所用的知识库（可多选）；补 `audience`（本科生/研究生/通用）元数据以支撑反馈 F3 的学段区分。
+- **⚠ 已实测的现状（2026-09-30，别按猜测做）**：
+  - 前端已是多文件：`index.html`(骨架) + `css/theme.css` + `js/{api,ui,chat,kb,weekly,conversations}.js`；`main.py` 的 `/css/{name}`、`/js/{name}` 是**通用只读路由** → **新增 js/css 不必改 `main.py`**，只需在骨架按依赖顺序加 `<script src>`（`api.js` 必须最先）。KB 页现有逻辑在 `js/kb.js`（`loadDocs`/`viewDoc`/`delDoc`/`upload`/`importUrl`）。
+  - `documents` 现有列含 `role_min`/`category`/`summary`，**无 `folder_id`、无 `audience`**；`folders` 表不存在。KB 规模 **documents 65 / chunks 487**（必须守恒）。
+  - `rag.py` 现有签名（2026-09-30 实读）：`rag.search(query, min_rank)`(129 行)、`rag.search_with_quality(query, min_rank)`(135 行)、`db.all_chunks_for_search(min_rank)`(402 行)——**都还没有 scope 参数**；RBAC 过滤发生在取候选块时，scope 只能在其之上再加约束（取交集）。P4b 起 `search_with_quality` 已返回质量信号，本单不要改它的返回结构形状。
+  - 评测基线已升 **v1.8 = 40 用例**（P4b 加了 4 类新路径用例）。⚠ **看到 40/40 才是满通过，别把 36/36 当基线**（坑 40）。
+- **允许改**：`novaagent/novaagent/{db.py,rag.py,agent.py,main.py,config.py}`、`novaagent/web/{index.html,js/**,css/**}`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4C.md`（新）、`docs/p4c/evidence/**`
+  ⚠ `agent.py` 本单**只准做一件事**：把 `scope` 从 API 透传到 `rag.search_with_quality()`（以及把 scope 信息带进 `sources`/`context` 回传）。**P4b 刚交付的门控判定 `history_gate_hit`、可采信池、上下文构建与压缩逻辑一行都不许改**——要改先在回执提出等确认。
+- **禁改**：`novaagent/novaagent/{refusal.py,llm.py}`、`evals/faithfulness.py`、`corpus/**`、`sims/**`、`mcp/**`、`weknora/**`、`novaagent/data/agent.db*`（迁移一律走 `db.py` 启动代码）
+- **三个硬设计约束（Qoder 定）**：① **RBAC 优先于 scope**——`@` 指定越权 folder 时**静默忽略**，沿用「不可见=不存在」，响应不得泄露该 folder 是否存在；② **`@xxx` 不得混进 question 文本**——前端解析后 `question` 与 `scope` **分离传参**，否则污染 embedding 与 FTS（这是检索质量的直接杀手，P4d 还要靠它）；③ **`@` 指定的库为空 → 明确提示，绝不静默回落全库检索**（回落等于把越权/无关内容答给用户，是安全事故）。
+- **完成标准（C1~C9）**：
+  - [ ] **C1 数据模型**：`folders(id,name,parent_id,owner_id,visibility,created_at)` + `documents.folder_id`(NULL=根) + `documents.audience`(`undergrad`/`postgrad`/`common`)；**迁移不删数据**（迁移前后 `documents`/`chunks` 计数相等、`folder_id IS NULL` 占比可核对）、迁移幂等（重启两次不重复建表/不重复赋值）
+  - [ ] **C2 文件夹 CRUD 与移动**：新建/重命名/删除/层级（`parent_id`）；文档单条与批量移动 API；**同层重名拒绝**；删除**非空文件夹默认拒绝**并提示先移动（级联需显式二次确认参数）
+  - [ ] **C3 检索 scope**：`rag.search(query, min_rank, scope=None)` 与 `db.all_chunks_for_search(min_rank, folder_ids=None, audience=None)`；**scope 与 RBAC 取交集**；给出实测：同一问句在全库 / 指定正确 folder / 指定越权 folder 三种输入下的 `sources` 与 `top_score` 对照表
+  - [ ] **C4 `@` 语法**：前端输入框键入 `@` 弹可选库（文件夹/分类）多选；提交时 `question` 与 `scope` 分离；**断言后端收到的 `question` 里没有 `@` 残留**（给出请求体实测）
+  - [ ] **C5 学段元数据与 F3**：`audience` 可标注、可筛选；问题命中「学段敏感清单」且无 `audience_hint` 时**默认追问学段**（不猜），或按学段分列两段；本单只做元数据 + 追问，编排留给 P4d
+  - [ ] **C6 前端**：KB 页由「表格 + 分类下拉」改为「文件夹树 + 文档列表」，支持移动/归类；**零新依赖**（不引框架/构建/公网 CDN），样式沿用「学术水墨 × 朱砂印」主题变量
+  - [ ] **C7 评测**：新增类型 `scoped_qa` ≥2 条——①`@` 指定库后断言**来源全属该库**；②`@` 空库断言返回提示**而非全库结果**；③（建议）`@` 越权 folder 断言与"不存在"同表现。断言必须**能失败**（坑 39），失败要影响退出码
+  - [ ] **C8 零回归**：**v1.8 = 40 用例**不回退（40/40、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3、四类新路径用例全过、隔离断言 ok）；忠实度中位 0.9706 属已裁决移交 P4d 的 judge 盲区，**不得为指标删学段声明**；已知波动用例 `qa-08`/`qa-02` 单轮失败要按坑 16 判性质
+  - [ ] **C9 冒烟与守恒 + 证据入库**：`smoke_test.py` GBK 控制台 exit 0、`documents 65→65`、`chunks 487→487`；文档引用的每个证据文件都要 `git diff --name-status` 与 `git check-ignore -v` 对上（坑 17）；**探针"取到非空才落盘"**（坑 33）
+- **测试节奏（按用户 2026-09-30 要求调整）**：实现期**只跑针对性最小检查**（相关单测 / 单条 API 断言 / 迁移计数对账）；**C1~C7 全部落地后再集中跑一轮**完整评测 + 冒烟即可，不必每步复跑全套。Qoder 合并前会独立做一次集中把关，不必自欺重复劳动。
+- **依赖**：P4b 合并（已满足，master 含会话与上下文管理）；`docs/P4.md` M5
 
 ### P4d LangGraph 检索编排 + 查询改写重试　📋 READY（待 P4c，设计见 M6）
 
@@ -1038,6 +1049,8 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
   - [ ] 新增评测类型 `intent`（断言 `retrieval_trace.skipped=true`）与 `rewrite`（口语化长问句断言发生改写且最终命中）；**给出实测毫秒数**：闲聊路径首字延迟显著低于检索路径，普通问答不劣化
   - [ ] **必须把已入库材料的措辞命中率从 3/8 提上来**（本单硬指标）：基线是 2026-09-29 实测的 `evals/query_variant_matrix.py` 输出——同一份学平险材料，8 种自然问法仅「学平险」「学校有学平险吗」「多子句书面全称」3 种命中，其余 5 种（含**学生原句**、「学平险在哪里买」、「学生平安保险是否由学校统一办理？」）全被 `RERANK_MIN_SCORE=0.3` 归零，而**向量层本已把目标排到第 1~4 位**。要求：① 查询改写的**意图归一 + 术语展开**（学平险 ↔ 学生平安保险 ↔ 意外伤害保险理赔）；② 评估 rerank **分级阈值**或"标题命中核心术语时保底候选"，让"排序不佳"不再被放大成"完全无来源"；③ 验收须用 F2 原句断言命中，并**复跑变体矩阵给出新命中率**（目标 ≥6/8）；④ 归因工具 `evals/diag_retrieval.py` 可直接复跑，勿凭"句子长短"直觉下结论（本项初版归因已被变体矩阵证伪，见 `docs/CASE_STUDY.md` §3）
   - [ ] 评估并**书面记录**两项：① `RERANK_MIN_SCORE` 是否改分级阈值（如 top1 单判 / top1 与 top2 差值判定）；② `db.fts_search()` 整句短语匹配失败后回退的 2-gram 计次是否加停用词过滤（现状"学校/我们/这项"等通用词把教育部令 5 个分块顶上榜单）。**禁止单独调 `MAX_PER_DOC`**（T10 已实测 =1 会挤出关键块）
+  - [ ] **P4b 结转必办（坑 41）**：压缩摘要会把「用户自述的假事实」洗成可采信证据——①b 规定可采信池只收带 `sources_json` 的 assistant 回答 + 压缩摘要，但**摘要本身是从整段历史（含 user 消息）压出来的**，用户断言一旦落进压缩区就带着「摘要」这层外衣回到池里。要求：`COMPRESS_PROMPT` 逐条标注来源（助手有据 / 用户自述未经核实），或摘要只压有据内容；并把 `cc-01` 的埋点改成**助手有据来源**，否则「压缩保真」与「不背书用户断言」两个目标会一直互相拉扯（改一个破另一个）。
+  - [ ] **P4b 结转**：`history_gate_hit` 的「回指命中」档偏宽（含它/该/此 + 1 个 2-gram 或 2 个单字即放行），P4d 的查询改写上线后应重估该判据是否还需要——改写后的问句应能直接命中知识库，从而减少对历史通道的依赖。
   - [ ] 顺带处理遗留：`qa-09`（离校请销假）R@k 长期 0.0
 - **依赖**：P4c 合并；PyPI 可达（已实测清华源/官方源 langgraph 均 200）
 
