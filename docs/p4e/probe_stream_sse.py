@@ -39,6 +39,8 @@ def main() -> int:
     ap.add_argument("--base", default="http://127.0.0.1:8912")
     ap.add_argument("--tag", default="before")
     ap.add_argument("--only", default="")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="每条用例连测次数(S2-① 要求两档各 6 次,判据稳定性)")
     args = ap.parse_args()
     R.BASE = args.base.rstrip("/")
 
@@ -48,7 +50,8 @@ def main() -> int:
         cases = [c for c in cases if c["id"] in args.only.split(",")]
     print(f"[probe] base={R.BASE}  cases={[c['id'] for c in cases]}  tag={args.tag}")
 
-    out: dict = {"tag": args.tag, "base": R.BASE, "cases": [], "pass": 0, "total": 0}
+    out: dict = {"tag": args.tag, "base": R.BASE, "repeat": args.repeat,
+                "cases": [], "pass": 0, "total": 0}
     with httpx.Client(timeout=180) as c:
         tokens = {"admin": R.login(c, "admin", "admin123"),
                   "counselor": R.login(c, "counselor", "counselor123"),
@@ -57,19 +60,21 @@ def main() -> int:
         if n:
             print(f"[seed] 播种 {n} 篇")
         for case in cases:
-            t0 = time.time()
-            try:
-                ok, detail, answer, sources, cid, ctx = R.run_stream_case(c, tokens, case)
-            except Exception as e:  # noqa: BLE001
-                ok, detail, answer, sources, cid, ctx = False, f"{type(e).__name__}: {e}", "", [], None, {}
-            mark = "[PASS]" if ok else "[FAIL]"
-            print(f"{mark} {case['id']:8s} [{case.get('stream_kind')}] {detail}")
-            out["cases"].append({"id": case["id"], "kind": case.get("stream_kind"), "pass": ok,
-                                 "detail": detail, "answer_len": len(answer or ""),
-                                 "n_sources": len(sources or []), "conversation_id": cid,
-                                 "context": ctx, "ms": round((time.time() - t0) * 1000)})
-            out["total"] += 1
-            out["pass"] += int(ok)
+            for rep in range(args.repeat):
+                t0 = time.time()
+                try:
+                    ok, detail, answer, sources, cid, ctx = R.run_stream_case(c, tokens, case)
+                except Exception as e:  # noqa: BLE001
+                    ok, detail, answer, sources, cid, ctx = False, f"{type(e).__name__}: {e}", "", [], None, {}
+                mark = "[PASS]" if ok else "[FAIL]"
+                tag = f"#{rep + 1}" if args.repeat > 1 else ""
+                print(f"{mark} {case['id']:8s}{tag} [{case.get('stream_kind')}] {detail}")
+                out["cases"].append({"id": case["id"], "kind": case.get("stream_kind"), "rep": rep + 1,
+                                     "pass": ok, "detail": detail, "answer_len": len(answer or ""),
+                                     "n_sources": len(sources or []), "conversation_id": cid,
+                                     "context": ctx, "ms": round((time.time() - t0) * 1000)})
+                out["total"] += 1
+                out["pass"] += int(ok)
     print(f"\n[probe] stream_sse {out['pass']}/{out['total']}  (tag={args.tag})")
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     p = OUT_DIR / f"stream_sse_{args.tag}.json"
