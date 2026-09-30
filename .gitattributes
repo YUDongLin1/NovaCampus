@@ -1,0 +1,23 @@
+# 统一行尾：仓库与工作区都用 LF。
+# 缘由（HANDOFF 坑 36）：core.autocrlf=true 时，同一个文件存在「LF 版」与「CRLF 版」两种字节数，
+# 复核时按字节数对账会得到两个都"看起来对"的值；eol=lf 让这个歧义从根上消失。
+* text=auto eol=lf
+# 明确二进制，避免 git 试图转换而损坏
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.db binary
+*.sqlite binary
+*.wasm binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.xltx binary
+*.docx binary
+*.xlsx binary
+*.pptx binary
