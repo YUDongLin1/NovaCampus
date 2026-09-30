@@ -1,0 +1,132 @@
+{
+  "before": {
+    "docs": 65,
+    "chunks": 487
+  },
+  "snapshots": [
+    {
+      "docs": 65,
+      "chunks": 487,
+      "folders_exist": true,
+      "folder_id_col": true,
+      "audience_col": true,
+      "null_folder": 65,
+      "audience_common": 65
+    },
+    {
+      "docs": 65,
+      "chunks": 487,
+      "folders_exist": true,
+      "folder_id_col": true,
+      "audience_col": true,
+      "null_folder": 65,
+      "audience_common": 65
+    },
+    {
+      "docs": 65,
+      "chunks": 487,
+      "folders_exist": true,
+      "folder_id_col": true,
+      "audience_col": true,
+      "null_folder": 65,
+      "audience_common": 65
+    }
+  ],
+  "checks": [
+    {
+      "check": "M1-1 documents 守恒",
+      "pass": true,
+      "detail": "65→65"
+    },
+    {
+      "check": "M1-2 chunks 守恒",
+      "pass": true,
+      "detail": "487→487"
+    },
+    {
+      "check": "M1-3 folders 表已建",
+      "pass": true,
+      "detail": "True"
+    },
+    {
+      "check": "M1-4 folder_id 列已加",
+      "pass": true,
+      "detail": "True"
+    },
+    {
+      "check": "M1-5 audience 列已加",
+      "pass": true,
+      "detail": "True"
+    },
+    {
+      "check": "M1-6 存量文档 folder_id 全 NULL(不 UPDATE 既有行)",
+      "pass": true,
+      "detail": "65/65"
+    },
+    {
+      "check": "M1-7 存量 audience 全 common",
+      "pass": true,
+      "detail": "65/65"
+    },
+    {
+      "check": "M1-8 三次启动 schema 与计数完全一致(幂等)",
+      "pass": true,
+      "detail": "s1==s2==s3: True"
+    },
+    {
+      "check": "M2-1 无 scope 时候选=全库可见块(形状不变)",
+      "pass": true,
+      "detail": "全库 323 块 / 夹A 12 块"
+    },
+    {
+      "check": "M2-2 指定夹后候选只含该夹文档",
+      "pass": true,
+      "detail": "[5, 8] ⊆ [5, 8]"
+    },
+    {
+      "check": "M2-3 folder_ids==[] 直接返回空(绝不回落全库)",
+      "pass": true,
+      "detail": "len=0"
+    },
+    {
+      "check": "M2-4 多夹取并集(counselor 视角两夹都可见)",
+      "pass": true,
+      "detail": "[5, 8, 11, 55] vs 期望 [5, 8, 11, 55]"
+    },
+    {
+      "check": "M2-4b 并集在 student 视角仍被 RBAC 收窄(只剩学生可见夹A)",
+      "pass": true,
+      "detail": "[5, 8]"
+    },
+    {
+      "check": "M2-5 audience 只收窄不放宽",
+      "pass": true,
+      "detail": "postgrad 323 / 全库 323"
+    },
+    {
+      "check": "M2-6 audience 恒放行 common(未标注不误杀)",
+      "pass": true,
+      "detail": "undergrad 仍可见 common 块 312"
+    },
+    {
+      "check": "M2-7 categories 收窄生效且非空",
+      "pass": true,
+      "detail": "分类「其他」→ 14 块,文档集合 ⊆ 该分类 5 篇"
+    },
+    {
+      "check": "M2-8 文件夹可见性不得放宽文档 role_min(不提权)",
+      "pass": true,
+      "detail": "student 看含 counselor 文档的 student 夹 → 0 块"
+    },
+    {
+      "check": "M2-9 FTS 层同步下推 scope(命中集真被过滤,不是忽略 scope)",
+      "pass": true,
+      "detail": "词「研究生」: 全库=20 scoped夹A=3(全在夹A内=True) scoped夹B=1(含夹A块=0)"
+    }
+  ],
+  "pass": true,
+  "counts": {
+    "m1": "8/8",
+    "m2": "10/10"
+  }
+}

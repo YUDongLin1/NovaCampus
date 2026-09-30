@@ -36,16 +36,16 @@ KB 页(C6)                        输入框(C4)
 
 - **C1** ✅ `folders(id,name,parent_id,owner_id,visibility,created_at)` + `documents.folder_id`(NULL=根) +
   `documents.audience`(undergrad/postgrad/common, DEFAULT 'common')。迁移只 CREATE IF NOT EXISTS / 幂等加列 /
-  建索引，**不 UPDATE 任何既有行**。副本库对账（`.tmp` 探针 8/8）：documents 65→65→65、chunks 487→487→487（二次启动幂等）、
+  建索引，**不 UPDATE 任何既有行**。副本库对账（**8/8**；⚠ 实现期探针在 `.tmp` 跑完未入库，**现以复核人入库版 `docs/p4c/review_migration_db_probe.py` 的 18/18 为准**，见 `after/review_migration_db_probe.json`）：documents 65→65→65、chunks 487→487→487（二次启动幂等）、
   folder_id 全 NULL、audience 全 common、两次启动 schema 一致。**真实库迁移走 `db.py` 启动代码，未脚本改库**。
 - **C2** ✅ `POST/GET/PATCH/DELETE /api/kb/folders` + `PATCH /api/kb/documents/{id}` + `POST /api/kb/documents/move`。
   同层重名 409（只对请求者可见的重名拒绝，避免误伤他人 private 夹）；**非空删除默认 409** + hint 提示移动，
   `cascade=true` 级联删壳、**文档移回根目录（不删文档，KB 守恒）**；删除/重挂前做子树与环检查。
-  实测 28/28（`after/c2_c3_c4_c5_api_checks.json`）。
+  实测 **29/29**（`after/c2_c3_c4_c5_api_checks.json`，29 步逐条带 detail；初稿写 28/28 与产物步数不符，复核已更正）。
 - **C3** ✅ `rag.search(query, min_rank, scope=None)`、`rag.search_with_quality(..., scope=None)`（返回结构形状未变）、
   `db.all_chunks_for_search(min_rank, folder_ids=None, categories=None, audience=None)`。**scope 与 RBAC 取交集**
   ——folder/categories/audience 只会收窄候选集，文档自身 `role_min` 恒生效，文件夹可见性无法提权。
-  db 层 9/9（指定夹候选=该夹文档全块、`folder_ids=[]` 直接空、audience 对全 common 库无操作、FTS 层同步收窄）。
+  db 层 **10/10**（指定夹候选=该夹文档全块、`folder_ids=[]` 直接空、audience 对全 common 库无操作、FTS 层同步收窄、**文件夹可见性不得放宽文档 `role_min`**；⚠ 实现期 `.tmp` 探针未入库，现以复核人入库版 18/18 为准）。
   **三输入对照表**见回执（全库 / 指定正确夹 / 越权夹）。
 - **C4** ✅ `@` 仅作唤起符号：键入 `@` 弹多选（文件夹+分类），选中进芯片；发送时 `question` 与 `scope` 分离。
   **断言**：选中后输入框无 `@` 残留（UI 探针实测 `q=''`）；服务端对 `@` 开头问句 400 兜底；C4 请求体实测见回执。
