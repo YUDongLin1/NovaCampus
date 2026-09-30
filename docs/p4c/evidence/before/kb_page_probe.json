@@ -1,0 +1,28 @@
+{
+ "url": "http://127.0.0.1:8900/",
+ "role": "counselor",
+ "viewport": "1440x900 (Emulation.setDeviceMetricsOverride 锁定)",
+ "kb_rows": 63,
+ "kb_filter_options": [
+  "全部分类",
+  "办事指引",
+  "学生事务",
+  "政策文件",
+  "其他"
+ ],
+ "kb_first_row_text": "关于西南交通大学2016年度新生学平险保险的通知\n办事指引 counselor · 2026-09-29\t全体\t3\t查看 删除",
+ "has_folder_tree": false,
+ "has_at_picker": false,
+ "has_upload_row": true,
+ "has_import_row": true,
+ "pane_kb_visible": true,
+ "console": {
+  "error": [],
+  "warning": [],
+  "exceptions": []
+ },
+ "screenshot": {
+  "file": "kb_page_before.png",
+  "bytes": 680313
+ }
+}

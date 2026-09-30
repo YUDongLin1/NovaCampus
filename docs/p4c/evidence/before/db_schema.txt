@@ -1,0 +1,29 @@
+P4c BEFORE 基线 (1): schema 现状
+取证时间: 2026-09-30 (P4c 开工前, master=0499a89)
+数据库: E:\AILearn\NovaCampus\novaagent\data\agent.db
+
+== documents 全列 (PRAGMA table_info) ==
+   0 id             INTEGER  notnull=0 default=None
+   1 title          TEXT     notnull=1 default=None
+   2 filename       TEXT     notnull=1 default=None
+   3 role_min       TEXT     notnull=1 default=None
+   4 uploaded_by    TEXT     notnull=1 default=None
+   5 created_at     TEXT     notnull=1 default=None
+   6 category       TEXT     notnull=1 default='其他'
+   7 summary        TEXT     notnull=1 default=''
+
+列清单: ['id', 'title', 'filename', 'role_min', 'uploaded_by', 'created_at', 'category', 'summary']
+实测: 'folder_id' in columns = False   <-- 应为 False
+实测: 'audience'  in columns = False   <-- 应为 False
+
+== 全部表名 ==
+  ['chunks', 'chunks_fts', 'chunks_fts_config', 'chunks_fts_data', 'chunks_fts_docsize', 'chunks_fts_idx', 'conversation_summary', 'conversations', 'documents', 'messages', 'sessions', 'sqlite_sequence', 'user_settings', 'users']
+实测: 'folders' 表存在 = False   <-- 应为 False
+
+== 计数守恒基线 (本单迁移后必须与此相等) ==
+  documents = 65
+  chunks    = 487
+
+== 分布(供 scope 用例挑库) ==
+  按 category: {'政策文件': 35, '学生事务': 20, '其他': 5, '办事指引': 3, '运维手册': 2}
+  按 role_min: {'admin': 2, 'counselor': 21, 'student': 42}

@@ -1,0 +1,11 @@
+P4c BEFORE 基线 (2): 检索链路当前签名(本单要给它们加 scope)
+
+== rag.py ==
+  rag.py:129: async def search(query: str, min_rank: int) -> list[dict]:
+  rag.py:135: async def search_with_quality(query: str, min_rank: int) -> tuple[list[dict], dict]:
+
+== db.py ==
+  db.py:402: def all_chunks_for_search(min_rank: int) -> list[dict]:
+
+注: RBAC 过滤发生在取候选块阶段(db.all_chunks_for_search 的 role_min IN (...)),
+    scope 只能在其之上再加约束取交集(见 P4c 硬约束 1)。
