@@ -692,7 +692,7 @@ _SCOPE_EMPTY_TEXT = ("您指定的知识库范围下没有可检索的文档，�
 _SCOPE_MISSING_TEXT = "指定的知识库不存在或无权访问"
 
 
-def _resolve_scope(body: dict, user) -> dict | None:
+def _resolve_scope(body: dict, user, question_text: str = "") -> dict | None:
     """P4c C3/C4: 解析请求里的 scope(前端已把 @ 与问句分离,这里做服务端解析与 RBAC 交集)。
 
     硬约束 1(RBAC 优先): 请求的 folder_ids 与该用户可见集合取交集,**越权/不存在的
@@ -710,6 +710,9 @@ def _resolve_scope(body: dict, user) -> dict | None:
         raise HTTPException(400, "scope.folder_ids / scope.categories 必须是数组")
     folder_ids = [int(f) for f in folder_ids if str(f).strip().lstrip("-").isdigit()]
     categories = [str(c).strip() for c in categories if str(c).strip()][:5]
+    if not audience:
+        # P4c C5: 问句自带学段词(本科生/研究生/硕士…) → 自动映射 audience(未标注文档恒 common,零回归)
+        audience = _audience_stage_of(question_text) or None
     if not folder_ids and not categories and not audience:
         return None
     resolved: list[int] | None = None
@@ -771,7 +774,7 @@ async def chat(body: dict, user=Depends(current_user)):
         raise HTTPException(400, "问题文本不能以 @ 开头：请用 @ 选择器指定知识库（scope 参数）")
     cid = _resolve_conversation(body, user["id"]) or None
     try:
-        scope = _resolve_scope(body, user)
+        scope = _resolve_scope(body, user, question)
     except HTTPException:
         raise
     rank = ROLE_RANK[user["role"]]
@@ -798,7 +801,7 @@ async def chat_stream(body: dict, user=Depends(current_user)):
     if question.startswith("@"):
         raise HTTPException(400, "问题文本不能以 @ 开头：请用 @ 选择器指定知识库（scope 参数）")
     cid = _resolve_conversation(body, user["id"]) or None
-    scope = _resolve_scope(body, user)
+    scope = _resolve_scope(body, user, question)
     rank = ROLE_RANK[user["role"]]
     pre = _audience_clarify(question, rank, scope) or _scope_empty_response(scope, rank)
 

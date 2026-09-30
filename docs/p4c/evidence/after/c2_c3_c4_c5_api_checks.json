@@ -1,0 +1,162 @@
+{
+ "base": "http://127.0.0.1:8900",
+ "elapsed_s": 12.1,
+ "documents_before": 63,
+ "documents_after": 63,
+ "c4_request_body_sent": {
+  "question": "蟹黄堡秘制配方编号97531号是什么内容？",
+  "scope": {
+   "folder_ids": [
+    9
+   ]
+  }
+ },
+ "steps": [
+  {
+   "step": "C2 建夹 A",
+   "pass": true,
+   "detail": "{\"folder_id\":7,\"name\":\"P4c夹A\",\"parent_id\":null,\"visibility\":\"counselor\"}"
+  },
+  {
+   "step": "C2 同层重名 → 409",
+   "pass": true,
+   "detail": "409"
+  },
+  {
+   "step": "C2 重命名",
+   "pass": true,
+   "detail": "{\"updated\":true,\"id\":7,\"name\":\"P4c夹A2\",\"parent_id\":null,\"owner_id\":2,\"visibility\":\"counselor\",\"created_at\":\"2026-09-30T0"
+  },
+  {
+   "step": "C2 改成同级已有名 → 409",
+   "pass": true,
+   "detail": "409"
+  },
+  {
+   "step": "C2 列表含两个新夹",
+   "pass": true,
+   "detail": "['P4c API test folder', 'P4c夹A2', 'P4c夹B']"
+  },
+  {
+   "step": "C2 学生列表不含 counselor 可见夹",
+   "pass": true,
+   "detail": "[]"
+  },
+  {
+   "step": "C2 学生建夹 → 403",
+   "pass": true,
+   "detail": "403"
+  },
+  {
+   "step": "C2 学生改夹 → 403(角色闸优先)",
+   "pass": true,
+   "detail": "403"
+  },
+  {
+   "step": "C2 单条移动进夹",
+   "pass": true,
+   "detail": "{\"updated\":true,\"folder_id\":7,\"audience\":\"common\"}"
+  },
+  {
+   "step": "C2 夹内列表含该文档",
+   "pass": true,
+   "detail": "['关于西南交通大学2016年度新生学平险保险的通知']"
+  },
+  {
+   "step": "C5 标注学段 postgrad",
+   "pass": true,
+   "detail": "{\"updated\":true,\"folder_id\":7,\"audience\":\"postgrad\"}"
+  },
+  {
+   "step": "C5 audience 筛选生效",
+   "pass": true,
+   "detail": "pg=1 ug=0"
+  },
+  {
+   "step": "C2 批量移动",
+   "pass": true,
+   "detail": "{\"moved\":2,\"skipped\":0,\"folder_id\":7}"
+  },
+  {
+   "step": "C2 非空删除 → 409+hint",
+   "pass": true,
+   "detail": "{\"detail\":{\"code\":\"folder_not_empty\",\"reason\":\"文件夹非空\",\"hint\":\"该文件夹含 2 篇可见文档、0 个子文件夹;请先移动，或确认级联删除(cascade=true，文档将移回根目录、不会被删除)\"}}"
+  },
+  {
+   "step": "C2 级联删除(文档移回根,不删文档)",
+   "pass": true,
+   "detail": "{\"deleted\":true,\"folders_removed\":1,\"docs_moved_to_root\":2}"
+  },
+  {
+   "step": "C2 级联后文档仍在(移回根)",
+   "pass": true,
+   "detail": "None"
+  },
+  {
+   "step": "C3 上传文档入指定夹",
+   "pass": true,
+   "detail": "{\"doc_id\":182,\"chunks\":3,\"role_min\":\"student\",\"category\":\"其他\",\"summary\":\"本文档为P4c检索范围验证用的合成性文件，适用于系统验证场景。核心事项为指定文件夹后来源须全部来自该夹，未指定时属全库对照列，内容与真实校规无关，验证后将删除。\",\"fold"
+  },
+  {
+   "step": "C4 分离传参请求被接受(200)",
+   "pass": true,
+   "detail": "{\"answer\":\"蟹黄堡秘制配方编号97531号，仅限本验证文档使用，不含任何真实校规内容。该信息为检索范围验证填充内容，与学校任何真实规定无关，验证完成后整篇将被删除。\",\"sources\":[{\"ref\":1,\"title\":\"p4c-scope-验证文档\",\"content\":\"蟹黄堡秘制配方编号97531号"
+  },
+  {
+   "step": "C4 响应 context.scope 原样回传",
+   "pass": true,
+   "detail": "{'budget': 85196, 'compressed': False, 'truncated': False, 'history_count': 0, 'used': 0, 'scope': {'folder_ids': [9], 'categories': None, 'audience': None}}"
+  },
+  {
+   "step": "C3 来源全属该夹",
+   "pass": true,
+   "detail": "['p4c-scope-验证文档', 'p4c-scope-验证文档']"
+  },
+  {
+   "step": "C3 全库对照有来源(基线对照列)",
+   "pass": true,
+   "detail": "2"
+  },
+  {
+   "step": "C4 服务端拒绝 @ 开头问句 → 400",
+   "pass": true,
+   "detail": "400"
+  },
+  {
+   "step": "C3 越权夹与不存在夹同表现 404",
+   "pass": true,
+   "detail": "404/404 '{\"detail\":\"指定的知识库不存在或无权访问\"}' vs '{\"detail\":\"指定的知识库不存在或无权访问\"}'"
+  },
+  {
+   "step": "硬约束3 空库 → 明确提示且零来源(不回落全库)",
+   "pass": true,
+   "detail": "{\"answer\":\"您指定的知识库范围下没有可检索的文档，本次回答**未做全库检索**。请确认所选文件夹/学段是否有内容，或去掉 @ 范围后重新提问。\",\"sources\":[],\"tool_trace\":[],\"context\":{\"scope_empty\":true,\"scope\":{\"folder_ids\":[11],\"categories\":null,\"audience\":null}}}"
+  },
+  {
+   "step": "C5 上传本/研成对标注材料",
+   "pass": true,
+   "detail": "183/184"
+  },
+  {
+   "step": "C5 学段敏感+无学段词 → 追问(不猜)",
+   "pass": true,
+   "detail": "{\"answer\":\"您的问题涉及本科生与研究生的不同规定，为避免答错学段，请先告诉我：您想咨询的是本科生还是研究生的相关规定？\",\"sources\":[],\"tool_trace\":[],\"clarify\":{\"type\":\"audience\",\"options\":[\"本科生\",\"研究生\"],\"hint_param\":\"audience_hint\"},\"context\":{\"audience_c"
+  },
+  {
+   "step": "C5 带 audience_hint → 抑制追问并正常作答(不再追问学段)",
+   "pass": true,
+   "detail": "['西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）', '西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）']"
+  },
+  {
+   "step": "清理: documents 守恒",
+   "pass": true,
+   "detail": "63→63"
+  },
+  {
+   "step": "清理: 文件夹全部移除",
+   "pass": true,
+   "detail": "[]"
+  }
+ ],
+ "all_pass": true
+}
