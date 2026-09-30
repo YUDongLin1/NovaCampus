@@ -1,0 +1,191 @@
+{
+  "n_qa": 18,
+  "with_sources": 18,
+  "ungrounded_with_sources": 0,
+  "ungrounded_but_judge_pass": 0,
+  "ids_escaped": [],
+  "gate_hit_rate": 0,
+  "rows": [
+    {
+      "id": "qa-01",
+      "n_sources": 2,
+      "len": 95,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['书面申请', '诊断证明'],引用 2 条",
+      "answer_head": "研究生申请休学需提交以下材料：   1. 本人书面申请；   2. 二级甲等以上医院诊断证明（因病休学）；   3. 导师意见。    提交材料后，经培养单位审核同意，报研究生院审"
+    },
+    {
+      "id": "qa-02",
+      "n_sources": 4,
+      "len": 917,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['培养单位', '研究生院'],引用 4 条",
+      "answer_head": "根据您提供的知识库资料，休学申请的审批流程因学生类型（本科生/研究生）而异，具体如下：  ### 一、研究生休学申请审批流程 依据《EVAL-研究生学籍管理规定》[3]： 1. *"
+    },
+    {
+      "id": "qa-03",
+      "n_sources": 5,
+      "len": 28,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['六'],引用 5 条",
+      "answer_head": "研究生的最长学习年限（含休学、保留学籍）为六年 [1]。"
+    },
+    {
+      "id": "qa-04",
+      "n_sources": 2,
+      "len": 72,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['3.5'],引用 2 条",
+      "answer_head": "根据《EVAL-研究生奖学金评定办法》第一条，国家奖学金的基本申请条件中明确要求：学习成绩平均绩点不低于 3.5，且当学年无不及格科目 [1]。"
+    },
+    {
+      "id": "qa-05",
+      "n_sources": 4,
+      "len": 199,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['申请表', '成绩单'],引用 4 条",
+      "answer_head": "申请国家奖学金需提交以下材料：   - 奖学金申请表   - 上学年成绩单   - 获奖证书复印件    以上信息依据《EVAL-研究生奖学金评定办法》第三条 [1]。    如为"
+    },
+    {
+      "id": "qa-06",
+      "n_sources": 3,
+      "len": 34,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['辅导员'],引用 3 条",
+      "answer_head": "以下依据本科生办法：  请假3天以内（含3天）由辅导员审批 [1]。"
+    },
+    {
+      "id": "qa-07",
+      "n_sources": 2,
+      "len": 64,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 [['教务处', '备案', '报备']],引用 2 条",
+      "answer_head": "请假超过7天的流程如下：  1. 由学院审批； 2. 审批后报教务处备案。  该规定出自《EVAL-学生请假管理办法》第三条 。"
+    },
+    {
+      "id": "qa-08",
+      "n_sources": 4,
+      "len": 431,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['一周', '复学申请'],引用 4 条",
+      "answer_head": "休学期满申请复学的流程如下：  1. **提出复学申请**：学生应在休学期满前，按照学校规定的时间期限内提交复学申请。根据《普通高等学校学生管理规定（教育部令第41号）》第二十九条"
+    },
+    {
+      "id": "qa-09",
+      "n_sources": 5,
+      "len": 874,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['病假', '事假'],引用 5 条",
+      "answer_head": "以下依据本科生办法：  本科生离校请假手续规定如下：  1. **适用范围**：适用于在校本科生，离校指离开学校且当天23时前无法返回学校 [1]。  2. **请假类型**：  "
+    },
+    {
+      "id": "qa-10",
+      "n_sources": 6,
+      "len": 262,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['贷款'],引用 6 条",
+      "answer_head": "以下依据本科生办法：  申请国家助学贷款需满足以下条件：  （一）具有中华人民共和国国籍，且持有中华人民共和国居民身份证；   （二）具有完全民事行为能力（未成年人申请国家助学贷款"
+    },
+    {
+      "id": "qa-11",
+      "n_sources": 5,
+      "len": 677,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 [['宿舍', '寝室', '室友', '矛盾']],引用 5 条",
+      "answer_head": "针对学生宿舍矛盾的谈心谈话，可参考以下步骤与要点，结合具体情境灵活运用：  1. **建立信任，共情倾听**      对学生主动寻求帮助表示肯定，表达理解与关心。例如：“你能主动"
+    },
+    {
+      "id": "qa-12",
+      "n_sources": 4,
+      "len": 354,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['奖助学金'],引用 4 条",
+      "answer_head": "根据您提供的知识库资料，关于研究生奖助学金评审的规定如下：  1. **国家奖学金**：    - 基本申请条件：学习成绩平均绩点不低于3.5，且当学年无不及格科目 [4]。   "
+    },
+    {
+      "id": "qa-13",
+      "n_sources": 4,
+      "len": 665,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['电器'],引用 4 条",
+      "answer_head": "以下依据本科生办法：  根据《西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号）》第十一条及第十二条的规定，学生在宿舍使用违章电器的处理方式如下：  1. **禁止行为*"
+    },
+    {
+      "id": "qa-14",
+      "n_sources": 2,
+      "len": 1004,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['暂停'],引用 2 条",
+      "answer_head": "您好！关于您提到的医保参保地变更问题，根据现有资料，以下是具体建议：  1. **确认当前参保状态**：您已缴纳2026年度大学生医保费用，说明您已在成都市金牛区参保。但若系统中显"
+    },
+    {
+      "id": "qa-15",
+      "n_sources": 2,
+      "len": 987,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['学平险'],引用 2 条",
+      "answer_head": "关于学平险（大学生平安保险）的相关信息，需特别注意：您所查询的内容涉及历史文件，当前政策可能已有更新。以下是根据现有知识库资料的说明：  ---  ### ⚠️ 重要提示： 以下信"
+    },
+    {
+      "id": "qa-16",
+      "n_sources": 3,
+      "len": 264,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['不可兼得'],引用 3 条",
+      "answer_head": "以下依据本科生办法：  根据《西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）》第二十一条规定，同一学年内以下荣誉不可兼得：  - “三好学生标兵”与“三好学"
+    },
+    {
+      "id": "qa-17",
+      "n_sources": 2,
+      "len": 172,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 ['本科生', '研究生'],引用 2 条",
+      "answer_head": "以下依据本科生办法，但需特别说明：**研究生荣誉称号评审办法未在知识库中覆盖**。因此，关于研究生2025-2026学年个人荣誉称号是否可兼得的问题，**知识库中暂无相关内容**。"
+    },
+    {
+      "id": "rind-02",
+      "n_sources": 4,
+      "len": 588,
+      "gate_grounded": true,
+      "gate_hit_this_turn": false,
+      "judge_qa_pass": true,
+      "detail": "命中 [['学平险', '学生平安保险', '学生平安团体保险'], ['历史', '旧', '现行', '最新通知', '以保卫处', '以校医院']],引用 4 条",
+      "answer_head": "以下依据本科生办法：  我校为在校本科生提供学生平安团体保险（简称“学平险”），该保险是学校统一组织投保的补充性保障项目，与成都市城乡居民医疗保险（即“大学生医保”）属于不同性质的"
+    }
+  ],
+  "note": "口径 A=产品闸门 answer_is_grounded（有来源须含 [n] 或数字）；口径 B=评测 judge_qa（关键词/来源命中 + 非答案检测）。B 放过 A 判无效的条数即『空话仍 PASS』的规模。"
+}

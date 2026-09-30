@@ -1,0 +1,69 @@
+{
+  "early80": [
+    {
+      "ttfb": 3358,
+      "e2e": 3701,
+      "span": 343,
+      "deltas": 28,
+      "retry": false,
+      "gate": null,
+      "answer_len": 150,
+      "n_sources": 4,
+      "cid": 1378
+    },
+    {
+      "ttfb": 2599,
+      "e2e": 3173,
+      "span": 574,
+      "deltas": 38,
+      "retry": false,
+      "gate": null,
+      "answer_len": 208,
+      "n_sources": 4,
+      "cid": 1379
+    },
+    {
+      "ttfb": 3570,
+      "e2e": 3778,
+      "span": 208,
+      "deltas": 21,
+      "retry": false,
+      "gate": null,
+      "answer_len": 113,
+      "n_sources": 4,
+      "cid": 1380
+    }
+  ],
+  "abort_early80": {
+    "deltas_before_abort": 4,
+    "cid": 1381,
+    "leftover": []
+  },
+  "full_buffer": [
+    {
+      "ttfb": 3948,
+      "e2e": 3979,
+      "span": 31,
+      "deltas": 42,
+      "retry": false,
+      "gate": null,
+      "answer_len": 230,
+      "n_sources": 4,
+      "cid": 1382
+    },
+    {
+      "ttfb": 3806,
+      "e2e": 3854,
+      "span": 48,
+      "deltas": 43,
+      "retry": false,
+      "gate": null,
+      "answer_len": 234,
+      "n_sources": 4,
+      "cid": 1383
+    }
+  ],
+  "fails": [
+    "早窗档 span > 300ms（渐进性存在）: spans=[343, 574, 208]"
+  ]
+}
