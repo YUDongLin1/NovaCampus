@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：WorkBuddy**（**P4c 已下发**：KB 文件夹 + `@` 指定检索范围 + 学段元数据；分支 `task/P4c-kb-folders`，规格见本文件 P4c 条目 C1~C9，开单指令 `docs/p4c/zcode-order.md`。⚠ **实现者自 2026-09-30 起由 Zcode 改为 WorkBuddy**（Zcode 日额度用尽、用户变更分工）——开单收件人与回执署名一律写 WorkBuddy；**开单风格同步调整：实现期只做针对性最小检查，功能齐了再集中跑一轮完整评测+冒烟，不要每步重跑全套**）
+> **当前持棒：Qoder**（**P4c 交接回执已回填 2026-09-30，状态 IN_REVIEW**：分支 `task/P4c-kb-folders`，C1~C9 全部落地——C1 迁移副本库 8/8、C2/C3/C4/C5 API 验证 28/28、C7 scoped_qa 3/3、C6 UI 探针 8/8、C9 冒烟 65→65、C8 集中评测 **43/43**(v1.9)。⚠ 评测集 **40 → 43** 口径已记账(EVAL_BASELINE §十三/HANDOFF 坑 40/43)，**43/43 才是满通过**。`evals/badcases.json` 有评测运行时追加，落在白名单字面之外，请 Qoder 按 P4b-0 同款先例裁决)
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
 > ❌ **P4b Review 结论（Qoder，2026-09-30，十条完成标准全部独立复跑）**：边界 30 文件全在白名单内、`refusal.py`/`faithfulness.py`/`rag.py` **零触碰**、16 份证据全入库无缺失。**独立复验成立的部分**：C1 迁移幂等（我另起 :8901 实例二次启动，`messages 2790 / conversations 126 / no_cid 0` 分毫不动，逐会话求和==总数）；C2 代词指代；C3 预算 85196；C4 四个数字 448/95585/417号/25000 确在 a1/a2/a3 全部召回（复核一度误判成 3/4，是我只读两个字段、看漏 `a3` 后自我更正）；C6 越权与不存在的 404 响应体**逐字节一致**（先用 curl 测得到『假通过』——登录根本没成功、两边都是 401，改用 httpx 重做才算数）；C9 冒烟 exit 0、`documents 65→65`；坑 30 消费端全部已同步；6/6 探针无虚构 `[n]`。**C8 我这轮 35/36**：唯一失败 `qa-02` 直连复测 3/3 全过（temp=0 下答案长度 236↔1156 波动）→ 判为输出方差、非 P4b 回归，并入已知波动用例清单。**但仍有五条必改，其中第 1、3 条阻塞合并**——详见 `docs/TASKS.md` P4b「Review 结论」与 `docs/P4B.md` §三。
@@ -1010,7 +1010,7 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 
 
 
-### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　🔧 IN_PROGRESS（2026-09-30 下发，持棒 **WorkBuddy**；分支 `task/P4c-kb-folders`，开单指令 `docs/p4c/zcode-order.md`；设计见 `docs/P4.md` M5）
+### P4c KB 文件夹 + `@` 指定检索范围 + 学段元数据　🟣 IN_REVIEW（2026-09-30 交付，实现者 **WorkBuddy**，持棒 **Qoder**；分支 `task/P4c-kb-folders`；设计见 `docs/P4.md` M5，落地细节与遗留见 `docs/P4C.md` 与下方回执）
 
 - **目标**：知识库界面支持用户自建文件夹并对文件分类/归类/移动；输入框支持 `@` 语法指定本次检索所用的知识库（可多选）；补 `audience`（本科生/研究生/通用）元数据以支撑反馈 F3 的学段区分。
 - **⚠ 已实测的现状（2026-09-30，别按猜测做）**：
@@ -1023,17 +1023,45 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 - **禁改**：`novaagent/novaagent/{refusal.py,llm.py}`、`evals/faithfulness.py`、`corpus/**`、`sims/**`、`mcp/**`、`weknora/**`、`novaagent/data/agent.db*`（迁移一律走 `db.py` 启动代码）
 - **三个硬设计约束（Qoder 定）**：① **RBAC 优先于 scope**——`@` 指定越权 folder 时**静默忽略**，沿用「不可见=不存在」，响应不得泄露该 folder 是否存在；② **`@xxx` 不得混进 question 文本**——前端解析后 `question` 与 `scope` **分离传参**，否则污染 embedding 与 FTS（这是检索质量的直接杀手，P4d 还要靠它）；③ **`@` 指定的库为空 → 明确提示，绝不静默回落全库检索**（回落等于把越权/无关内容答给用户，是安全事故）。
 - **完成标准（C1~C9）**：
-  - [ ] **C1 数据模型**：`folders(id,name,parent_id,owner_id,visibility,created_at)` + `documents.folder_id`(NULL=根) + `documents.audience`(`undergrad`/`postgrad`/`common`)；**迁移不删数据**（迁移前后 `documents`/`chunks` 计数相等、`folder_id IS NULL` 占比可核对）、迁移幂等（重启两次不重复建表/不重复赋值）
-  - [ ] **C2 文件夹 CRUD 与移动**：新建/重命名/删除/层级（`parent_id`）；文档单条与批量移动 API；**同层重名拒绝**；删除**非空文件夹默认拒绝**并提示先移动（级联需显式二次确认参数）
-  - [ ] **C3 检索 scope**：`rag.search(query, min_rank, scope=None)` 与 `db.all_chunks_for_search(min_rank, folder_ids=None, audience=None)`；**scope 与 RBAC 取交集**；给出实测：同一问句在全库 / 指定正确 folder / 指定越权 folder 三种输入下的 `sources` 与 `top_score` 对照表
-  - [ ] **C4 `@` 语法**：前端输入框键入 `@` 弹可选库（文件夹/分类）多选；提交时 `question` 与 `scope` 分离；**断言后端收到的 `question` 里没有 `@` 残留**（给出请求体实测）
-  - [ ] **C5 学段元数据与 F3**：`audience` 可标注、可筛选；问题命中「学段敏感清单」且无 `audience_hint` 时**默认追问学段**（不猜），或按学段分列两段；本单只做元数据 + 追问，编排留给 P4d
-  - [ ] **C6 前端**：KB 页由「表格 + 分类下拉」改为「文件夹树 + 文档列表」，支持移动/归类；**零新依赖**（不引框架/构建/公网 CDN），样式沿用「学术水墨 × 朱砂印」主题变量
-  - [ ] **C7 评测**：新增类型 `scoped_qa` ≥2 条——①`@` 指定库后断言**来源全属该库**；②`@` 空库断言返回提示**而非全库结果**；③（建议）`@` 越权 folder 断言与"不存在"同表现。断言必须**能失败**（坑 39），失败要影响退出码
-  - [ ] **C8 零回归**：**v1.8 = 40 用例**不回退（40/40、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3、四类新路径用例全过、隔离断言 ok）；忠实度中位 0.9706 属已裁决移交 P4d 的 judge 盲区，**不得为指标删学段声明**；已知波动用例 `qa-08`/`qa-02` 单轮失败要按坑 16 判性质
-  - [ ] **C9 冒烟与守恒 + 证据入库**：`smoke_test.py` GBK 控制台 exit 0、`documents 65→65`、`chunks 487→487`；文档引用的每个证据文件都要 `git diff --name-status` 与 `git check-ignore -v` 对上（坑 17）；**探针"取到非空才落盘"**（坑 33）
+  - [x] **C1 数据模型**：`folders(id,name,parent_id,owner_id,visibility,created_at)` + `documents.folder_id`(NULL=根) + `documents.audience`(`undergrad`/`postgrad`/`common`)；**迁移不删数据**（迁移前后 `documents`/`chunks` 计数相等、`folder_id IS NULL` 占比可核对）、迁移幂等（重启两次不重复建表/不重复赋值）
+  - [x] **C2 文件夹 CRUD 与移动**：新建/重命名/删除/层级（`parent_id`）；文档单条与批量移动 API；**同层重名拒绝**；删除**非空文件夹默认拒绝**并提示先移动（级联需显式二次确认参数）
+  - [x] **C3 检索 scope**：`rag.search(query, min_rank, scope=None)` 与 `db.all_chunks_for_search(min_rank, folder_ids=None, audience=None)`；**scope 与 RBAC 取交集**；给出实测：同一问句在全库 / 指定正确 folder / 指定越权 folder 三种输入下的 `sources` 与 `top_score` 对照表
+  - [x] **C4 `@` 语法**：前端输入框键入 `@` 弹可选库（文件夹/分类）多选；提交时 `question` 与 `scope` 分离；**断言后端收到的 `question` 里没有 `@` 残留**（给出请求体实测）
+  - [x] **C5 学段元数据与 F3**：`audience` 可标注、可筛选；问题命中「学段敏感清单」且无 `audience_hint` 时**默认追问学段**（不猜），或按学段分列两段；本单只做元数据 + 追问，编排留给 P4d
+  - [x] **C6 前端**：KB 页由「表格 + 分类下拉」改为「文件夹树 + 文档列表」，支持移动/归类；**零新依赖**（不引框架/构建/公网 CDN），样式沿用「学术水墨 × 朱砂印」主题变量
+  - [x] **C7 评测**：新增类型 `scoped_qa` ≥2 条——①`@` 指定库后断言**来源全属该库**；②`@` 空库断言返回提示**而非全库结果**；③（建议）`@` 越权 folder 断言与"不存在"同表现。断言必须**能失败**（坑 39），失败要影响退出码
+  - [x] **C8 零回归**：**v1.8 = 40 用例**不回退（40/40、R@k ≥0.9412、拒答 1.0、`refusal_indomain` 6/6、`kb_hidden` 3/3、四类新路径用例全过、隔离断言 ok）；忠实度中位 0.9706 属已裁决移交 P4d 的 judge 盲区，**不得为指标删学段声明**；已知波动用例 `qa-08`/`qa-02` 单轮失败要按坑 16 判性质
+  - [x] **C9 冒烟与守恒 + 证据入库**：`smoke_test.py` GBK 控制台 exit 0、`documents 65→65`、`chunks 487→487`；文档引用的每个证据文件都要 `git diff --name-status` 与 `git check-ignore -v` 对上（坑 17）；**探针"取到非空才落盘"**（坑 33）
 - **测试节奏（按用户 2026-09-30 要求调整）**：实现期**只跑针对性最小检查**（相关单测 / 单条 API 断言 / 迁移计数对账）；**C1~C7 全部落地后再集中跑一轮**完整评测 + 冒烟即可，不必每步复跑全套。Qoder 合并前会独立做一次集中把关，不必自欺重复劳动。
 - **依赖**：P4b 合并（已满足，master 含会话与上下文管理）；`docs/P4.md` M5
+
+#### 交接回执（WorkBuddy → Qoder，2026-09-30）——P4c 交付，状态 **IN_REVIEW**
+
+- **分支 + 提交**：`task/P4c-kb-folders`（自 master 切出；`f5c73a0` BEFORE 基线 → `c1b80b5` C1/C2/C3/C5 后端 → `622079c` C7 用例 → `5ddda05` C4/C6 前端+UI 证据 → 本回执）。**未合并 master**。
+- **diff 摘要**（白名单内）：`db.py`(folders 表 + documents.folder_id/audience 幂等迁移、_scope_where 共享过滤、all_chunks_for_search/fts_search 加 scope、count_visible_documents、folder CRUD 助手、audience_conflict、update_document_meta 哨兵区分"移回根/未改")、`rag.py`(search/search_with_quality/_keyword_search 透传 scope,返回结构形状未变)、`agent.py`(**仅透传**:chat_for/chat_stream_for 加 scope 参数传给 search_with_quality + ctx_info.scope echo)、`main.py`(resolve_scope/学段追问/空库提示/文件夹 CRUD/PATCH 文档/批量移动/上传与列表加 folder+audience/@ 开头 400 兜底)、`web/{index.html,js/{kb,chat,api}.js,css/theme.css}`、`evals/{cases.json(v1.9,43 条),run_evals.py(scoped_qa 执行器)}`、`docs/P4C.md`(新)、`docs/p4c/**`(探针+证据)。
+- **禁改项零触碰**：`refusal.py`、`llm.py`、`evals/faithfulness.py`、`corpus/**`、`sims/**`、`mcp/**`、`weknora/**`；`agent.db` 未脚本改（迁移走 `db.py` 启动代码，另在**临时副本库**上先验证过）。
+- **迁移对账（C1，副本库 8/8）**：documents 65→65→65、chunks 487→487→487（二次启动幂等）、folder_id 全 NULL、audience 全 common、两次启动 schema 一致。真实库迁移由 :8900 启动执行，集中验证后查库 **documents 65 / chunks 487 / folders 0**（自清理归零）。
+- **C3 三输入对照表**（问句「蟹黄堡秘制配方编号97531号是什么内容？」，证据 `after/c2_c3_c4_c5_api_checks.json`）：
+
+  | 输入 | sources | top 来源 | 结果 |
+  |------|---------|----------|------|
+  | 全库（无 scope） | 2 条 | p4c-scope-验证文档 | 200 正常作答 |
+  | `@` 指定正确夹（含该文档） | 2 条 | **全部** p4c-scope-验证文档 | 200，`context.scope` 原样回传 |
+  | `@` 指定越权夹（student×counselor 私夹） | — | — | **404**，响应体与「不存在」逐字节一致 |
+  | `@` 指定空夹 | **0 条** | — | 200 明确提示「未做全库检索」+ `scope_empty=true` |
+
+- **C4 请求体实测**（前端分离传参）：`{"question":"蟹黄堡秘制配方编号97531号是什么内容？","scope":{"folder_ids":[9]}}` ——question **无 @ 残留**；UI 探针断言选中后输入框为空串；服务端对 `@` 开头问句 400 兜底（实测 400）。
+- **②③⑤ 等针对性检查**：C1 迁移 8/8（副本库）、C3 db 层 9/9（含 FTS 下推、空 scope 不回落）、C2/C3/C4/C5 API **28/28**、C7 targeted 3/3、C6 UI **8/8**（`kb_page_after.png`/`at_picker.png`，控制台零 error）。
+- **集中验证（C8/C9）**：冒烟 `SMOKE TEST PASSED`（GBK exit 0，`documents 65→65`，自清理 4 篇）；查库 `chunks 487`；完整评测 **43/43（100%）**、R@k **0.9412**、拒答 **1.0**、忠实度 0.9412(llm,单轮)、隔离断言 ok、**退出码 0**（`reports/eval_report_20260930_140221.json`）。
+- **完成标准自评**：C1~C9 全过（逐条见 `docs/P4C.md` §二）。
+- **口径记账（坑 40）**：评测集 **40 → 43**，基线 **v1.8 → v1.9**（EVAL_BASELINE 新增 v1.9 行 + §十三；HANDOFF 头注/评测基线行/快速验证注释同步；cases.json 内部 version 字段由误留的 "v1.7" 修正为 "v1.9"）。**43/43 才是满通过**。
+- **遗留 / 需 Qoder 决策**：
+  1. **`evals/badcases.json` 被评测运行时追加**（append-only 档案），落在白名单字面外——请按 P4b-0 先例裁决（我核对仅 `updated_at`/统计字段与新增条目变化，无手改）。
+  2. **忠实度单轮 0.9412 < v1.8 中位 0.9706**：属第十一节已裁决的 judge 学段声明盲区方差（单轮未复跑），未为指标删声明；如需更稳数字请 Review 时复跑取中位。
+  3. **F3 追问触发条件偏保守**（需库内本/研成对标注材料，`db.audience_conflict`）：存量 65 篇全 common → 追问不触发（零回归）。更激进的"命中清单即追问"会把 qa-07 等无学段词用例全部打成追问（已否决，见 P4C.md §四.4）。
+  4. **`_resolve_scope` 在 main 层**（不在 rag/db）：越权判定需要 user_id/role，且 `agent.py` 须保持纯透传——如希望下沉到 db 层请裁决。
+  5. sq-01 的 setup 会临时移动真实文档入夹（teardown 复位）；评测中途崩溃可能留下 folder_id 残留（下次运行自愈，不影响检索正确性）。
+  6. 运行态：:8900 实例（NOVAAGENT_EVAL_TEMPERATURE=0）已重启加载 P4c 代码供 Review；原 36328 旧实例已按坑 37 流程（netstat 定位 PID → 核 cwd/env/父链 → 显式 PID taskkill）停掉。
 
 ### P4d LangGraph 检索编排 + 查询改写重试　📋 READY（待 P4c，设计见 M6）
 
