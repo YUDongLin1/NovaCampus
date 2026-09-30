@@ -77,6 +77,87 @@ def est_tokens(text: str) -> int:
     return math.ceil(len(text or "") / 1.6)
 
 
+# P4e M4:生成出口的**确定性闸门**——「有来源却零可核查事实」判为无效答案,触发**一次**重生。
+#
+# 【为什么放代码不放 prompt】本项目铁律「判定放代码,不放 prompt」(P4a C1 / 坑 21):
+# prompt 只是"建议",模型可以不听;代码是判定。SYSTEM_PROMPT 第 1/3 条早已要求
+# 「事实性主张必须锚定来源、引用标注 [编号] 紧跟对应句子」,但**没有强制力**——
+# 实测 qa-17 会偶发输出「以下依据本科生办法,研究生相关规定未在知识库覆盖,请以…为准」(41 字),
+# 零引用零数字,实质**没有回答用户问什么**。评测侧 P4d-fix ④ 的非答案检测能抓住它,
+# 但那是**事后**判红;本闸门是**当场**拦住并重生一次。
+#
+# 【判据】sources 非空 且 答案既无 [n] 引用标记又无数字 → 无效。
+#   - 复用评测侧同一把尺子(`_FACTUAL = r"\[\d+\]|\d"`),口径一致,不与评测打架。
+#   - ⚠ 刻意**不判长度**:长度阈值会把"短真答案"误杀(P4d-fix ④ 已踩过,见 run_evals.py 注释)。
+#   - ⚠ `sources` 为空时**不适用**——那是拒答路径,走 refusal 确定性模板,不经 LLM。
+# 【失败后不许静默兜底】重生仍不合格 → **保留答案**、写 trace flag + 记 badcase,
+#   评测照旧判红。静默兜底会把缺陷藏起来(坑 46/47),宁可让闸门显式地失败。
+_FACTUAL_RE = re.compile(r"\[\d+\]|\d")
+_REGEN_HINT = (
+    "\n\n【强制要求·上一版输出无效】你上一版回答既没有任何引用标注 [n],也没有任何具体数字"
+    "(条款编号/年限/金额/日期),被视为**未给出实质内容**。库内已有可引用的资料,必须复述其中"
+    "**与问题直接相关的实质条款原文要点**并标注 [编号];若某部分库内确无覆盖,可以声明, but "
+    "声明之外**必须**给出库内已覆盖部分的实质条款,不得只输出一句学段声明或免责话术。"
+)
+
+
+def answer_is_grounded(answer: str, sources: list) -> bool:
+    """答案是否「有据」:有来源 且 含 [n] 引用标记或具体数字。纯函数,可单测。"""
+    if not sources:
+        return True   # 无来源 = 拒答路径,不走本闸门
+    return bool(_FACTUAL_RE.search(answer or ""))
+
+
+def regen_messages(messages: list[dict], bad_answer: str) -> list[dict]:
+    """构造重生的 messages:保留原上下文,追加上一版答案 + 强制要求(**只带问题,不外泄库内文本**)。"""
+    return messages + [
+        {"role": "assistant", "content": bad_answer},
+        {"role": "user", "content": _REGEN_HINT.strip()},
+    ]
+
+
+def record_ungrounded(question: str, answer: str, n_sources: int, stage: str) -> None:
+    """P4e M4:把一次「重生后仍零可核查事实」记入 evals/badcases.json(ungrounded 案)。
+
+    与 `refusal.record_fabricated_ref` 同机制(同一文件、同 50 条滚动上限、同一主键合并口径),
+    但**独立开一个 case id** —— 两者是不同缺陷,混在一个 case 里会让排障分不清是越界引用还是无据答案。
+
+    ⚠ 尽力而为:任何失败只记日志,**绝不影响对话主流程**(与既有实现一致)。
+    ⚠ 合规:只落**问题文本**与答案长度等元信息,不落库内内容;问题本身已是用户输入。
+    """
+    import json as _json
+    import time as _time
+    from pathlib import Path as _Path
+
+    if not (question or "").strip():
+        return
+    path = _Path(config.DATA_DIR).parent.parent / "evals" / "badcases.json"
+    try:
+        data = _json.loads(path.read_text(encoding="utf-8"))
+        cases = data.get("cases", [])
+        case = next((c for c in cases if c.get("id") == "ungrounded"), None)
+        if case is None:
+            case = {"id": "ungrounded", "type": "ungrounded", "status": "open",
+                    "note": ("P4e M4:有来源但答案零 [n] 引用且零数字(无实质内容),"
+                             "触发一次重生后仍不合格的现场记录"),
+                    "first_seen": _time.strftime("%Y%m%d_%H%M%S"), "history": []}
+            cases.append(case)
+            data["cases"] = cases
+        case["status"] = "open"
+        case["last_seen"] = _time.strftime("%Y%m%d_%H%M%S")
+        case.setdefault("history", []).append({
+            "at": case["last_seen"], "question": (question or "")[:80],
+            "answer_len": len(answer or ""), "sources_count": n_sources, "stage": stage,
+        })
+        case["history"] = case["history"][-50:]
+        data["updated_at"] = case["last_seen"]
+        path.write_text(_json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        logger.warning("ungrounded 记录(重生后仍不合格): stage=%s sources=%d len=%d",
+                       stage, n_sources, len(answer or ""))
+    except Exception as e:  # badcase 记录失败不影响回答
+        logger.warning("ungrounded 记录失败(不影响对话): %s", e)
+
+
 def model_ctx(model: str) -> int:
     """模型上下文窗口(来自 MODEL_CANDIDATES.ctx;未知模型给保守值)。"""
     return next((m["ctx"] for m in config.MODEL_CANDIDATES if m["id"] == model), 32000)
@@ -512,6 +593,30 @@ class AgentService:
             answer, stripped = refusal.strip_invalid_refs(answer, len(sources))
             if stripped:
                 refusal.record_fabricated_ref(question, stripped, len(sources))
+            # P4e M4 生成出口确定性闸门:有来源却零 [n] 零数字 → 判无效,重生**一次**。
+            # 重生仍不合格 → 保留答案 + 写 trace flag + 记 badcase,**不静默兜底**(坑 46/47)。
+            if not answer_is_grounded(answer, sources):
+                logger.info("grounding gate hit (len=%d, sources=%d), regenerating once",
+                            len(answer), len(sources))
+                regen = await llm.chat(regen_messages(messages, answer), tools=None,
+                                       model=eff["model"], base_url=eff["base_url"],
+                                       api_key=eff["api_key"])
+                new_answer = (regen.get("content") or "").strip()
+                if new_answer:
+                    new_answer, stripped2 = refusal.strip_invalid_refs(new_answer, len(sources))
+                    if stripped2:
+                        refusal.record_fabricated_ref(question, stripped2, len(sources))
+                    answer = new_answer
+                ok2 = answer_is_grounded(answer, sources)
+                ctx_info["grounding_gate"] = {
+                    "hit": True, "regenerated": True, "ok_after_regen": ok2,
+                    "n_sources": len(sources),
+                }
+                if not ok2:
+                    # 不静默:留 flag 让评测/排障看得见,答案照旧返回(评测会照常判红)
+                    logger.warning("grounding gate still failed after regen; keeping answer")
+                    ctx_info["grounding_gate"]["flag"] = "ungrounded_after_regen"
+                    record_ungrounded(question, answer, len(sources), "after_regen")
             db.add_message(user_id, "assistant", answer, conversation_id, sources=sources)
             assistant_saved = True
             return {"answer": answer, "sources": sources, "tool_trace": tool_trace,
@@ -620,6 +725,12 @@ class AgentService:
             messages.append({"role": "user", "content": question})
             tool_trace: list[dict] = []
             answer_parts: list[str] = []
+            # P4e M4:流式路径的 grounding 闸门靠**缓冲**实现——delta 先攒着不发,
+            # 生成结束后判定「有来源却零 [n] 零数字」,不合格才走一次重生再发。
+            # ⚠ 代价:首字延迟(要等整段生成完)。这是**刻意**的——宁可晚发,
+            #   也不要先发一段无实质内容再撤回(前端已渲染,撤不回)。
+            #   非流式 chat_for 无此代价;两条路径判据完全一致(同一纯函数)。
+            buffered: list[str] = []
             ref_filter = _StreamRefFilter(len(sources))  # P4a C2 流式引用越界过滤
             for _ in range(4):  # 工具轮 + 最终流式轮
                 round_text: list[str] = []
@@ -630,7 +741,7 @@ class AgentService:
                     if ev["type"] == "delta":
                         safe = ref_filter.feed(ev["content"])
                         if safe:
-                            yield {"type": "delta", "content": safe}
+                            buffered.append(safe)
                             round_text.append(safe)
                             answer_parts.append(safe)
                     elif ev["type"] == "tool_delta":
@@ -662,13 +773,40 @@ class AgentService:
             else:
                 timeout_msg = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
                 answer_parts.append(timeout_msg)
-                yield {"type": "delta", "content": timeout_msg}
+                buffered.append(timeout_msg)
             tail = ref_filter.flush()
             if tail:
-                yield {"type": "delta", "content": tail}
+                buffered.append(tail)
                 answer_parts.append(tail)
             if ref_filter.stripped:  # P4a C2: 流中剥离的越界引用记 badcase
                 refusal.record_fabricated_ref(question, ref_filter.stripped, len(sources))
+            # P4e M4:缓冲判闸门(与 chat_for 同一判据),不合格 → 重生一次并改写缓冲。
+            if not answer_is_grounded("".join(buffered), sources):
+                logger.info("grounding gate hit (stream, len=%d, sources=%d), regenerating once",
+                            len("".join(buffered)), len(sources))
+                regen = await llm.chat(regen_messages(messages, "".join(buffered)), tools=None,
+                                       model=eff["model"], base_url=eff["base_url"],
+                                       api_key=eff["api_key"])
+                new_answer = (regen.get("content") or "").strip()
+                if new_answer:
+                    new_answer, stripped2 = refusal.strip_invalid_refs(new_answer, len(sources))
+                    if stripped2:
+                        refusal.record_fabricated_ref(question, stripped2, len(sources))
+                    answer_parts = [new_answer]   # 重生结果**替换**原缓冲
+                    buffered = [new_answer]
+                ok2 = answer_is_grounded("".join(buffered), sources)
+                ctx_info["grounding_gate"] = {
+                    "hit": True, "regenerated": True, "ok_after_regen": ok2,
+                    "n_sources": len(sources), "stream": True,
+                }
+                if not ok2:
+                    logger.warning("grounding gate still failed after regen (stream); keeping answer")
+                    ctx_info["grounding_gate"]["flag"] = "ungrounded_after_regen"
+                    record_ungrounded(question, "".join(buffered), len(sources), "after_regen_stream")
+            # 闸门判定通过后才真正下发内容(重生时只发重生结果,不补发被丢弃的首版)
+            for seg in buffered:
+                if seg:
+                    yield {"type": "delta", "content": seg}
             db.add_message(user_id, "assistant", "".join(answer_parts), conversation_id,
                            sources=sources)  # P4b: 答案落库;P4b-fix ①: 带来源快照
             assistant_saved = True
