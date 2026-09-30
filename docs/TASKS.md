@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：WorkBuddy**（**P4d 已合并 `master`**，2026-09-30 第二回 Review 通过；**已下发 P4e（联网搜索开关 + 来源分区标注），含 C0 前置收口两条**——`qa-12` 融合层漏召 + `rind-07` 宽词断言。分支 `task/P4e-web-search`，开单指令 `docs/p4e/workbuddy-order.md`。baseline = **v2.1 / 48 用例**，合并时**已知 1 红 `qa-12`（真实产品缺陷，未改绿）**，P4e 集中验证必须回到 **48/48 且退出码 0**，否则不得过合并闸门）
+> **当前持棒：Qoder**（**P4d 已合并 `master`**，2026-09-30 第二回 Review 通过；**P4e 的 C0 前置收口两条已交回 `IN_REVIEW`**，commit `0d50e31`，分支 `task/P4e-web-search`，**未合并 master**。`cases.json` 已升 **v2.2 / 48 用例**（`rind-07` 断言两段化 + `FUSION_TOP_K` 8→12，**检索行为变更非纯口径**，记账见 `docs/EVAL_BASELINE.md` §十七）。**集中验证 47/48、退出码 1，未达 48/48** —— `qa-12` 已清红，卡在 `qa-17`（生成侧偶发只输出学段声明不复述正文条款，判据判红正确），**待 Qoder 按 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` §二 的 B/C 裁决**。**P4e 主体暂缓**，等增补规格（引用语义已定稿为「分区展示 + 整体级标注」，`docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`））
 > ✅ **P4c Review 结论（Qoder，2026-09-30，独立复跑）**：**通过并合并 master**。**边界**：33 文件全在白名单与 Qoder 领地内，`refusal.py`/`llm.py`/`evals/faithfulness.py` **0 变更**，`agent.py` 只有 scope 透传与回显（P4b 的门控/池/压缩一行未动，逐行读过 diff）。**`cases.json` 语义级比对**（494 删/560 增看着像整档重写，所以不只看 diff）：40→43、**无一条旧用例丢失、40 条共有用例逐字段完全一致**，那串数字只是 JSON 重新序列化。**我自写五条安全探针实测三条硬约束**（`docs/p4c/review_scope_security_probe.py` → `after/review_scope_security.json`）：T1 把 counselor 专属文档移进 student 可见夹后以学生 scoped 检索 → **不外泄**；T2 越权夹 vs 不存在夹 → 404/404 且**响应体逐字节一致**（不泄露存在性）；T3 scoped 空夹 → 0 来源 + 明确提示「未做全库检索」，**不回落**；T4 部分越权静默丢弃；T5 scoped 检索来源 2/2 全属该夹。**迁移与 db 层**：在**库副本**上跑三次迁移，`documents 65→65→65`、`chunks 487→487→487`、`folder_id` 全 NULL、`audience` 全 common、schema 三次一致 → **不 UPDATE 既有行且幂等**；db 层 scope 10 项（含 `folder_ids==[]` 直接空、FTS 下推真实过滤：全库 20 → 夹A 3 且全在夹A、夹B 1 且不含夹A块、文件夹可见性不得放宽 `role_min`）→ **18/18 全过**（`after/review_migration_db_probe.json`）。**集中评测我这轮 43/43、exit 0、R@k 0.9412、忠实度 0.9412、拒答 1.0、隔离全量核对 ok**，与 WorkBuddy 那轮**逐值一致**；冒烟 exit 0、`documents 65→65`、`chunks 487`。**C5 追问路径确认被执行**（step 26：合成一对本/研标注文档触发 `audience_conflict` → 返回追问而非猜），另发现服务端还会**拒绝以 `@` 开头的问句（400）**，比我要求的更严。
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
@@ -1233,34 +1233,78 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 
 **流程表扬**：6 项遗留全部上交裁决而不是自己拍板（尤其 `rind-02` 明知会红仍保留并说明理由、`cases.json` 遵守「只准新增不动旧用例」），这比悄悄改绿要值钱得多。修完这三条交回，我仍按「集中一次把关」的方式复核。
 
-### P4e 联网搜索开关 + 来源分区标注 + **C0 前置收口两条**　🚀 **已下发**（2026-09-30，持棒 **WorkBuddy**，分支 `task/P4e-web-search`，设计见 M7，开单指令 `docs/p4e/workbuddy-order.md`）
+### P4e 联网搜索开关 + 来源分区标注 + **C0 前置收口两条**　🔶 **IN_REVIEW（C0 已交回）/ 主体暂缓**（2026-09-30，**当前持棒 = Qoder**，分支 `task/P4e-web-search`，commit **`0d50e31`**（C0 独立 commit），**未合并 `master`**。设计见 M7，开单指令 `docs/p4e/workbuddy-order.md`，裁决记录 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`，集中验证纪要 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md`）
 
-- **C0 前置收口（P4d 第二回 Review 移交）** —— **merge-blocking：不做完这两条，本单集中验证不可能 48/48**
+- **🔴 阻塞项（需 Qoder 裁决）**：集中验证 **47/48、退出码 1，未达 48/48**。卡在 `qa-17`——
+  根因已定性为**生成侧偶发只输出「学段声明 + 免责」而不复述正文条款**（5 连测 `FAIL=2/5`，检索侧 `R@k` 全 1.0、来源全对）。
+  **判据判红时答案确为非答案 → 判红正确，不是误杀**。按纪律**未擅自**改判据/用例/生成侧 prompt。
+  裁决选项见 `docs/p4e/evidence/QA12_E2E_DISCREPANCY.md` §二（**B 改生成侧 prompt** / **C 转单修**；
+  ⚠ **A 放宽判据会把真非答案洗成假绿，不建议**）。
+- **⏸ 主体暂缓**：Qoder 2026-09-30 裁决「先把 C0 交回来」，主体 #18~#20 等增补规格后再动手。
+  引用语义已定稿为「**分区展示 + 整体级标注**」：联网来源列真实 URL、站点名由 `urlparse().netloc` 推导且 UI 标明「由 URL 推导」、
+  `index` 仅用于列表编号、**不得把 `[W]` 绑定到具体句子**；整段加「本节含公网检索内容，未经本校核实」。
+
+- **C0 前置收口（P4d 第二回 Review 移交）** —— ✅ **两条均已实现并交回（commit `0d50e31`）**
 
   > **为什么在本单**：合并后的 v2.1 基线带着**一个已知红 `qa-12`**，评测退出码恒为 1。留着它，以后『退出码非 0 就阻塞』这条闸门会退化成狼来了（坑 39/54）。两条都是**小改**（一处融合层参数 + `cases.json` 两个词），且都要靠 P4e 的新评测来验收，所以**并进本单、集中跑一轮**，不单独开一单再复跑一整轮。
-  - [ ] **C0-① `qa-12` 融合层截断漏召（真实产品缺陷，必须真修，禁止改用例来改绿）**
+  - [x] **C0-① `qa-12` 融合层截断漏召（真实产品缺陷，必须真修，禁止改用例来改绿）**
     - **实测断点（复核方探针 `docs/p4d/review_qa12_attribution.py`，证据 `docs/p4d/evidence/review/qa12_attribution.json`）**：问句「研究生奖助学金评审是怎么规定的?」下，doc9「EVAL-研究生奖学金评定办法」**向量层第 6 位（0.6809）→ 关键词层未进 top20 → `FUSION_TOP_K=8` 的 8 个槽位被两篇本科生办法的全部块占满 → 根本没进 rerank**；最终 3 条来源全为本科生办法（0.9801/0.9063/0.7985），答案因此**错误地否定性断言**「研究生相关规定未在知识库覆盖」。
-    - ⚠ **不要动 `RERANK_MIN_SCORE`**——断点在它**之前**，动阈值既修不好这条、又会破坏 P4a 拒答门控与 F2 现场（本系列已三次确认这条纪律）。
+    - ⚠ **不要动 `RERANK_MIN_SCORE`**——断点在它**之前**，动阈值既修不好这条、又会破坏 P4a 拒答门控与 F2 现场（本系列已三次确认这条纪律）。→ **已确认未动**。
     - **允许的修法（任选，须给 A/B 数据）**：① 在**融合截断之前**做 per-doc 多样化（现有 `MAX_PER_DOC=2` 是在 rerank **之后**才生效，这是本缺陷的结构性根源）；② 扩 `FUSION_TOP_K`（注意与延迟/C2 质量信号的既有数值联动）；③ `TERM_EXPANSION` 补「奖助学金 → 奖学金|助学金」并把**学段词**（研究生/本科生）纳入改写维度。④ 生成侧配套：`context` 里**有来源时不得输出「未在知识库覆盖」这类否定性断言**，要么据实作答、要么明确区分「库内确无」与「未召回到」（这正是 ④ 非答案检测想暴露的行为）。
-    - **验收（不许口头说改好了）**：重跑 `docs/p4d/review_qa12_attribution.py` → 目标块**必须进入最终 sources**；`qa-12` 转 PASS；**且矩阵 8/8、`intent`/`rewrite`/`scoped_qa`/`refusal_indomain` 全绿不回退**（改融合层最可能碰坏 rewrite 那条链）。
-  - [ ] **C0-② `rind-07` 的 `expect_absent_keywords` 去掉宽词（坑 54）**
+    - **采纳修法 = ② 扩 `FUSION_TOP_K` 8 → 12（纯加法、零剔除）**，未选 ① 的理由见下。
+    - **A/B（`docs/p4e/evidence/fusion_ab.json`，库只读 temp 副本，`n_chunks=323`）**：`qa_total=18`、`qa_changed=7`、**`qa_r_down=[]` `qa_r_up=[]`**、`qa12_target` `in_before=false → in_after=true`（目标块进最终来源**第 4 位**，`after_candidate_docs=4`）、**矩阵 8/8**。
+    - **未选 ① per-doc 多样化的理由（`evidence/fusion_strategy_probe.json`）**：候选层硬限流 `per_doc=2` 会把 `qa-17` 打死（`R@k` 1.0→0.0、来源 2→0），一刀切候选多样性过严；扩槽位+多样化并用还会多召回 doc100 噪声。
+    - **验收达成**：`qa-12` **已转 PASS**（`R@k=1.0`、忠实度 1.0、引用 4 条）；矩阵 8/8、`intent`/`rewrite`/`scoped_qa`/`refusal_indomain` 全绿未回退。
+    - **附带清理**：`rag.py` 第 19 行残留的重复定义 `FUSION_TOP_K = 8`（被第 40 行覆盖，严重误导读代码的人）已删；全仓库零引用的死代码常量 `FUSION_CANDIDATE_DOCS = 0` 已删并换防复发注释（观测走 `quality["fused_candidate_docs"]`，坑 52 同源）。
+  - [x] **C0-② `rind-07` 的 `expect_absent_keywords` 去掉宽词（坑 54）**
     - **实测**：`证明` 在 student 可见块出现 **44 块**、`录取` **14 块**（休学要「诊断证明」、开除发「学习证明」等正当出处都有）；`饭卡`/`调档`/`交回`/`退卡`/`提档` 是 **0 块**。C0-① 把检索增强之后，`rind-07` 极可能被自己人判成「夹带无据断言」。
-    - **修法（二选一，须给理由）**：把宽词换成零命中的具体事项词（`交回`/`退卡`/`提档`）；或改成**共现判据**——`证明`/`录取` 仅在与「录取/报到/调档」同现时才算夹带。**不得因此削弱该用例的检测力**：修完必须保留至少 3 个零命中具体词，并在 `probe_ruler_selftest.py` 里加一条反向用例（构造一个含「需医院诊断证明」的**正当引用**答案 → 必须 PASS）。
-    - **同时把该用例 note 的证据口径改准**：现写「13 词在 65 篇**标题**中 0 命中 → 真的域内无据」，准确说法是「**标题层 0 命中；正文层有 `钥匙/空调/档案/录取` 等巧合命中，但全库『交回/退还/退卡/提档/调档/档案转递』皆 0 块、7 项诉求逐条无一可答 → 语义层无据**」（复核方 `docs/p4d/review_rind07_premise.py`，证据 `evidence/review/rind07_premise.json`）。
+    - **采纳修法 = 两段式**（`evals/run_evals.py` 新增共用判据 `_check_absent_keywords`，`judge_qa` 与 `judge_refusal_indomain` **共用同一判据**）：
+      ① **无条件段**只留 **6 个库内零命中**具体处置词：`交回/退卡/提档/调档/饭卡/档案转递`；
+      ② **共现段** `expect_absent_keywords_cooccur`：`证明/录取/钥匙/图书馆` 仅在与零命中处置词（`录取通知书/报到/交回/提档/调档/凭据/退还/借阅/归还`）**同现**时才判违规 → 单引《学生公寓管理办法》的正当「保管钥匙」表述不会误判。
+    - **检测力未被削弱（`docs/p4d/probe_ruler_selftest.py`，共 **34 条全过、退出码 0**）**：保留 ≥3 个零命中具体词（实留 6 个）+ **反向用例「含『需医院诊断证明』的正当引用答案 → 必须 PASS」**（规格点名要求）+ 4 条零命中处置词夹带 → 必须 FAIL。
+    - **note 证据口径已改准**：现写「**标题层 0 命中；正文层有 `钥匙`(1)/`空调`(2)/`图书馆`(2)/`录取`(14)/`户口`(9)/`报到`(5) 巧合命中，但全库『交回/退还/退卡/提档/调档/转递/档案转递』处置动词皆 0 块、7 项诉求逐条无一可答 → 语义层无据**」（复核方 `docs/p4d/review_rind07_premise.py`；本单复核实测 `docs/p4e/evidence/rind07_kw_probe.json`，student 可见 323 块）。
+    - `cases.json` **v2.1 → v2.2**，用例数 **48 保持不变**。
+
+- **口径记账**：`docs/EVAL_BASELINE.md` **§十七**已补（17.1 一句话口径 / 17.2 C0-① / 17.3 C0-② / 17.4 结论）。
+  ⚠ 本次**不是纯口径变更**——C0-① 是**检索行为变更**、C0-② 才是断言口径变更，已分表记；
+  ⚠ **v2.1 及以前的 `R@k` 全部在 8 槽下测得，与 v2.2 不可直接比较**。
+- **集中验证（唯一一轮，带 `--base`）**：`reports/eval_report_20260930_204157.json` → **`TOTAL 47/48`、退出码 1**
+  （`qa 17/18` ← `qa-17` 红；`refusal 6/6`、`permission_api 4/4`、`kb_hidden 3/3`、`refusal_indomain 6/6`、
+  `multiturn 1/1`、`refusal_followup 1/1`、`history_false_premise 1/1`、`context_compress 1/1`、
+  `scoped_qa 3/3`、`intent 2/2`、`rewrite 2/2`）。
+  - **冒烟 ✅**：`exit 0`、`documents 65 → 65`、跑完复核 `documents=65 / chunks=487`、零残留（`QA12_E2E_DISCREPANCY.md` §四）。
+  - **retrieval 延迟对照 ✅**（`evidence/fusion_latency_ab.json`，18 问句 × warmup 1 + 连测 3 取中位数）：
+    **8 槽中位 954.9 ms → 12 槽中位 1121.4 ms，Δ +166.5 ms（+17.4%）**；均值 1037.0→1585.2、p90 1011.1→3143.8。
+    扩槽位只让**更多候选进 rerank**，不改向量/关键词两路召回，成本只落在 rerank 段。
+  - **坑 56 已执行**：整轮写脏的 `evals/badcases.json` 已按主键集合比对（新增 0 / 消失 1）后 `git checkout --` 还原，md5 回到基线 `af6fe699…`，**未提交**。
+  - ⚠ **端口根因（重要教训，已写入 `QA12_E2E_DISCREPANCY.md` §一）**：`docs/p4d/run_with_server.sh` 只透传 `"$@"`，**不透传 `--base`**，
+    导致前 6 轮整轮评测全打在 `:8900`——**他人 15:40:54 启动的常驻旧实例**（加载 8 槽代码）。
+    正确跑法：`bash docs/p4d/run_with_server.sh 8902 ../evals/run_evals.py --base http://127.0.0.1:8902`。
+    **流程教训：整轮评测前必须做一次单请求端到端复验，看 trace 里有没有本次新增字段；新字段缺失 = 100% 旧代码。**
+    建议给该脚本加 `--base` 自检（⚠ 未改，不在本单白名单）。`novaagent/tests/smoke_test.py` 的 `BASE` **同样硬编码 `:8900`**，同源。
 
 - **目标**：提供联网搜索开关由用户自主决定是否启用；回答中**区分标注本地检索来源与联网来源**。
 - **允许改**：`novaagent/novaagent/{websearch.py(新),graph.py,agent.py,config.py,db.py,main.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4E.md`
-- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`
-- **已实测的技术前提（别走弯路）**：现有 `llm.py` 的 **OpenAI 兼容模式即使 `enable_search=true` 也不返回 `search_info`**（只回 `usage.plugins.search.count=1`）→ 必须新增 **DashScope 原生协议** `POST /api/v1/services/aigc/text-generation/generation`，`search_options={forced_search:true, search_strategy:"turbo", enable_source:true, enable_citation:true, citation_format:"[<number>]"}`，实测返回 `output.search_info.search_results[{index,site_name,title,url}]`。复用现有 `LLM_API_KEY`，turbo 不额外计费。
-- **完成标准要点**：
+- **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py` —— ✅ **本轮零改动**
+- **⚠ 技术前提已失效（原开单假设被实测推翻，见 `docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md`）**：
+  开单写的 DashScope 原生 `text-generation + search_options` **不回 `search_info`**；兼容模式 `enable_search=true` 检索真执行但**来源被静默丢弃**。
+  **唯一可用入口是 Responses API `tools=[{"type":"web_search"}]`**，但每条只给 `{type,url}`，**正文无 `[n]` 角标、无内联 URL、`annotations` 为空**（四入口全矩阵实测，退出码 0）。
+  → 单据要求的 `search_results[{index,site_name,title,url}]` 四字段契约**在任何入口都不成立**；引用语义已由 Qoder 改判为「分区展示 + 整体级标注」。
+- **完成标准要点**（⏸ 随主体暂缓，等增补规格）：
   - [ ] 本地 `[1..n]` 与联网 `[W1..Wk]` **分区注入 + 分区渲染**，规则要求不得混用、联网内容须注明站点名并标注"未经本校核实"
   - [ ] 开关**默认关闭**；用户级默认（`user_settings.web_search_enabled`）+ 单次请求覆盖
   - [ ] 新增评测类型 `web_grounded`：开关开 → 库内无据但公网有答的问题须含 `[W1]` 且来源可点；**开关关 → 同一问题必须走 P4a 拒答模板**
   - [ ] 搜索超时/失败 → 降级为仅本地 + 明确提示"联网搜索不可用"；引用编号越界校验同 P4a
   - [ ] **合规红线（C 级，违反即打回）**：联网请求**只发送当前问题文本**——库内文档内容、会话历史、学生个人信息一律不出网；请求日志不得记录问题以外的敏感字段
 - **依赖**：P4d 已合并（master `bb6e78b`）；`docs/P4.md` M7、§六
-- **测试节奏（用户 2026-09-30 定的口径）**：实现期**只跑针对性最小检查**（相关单条断言 / `probe_ruler_selftest.py` 这类纯本地秒级自测），**全部落地后集中跑一轮**完整评测（v2.1 = **48 用例，必须 48/48 且退出码 0**）+ 冒烟（`65→65`）；**不要中途反复复跑整轮**。忠实度按区间 0.9444~0.9722 读、且**逐条可互换**，不得当点值用作闸门（坑 50/54）。
+- **测试节奏（用户 2026-09-30 定的口径）**：实现期**只跑针对性最小检查**（相关单条断言 / `probe_ruler_selftest.py` 这类纯本地秒级自测），**全部落地后集中跑一轮**完整评测（v2.2 = **48 用例，必须 48/48 且退出码 0**）+ 冒烟（`65→65`）；**不要中途反复复跑整轮**。忠实度按区间 0.9444~0.9722 读、且**逐条可互换**，不得当点值用作闸门（坑 50/54）。
+  ⚠ **本轮实测偏离**：因端口根因未及时发现，前 6 轮整轮实际白跑（均打旧实例）；第 7 轮带 `--base` 才是有效数据。已如实记录。
 - **取证纪律**：要看退出码就**别把命令接在管道后**（坑 55）；整轮评测会让服务端写脏 `evals/badcases.json`（50 条滚动上限），交回前**按主键集合比对后 revert**，别把它当交付物提交（坑 56）。
+  ⚠ 另：**跑整轮期间不要并发跑任何读库探针**（负责人曾因此把「证明 42 块」读成 44）；要测库等评测跑完、`kb_doctor` 回到 65/487 再测。
+  ⚠ `run_with_server.sh` 传给被跑脚本的路径须**相对 `novaagent/`**（脚本内部会 `cd`），否则 `can't open file`（退出码 2）。
+- **端口/进程交代**：我起的 `8902/8903~8909` **全部已随 `trap` 退出并验证关闭**；
+  **`:8900`（他人常驻，PID 34984/41956，15:40:54 启动）未动**；`weekly-mcp :18080` 未动。
+  工作区非干净，但**残留全部是联网搜索探针与 `reports/`**（按单据要求不入 C0 commit）。
 
 ### P4f 辅导员定制（persona）+ 侧边栏重构　📋 READY（待 P4e，设计见 M8）
 
