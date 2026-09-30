@@ -84,15 +84,24 @@ def _vector_search(query_vec: np.ndarray, chunks: list[dict], top_k: int) -> lis
     return [(int(i), float(sims[i])) for i in top]
 
 
-def _keyword_search(query: str, chunks: list[dict], top_k: int) -> list[tuple[int, float]]:
+def _keyword_search(query: str, chunks: list[dict], top_k: int,
+                    scope: dict | None = None) -> list[tuple[int, float]]:
     """关键词检索:T6 ⑥b 优先 FTS5(bm25 排序,限定角色可见集);当 db.fts_search
     返回 None(FTS5 不可用/异常/零命中/短查询)时回退内存 2-gram 计次
-    (原逻辑,拒答阈值行为不变)。中文按 2-gram 兼顾分词。"""
+    (原逻辑,拒答阈值行为不变)。中文按 2-gram 兼顾分词。
+    P4c C3: scope(folder_ids/categories/audience)同步下推到 FTS 层——否则 top_k
+    会被 scope 外的块占满,指定小库时表现为"假性空结果"。"""
     q = query.strip()
     if not q:
         return []
     roles = sorted({c["role_min"] for c in chunks})
-    fts = db.fts_search(q, roles, top_k) if roles else None
+    fts = None
+    if roles:
+        sc = scope or {}
+        fts = db.fts_search(q, roles, top_k,
+                            folder_ids=sc.get("folder_ids"),
+                            categories=sc.get("categories"),
+                            audience=sc.get("audience"))
     if fts is not None:
         id_to_idx = {c["id"]: i for i, c in enumerate(chunks)}
         return [(id_to_idx[cid], sc) for cid, sc in fts if cid in id_to_idx]
@@ -126,13 +135,17 @@ async def rerank(query: str, documents: list[str], top_n: int = FINAL_TOP_K) -> 
         return [(r["index"], float(r["relevance_score"])) for r in resp.json()["results"]]
 
 
-async def search(query: str, min_rank: int) -> list[dict]:
-    """混合检索 + rerank。返回 [{ref, title, content, score, role_min}]。"""
-    sources, _ = await search_with_quality(query, min_rank)
+async def search(query: str, min_rank: int,
+                 scope: dict | None = None) -> list[dict]:
+    """混合检索 + rerank。返回 [{ref, title, content, score, role_min}]。
+    P4c C3: scope={"folder_ids":[...]|None, "categories":[...]|None, "audience":str|None},
+    与 RBAC 取交集(解析在 main.resolve_scope 完成,这里只做纯过滤)。"""
+    sources, _ = await search_with_quality(query, min_rank, scope=scope)
     return sources
 
 
-async def search_with_quality(query: str, min_rank: int) -> tuple[list[dict], dict]:
+async def search_with_quality(query: str, min_rank: int,
+                              scope: dict | None = None) -> tuple[list[dict], dict]:
     """混合检索 + rerank,并返回 P4a C1 拒答门控所需的质量信号。
 
     返回 (sources, quality):
@@ -141,14 +154,20 @@ async def search_with_quality(query: str, min_rank: int) -> tuple[list[dict], di
                 n_above_threshold(候选中 rerank 分 ≥ RERANK_MIN_SCORE 的条数,
                                  按融合候选集合统计、在 MAX_PER_DOC/FINAL_TOP_K 截断之前),
                 rerank_available(rerank 服务是否可用)}。
+    P4c C3: scope 只会**收窄**候选集(db.all_chunks_for_search 在 RBAC 之上再过滤),
+    不改本函数返回结构形状;folder_ids==[] 直接得空结果(硬约束 3: 不回落全库)。
     """
     quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False}
-    chunks = db.all_chunks_for_search(min_rank)
+    sc = scope or {}
+    chunks = db.all_chunks_for_search(min_rank,
+                                      folder_ids=sc.get("folder_ids"),
+                                      categories=sc.get("categories"),
+                                      audience=sc.get("audience"))
     if not chunks:
         return [], quality
     qvec = np.array((await embed_texts([query]))[0], dtype="float32")
     v_ranked = _vector_search(qvec, chunks, VECTOR_TOP_K)
-    k_ranked = _keyword_search(query, chunks, KEYWORD_TOP_K)
+    k_ranked = _keyword_search(query, chunks, KEYWORD_TOP_K, scope=sc)
     fused = _rrf_fuse(v_ranked, k_ranked)[:FUSION_TOP_K]
     if not fused:
         return [], quality
