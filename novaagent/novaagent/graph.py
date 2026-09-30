@@ -19,14 +19,46 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import time
 from datetime import datetime
-from typing import Any
+from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
 from . import config, llm, rag
+
+
+class GraphState(TypedDict, total=False):
+    """编排状态(**必须显式声明通道**)。
+
+    踩坑记录:用裸 `dict` 作 StateGraph 的 schema 时,LangGraph 无法推导通道,
+    `ainvoke` 的返回值只保留**最后一个节点**返回的键(实测 `{'y': 2}`,先前的键全部丢失),
+    表现为节点里 `s['question']` 抛 KeyError('question')。必须用 TypedDict + total=False
+    让每个键成为一个可选通道,节点即可安全地只返回增量。
+    """
+    question: str
+    min_rank: int
+    scope: dict | None
+    model: str
+    base_url: str
+    api_key: str
+    query: str
+    plan: list
+    trace: list
+    attempts: int
+    sources: list
+    quality: dict
+    rewritten: bool
+    last_query: str
+    intent: str
+    audience_hint: str
+    mode: str
+    answer: str
+    do_refuse: bool
+    reason: str
+    retrieval_skipped: bool
 
 # ---- 时间与闲聊(不调 LLM) ----
 _TIME_RE = re.compile(r"(几点|什么时间|现在时间|当前时间|今天几号|几月几号|星期几|周几|哪天|今天.*日期|今天是什么日子)")
@@ -47,9 +79,9 @@ def time_direct_answer(question: str) -> str | None:
 
 INTENT_PROMPT = """你是意图分类器。判断用户这句话是否需要检索学校知识库来回答。
 
-只输出严格 JSON,不要解释:
-{"intent":"chitchat|time|retrieval","need_retrieval":true|false,
- "audience_hint":"undergrad|postgrad|common|","normalized_query":"..."}
+只输出严格 JSON,不要解释(**下面 JSON 示例中的花括号是字面量,已按 str.format 规则写成双花括号**):
+{{"intent":"chitchat|time|retrieval","need_retrieval":true|false,
+ "audience_hint":"undergrad|postgrad|common|","normalized_query":"..."}}
 
 规则:
 1. 打招呼、闲聊、问你是谁、问能力 → intent="chitchat", need_retrieval=false;
@@ -333,7 +365,7 @@ async def node_done(s: dict) -> dict:
 # ---------------- 对外入口 ----------------
 
 def _build_graph():
-    g = StateGraph(dict)
+    g = StateGraph(GraphState)
     g.add_node("intent", node_intent)
     g.add_node("direct", node_direct)
     g.add_node("retrieve", node_retrieve)
@@ -381,6 +413,7 @@ async def run_pipeline(question: str, min_rank: int, scope: dict | None = None,
     try:
         out = await _graph().ainvoke(state)
     except Exception as e:  # 编排整体失败 → 降级为"普通检索一次",绝不阻断回答
+        logging.getLogger("novaagent.graph").exception("graph 编排异常,降级为单遍检索")
         sources, quality = await rag.search_with_quality(question, min_rank, scope=scope)
         return {"mode": "generate" if grade_ok(quality) else "refuse", "answer": "",
                 "sources": sources, "quality": quality, "do_refuse": not grade_ok(quality),

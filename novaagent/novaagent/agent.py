@@ -435,7 +435,11 @@ class AgentService:
         if scope:
             ctx_info["scope"] = scope
         if g_out and g_out.get("mode") == "direct":
-            # 闲聊/问时间:确定性直答(时间类不调 LLM),不占检索与生成
+            # 闲聊/问时间:确定性直答(时间类不调 LLM),不占检索与生成。
+            # 落库口径与常规轮一致(user + assistant 各一条)——保证会话历史连续,
+            # 也满足评测隔离断言「user 条数 == 应发轮数」(P4d 实测:不落库会让 intent 用例判红)。
+            db.add_message(user_id, "user", question, conversation_id)
+            db.add_message(user_id, "assistant", g_out["answer"], conversation_id)
             db.update_conversation_trace(conversation_id, g_out.get("trace"))
             return {"answer": g_out["answer"], "sources": [], "tool_trace": [],
                     "conversation_id": conversation_id, "context": ctx_info,
@@ -563,6 +567,7 @@ class AgentService:
         db.update_conversation_trace(conversation_id, g_out.get("trace") if g_out else None)
         if g_out and g_out.get("mode") == "direct":
             text = g_out["answer"]
+            db.add_message(user_id, "user", question, conversation_id)
             db.add_message(user_id, "assistant", text, conversation_id)
             yield {"type": "sources", "sources": []}
             yield {"type": "context", **ctx_info}

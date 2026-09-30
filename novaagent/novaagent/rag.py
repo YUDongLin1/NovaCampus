@@ -106,11 +106,18 @@ def _keyword_search(query: str, chunks: list[dict], top_k: int,
         id_to_idx = {c["id"]: i for i, c in enumerate(chunks)}
         return [(id_to_idx[cid], sc) for cid, sc in fts if cid in id_to_idx]
     # 回退:内存 2-gram 计次(FTS5 不可用/异常/零命中;拒答阈值行为不变)
-    # P4d C5②: 过滤停用词——"学校/我们/这项"等通用词会把无关块顶榜(实测教育部令 5 块霸榜),
-    # 过滤后再计次;config.KEYWORD_STOPWORDS_ENABLED 可关(用于 A/B 对照)。
-    terms = {q} if len(q) <= 4 else {q, *(q[i : i + 2] for i in range(0, len(q) - 1))}
-    if config.KEYWORD_STOPWORDS_ENABLED:
-        terms = {t for t in terms if t not in config.KEYWORD_STOPWORDS} or {q}
+    # P4d C5②: **只对派生出的 2-gram 过滤停用词,"整句"永远保留**——
+    #   ① 短查询(len<=4)的整句本身就是信号(如"学校"应当能命中《普通高等学校学生管理规定》),
+    #      原始写法"过滤后 `or {q}` 兜底"会把过滤结果再加回来 = 空转(已实测,见
+    #      docs/p4d/evidence/after/fts_stopwords_ab.txt);
+    #   ② 长查询里"我们/学校/这项"这类通用 2-gram 会把无关块顶榜(实测教育部令霸榜),
+    #      过滤它们才是本项要解决的问题。NOVA_KEYWORD_STOPWORDS=0 可关(A/B 对照)。
+    terms: set[str] = {q}
+    if len(q) > 4:
+        grams = {q[i : i + 2] for i in range(0, len(q) - 1)}
+        if config.KEYWORD_STOPWORDS_ENABLED:
+            grams = {g for g in grams if g not in config.KEYWORD_STOPWORDS}
+        terms |= grams
     scores: list[tuple[int, float]] = []
     for i, c in enumerate(chunks):
         s = sum(c["content"].count(t) for t in terms if len(t) >= 2)
