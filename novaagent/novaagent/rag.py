@@ -106,7 +106,18 @@ def _keyword_search(query: str, chunks: list[dict], top_k: int,
         id_to_idx = {c["id"]: i for i, c in enumerate(chunks)}
         return [(id_to_idx[cid], sc) for cid, sc in fts if cid in id_to_idx]
     # 回退:内存 2-gram 计次(FTS5 不可用/异常/零命中;拒答阈值行为不变)
-    terms = {q} if len(q) <= 4 else {q, *(q[i : i + 2] for i in range(0, len(q) - 1))}
+    # P4d C5②: **只对派生出的 2-gram 过滤停用词,"整句"永远保留**——
+    #   ① 短查询(len<=4)的整句本身就是信号(如"学校"应当能命中《普通高等学校学生管理规定》),
+    #      原始写法"过滤后 `or {q}` 兜底"会把过滤结果再加回来 = 空转(已实测,见
+    #      docs/p4d/evidence/after/fts_stopwords_ab.txt);
+    #   ② 长查询里"我们/学校/这项"这类通用 2-gram 会把无关块顶榜(实测教育部令霸榜),
+    #      过滤它们才是本项要解决的问题。NOVA_KEYWORD_STOPWORDS=0 可关(A/B 对照)。
+    terms: set[str] = {q}
+    if len(q) > 4:
+        grams = {q[i : i + 2] for i in range(0, len(q) - 1)}
+        if config.KEYWORD_STOPWORDS_ENABLED:
+            grams = {g for g in grams if g not in config.KEYWORD_STOPWORDS}
+        terms |= grams
     scores: list[tuple[int, float]] = []
     for i, c in enumerate(chunks):
         s = sum(c["content"].count(t) for t in terms if len(t) >= 2)
@@ -157,7 +168,9 @@ async def search_with_quality(query: str, min_rank: int,
     P4c C3: scope 只会**收窄**候选集(db.all_chunks_for_search 在 RBAC 之上再过滤),
     不改本函数返回结构形状;folder_ids==[] 直接得空结果(硬约束 3: 不回落全库)。
     """
-    quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False}
+    quality = {"top_score": None, "n_above_threshold": 0, "rerank_available": False,
+               # P4d C2: 融合候选条数——grade 判定与"是否值得改写"的输入(fused_candidates)
+               "fused_candidates": 0}
     sc = scope or {}
     chunks = db.all_chunks_for_search(min_rank,
                                       folder_ids=sc.get("folder_ids"),
@@ -169,6 +182,7 @@ async def search_with_quality(query: str, min_rank: int,
     v_ranked = _vector_search(qvec, chunks, VECTOR_TOP_K)
     k_ranked = _keyword_search(query, chunks, KEYWORD_TOP_K, scope=sc)
     fused = _rrf_fuse(v_ranked, k_ranked)[:FUSION_TOP_K]
+    quality["fused_candidates"] = len(fused)
     if not fused:
         return [], quality
     idxs = [i for i, _ in fused]

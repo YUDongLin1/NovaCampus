@@ -1,0 +1,162 @@
+{
+  "per_keyword": {
+    "一卡通": {
+      "title_hits": 0,
+      "body_docs": 2,
+      "body_chunks": 3,
+      "top_doc": "西南交通大学学生纪律处分规定（西交校学生〔2023〕14 号）"
+    },
+    "交换": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "图书馆": {
+      "title_hits": 0,
+      "body_docs": 2,
+      "body_chunks": 2,
+      "top_doc": "大学生意外伤害保险理赔须知(学平险)"
+    },
+    "录取": {
+      "title_hits": 0,
+      "body_docs": 6,
+      "body_chunks": 14,
+      "top_doc": "普通高等学校学生管理规定（教育部令第41号）"
+    },
+    "户口": {
+      "title_hits": 0,
+      "body_docs": 6,
+      "body_chunks": 9,
+      "top_doc": "普通高等学校学生管理规定（教育部令第41号）"
+    },
+    "报到": {
+      "title_hits": 0,
+      "body_docs": 4,
+      "body_chunks": 5,
+      "top_doc": "西南交通大学学生服兵役国家教育资助实施办法（西交校学生〔2025〕21号）"
+    },
+    "提档": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "校园卡": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "档案转递": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "洗衣机": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "留学": {
+      "title_hits": 0,
+      "body_docs": 15,
+      "body_chunks": 24,
+      "top_doc": "普通高等学校学生管理规定（教育部令第41号）"
+    },
+    "空调": {
+      "title_hits": 0,
+      "body_docs": 1,
+      "body_chunks": 2,
+      "top_doc": "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）"
+    },
+    "签证": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "调档": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "转递": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "迁移": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "遥控器": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    },
+    "钥匙": {
+      "title_hits": 0,
+      "body_docs": 1,
+      "body_chunks": 1,
+      "top_doc": "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）"
+    },
+    "饭卡": {
+      "title_hits": 0,
+      "body_docs": 0,
+      "body_chunks": 0,
+      "top_doc": ""
+    }
+  },
+  "l3_suspect_clauses": {
+    "考研录取需要学校开什么证明": [],
+    "拿录取通知办报到": [],
+    "调档案/提档": [],
+    "离校时宿舍钥匙在哪里交回": [],
+    "离校时饭卡在哪里交回/退卡": [],
+    "图书馆借阅的东西在哪里归还": [],
+    "洗衣机/空调/遥控器离校怎么处理": []
+  },
+  "forward_risk_keywords": [
+    "一卡通",
+    "图书馆",
+    "录取",
+    "户口",
+    "报到",
+    "留学",
+    "空调",
+    "钥匙"
+  ],
+  "disposal_term_freq": {
+    "交回": 0,
+    "退还": 0,
+    "退卡": 0,
+    "提档": 0,
+    "调档": 0,
+    "转递": 0,
+    "开具证明": 0
+  },
+  "absent_keyword_breadth": {
+    "证明": 44,
+    "钥匙": 1,
+    "饭卡": 0,
+    "图书馆": 2,
+    "调档": 0,
+    "录取": 14
+  },
+  "wide_absent_keywords": [
+    "证明",
+    "录取"
+  ],
+  "pass": false,
+  "fails": [
+    "absent 词全部为库里零/低频出现的具体事项词（无宽词）: 宽词=['证明', '录取'] 对应块数={'证明': 44, '录取': 14}"
+  ]
+}

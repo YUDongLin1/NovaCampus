@@ -1,0 +1,8 @@
+P4d C1 延迟对照(中位数,每例 3 次;TTFD=SSE 首个 delta 到达毫秒数)
+场景                   类型                   TTFD(ms)    E2E(ms)      检索跳过      检索轮数       intent
+时间类(正则直答)            retrieval_skipped         381        451      True         0         time
+闲聊(chitchat)         retrieval_skipped         905        870      True         0     chitchat
+普通qa(单遍达标)           retrieval                2161       2898     False         1    retrieval
+改写路径(2轮检索)           rewrite                  3778       5440     False         2    retrieval
+
+直答路径 TTFD 上界=905ms;检索路径 TTFD 下界=2161ms;快路径显著更快

@@ -13,11 +13,15 @@ import numpy as np
 
 from novaagent import config, db, rag
 
+# P4d: 默认改为矩阵里**失败**的三条(术语+具体意图 / 学生原句 / 书面正式名),
+# 用于证明"向量层本已排到前列、rerank + 一刀切阈值把它放大成零来源";命令行可覆盖。
 QUERIES = [
+    "学平险在哪里买",
     "我们学校有学平险吗，我看我们计财处只有医保这项",
-    "学平险",
-    "学生平安保险怎么理赔",
+    "学生平安保险是否由学校统一办理？",
 ]
+if len(sys.argv) > 1:
+    QUERIES = sys.argv[1:]
 
 
 async def diag(q: str) -> None:

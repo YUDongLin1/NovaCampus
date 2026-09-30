@@ -1,0 +1,33 @@
+{
+  "base": "http://127.0.0.1:8900",
+  "question": "学平险出险后怎么报销？",
+  "all_pass": true,
+  "failed": [],
+  "steps": [
+    {
+      "step": "A 对照组(无 scope)有来源",
+      "ok": true,
+      "detail": "sources=4"
+    },
+    {
+      "step": "B 越权夹 → 404",
+      "ok": true,
+      "detail": "HTTP 404 body={\"detail\":\"指定的知识库不存在或无权访问\"}"
+    },
+    {
+      "step": "B2 不存在的夹 → 404(对照)",
+      "ok": true,
+      "detail": "HTTP 404 body={\"detail\":\"指定的知识库不存在或无权访问\"}"
+    },
+    {
+      "step": "C 两份响应体逐字节相同(不泄露存在性)",
+      "ok": true,
+      "detail": "priv='{\"detail\":\"指定的知识库不存在或无权访问\"}' none='{\"detail\":\"指定的知识库不存在或无权访问\"}'"
+    },
+    {
+      "step": "D 空夹零来源且 scope_empty=true",
+      "ok": true,
+      "detail": "HTTP 200 sources=0 scope_empty=True answer_head='您指定的知识库范围下没有可检索的文档，本次回答**未做全库检索**。请确认所选文件夹/学段是否有内容，或去掉 @ 范围后'"
+    }
+  ]
+}
