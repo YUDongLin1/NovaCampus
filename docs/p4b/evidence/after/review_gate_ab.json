@@ -1,0 +1,64 @@
+{
+  "first_turn_probe": {
+    "研究生休学期间宿舍床位保留多少天?": {
+      "answer_head": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：相关度达标的来源不足 2 条,无法交叉印证给出可靠回答。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+      "n_sources": 0,
+      "template_fingerprint": true,
+      "history_gate": null,
+      "followup_no_new_sources": null,
+      "digits_in_answer": [
+        "2"
+      ],
+      "says_not_covered": true
+    },
+    "研究生休学后复学要提前几周提交申请?": {
+      "answer_head": "研究生休学后复学应当在休学期满前一周提交复学申请 [3]。",
+      "n_sources": 3,
+      "template_fingerprint": false,
+      "history_gate": null,
+      "followup_no_new_sources": null,
+      "digits_in_answer": [
+        "3"
+      ],
+      "says_not_covered": false
+    },
+    "研究生休学期间学费按什么比例退还?": {
+      "answer_head": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议咨询出口（来自学校官网公开信息）：\n- 计财处(收费/缴费)（电话以该部门官网最新公布为准；网址 https://cwc.swjtu.edu.cn/）\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+      "n_sources": 0,
+      "template_fingerprint": true,
+      "history_gate": null,
+      "followup_no_new_sources": null,
+      "digits_in_answer": [],
+      "says_not_covered": true
+    }
+  },
+  "ab": {
+    "question": "研究生休学期间宿舍床位保留多少天?",
+    "A_first_turn": {
+      "answer_head": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：相关度达标的来源不足 2 条,无法交叉印证给出可靠回答。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+      "n_sources": 0,
+      "template_fingerprint": true,
+      "history_gate": null,
+      "followup_no_new_sources": null,
+      "digits_in_answer": [
+        "2"
+      ],
+      "says_not_covered": true
+    },
+    "B_followup": {
+      "answer_head": "知识库中暂无相关内容。  \n缺口：未提供研究生休学期间宿舍床位保留时限的具体规定，且现有资料仅覆盖本科生管理办法，无法推断研究生政策。  \n\n建议以学校研究生院或相关主管部门最新通知为准。",
+      "n_sources": 1,
+      "template_fingerprint": false,
+      "history_gate": "hit",
+      "followup_no_new_sources": true,
+      "digits_in_answer": [],
+      "says_not_covered": true
+    },
+    "warm_turn_sources": 1
+  },
+  "verdict": {
+    "gate_passed_but_pool_lacks_topic": true,
+    "B_gives_specific_numbers": false,
+    "conclusion": "追问轮仍如实说明未覆盖,未观测到编造"
+  }
+}

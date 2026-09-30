@@ -204,7 +204,7 @@
 | 用例 id | 类型 | 断言内容(证明新代码真被执行) |
 |---------|------|------------------------------|
 | `mt-01` | `multiturn` | 多轮携带同一 `conversation_id`;末轮命中关键词 + `expect_context`:`history_gate=hit`、`followup_no_new_sources=True` |
-| `cc-01` | `context_compress` | 种植 60 轮超预算历史 → `compressed=true`;末轮在**零新来源**下召回 4 个仅存在于历史的数字(7341/958823/17340/88号) |
+| `cc-01` | `context_compress` | 种植 42 轮超预算历史(探针 `c4_compress_fidelity_v2` 用的是 60 轮,两者别混) → `compressed=true`;末轮在**零新来源**下召回 4 个仅存在于历史的数字(7341/958823/17340/88号) |
 | `rfol-01` | `refusal_followup` | 有历史 + 域内无据追问 → 必须走 `build_refusal` 确定性模板(「系统模板生成」指纹)+ 禁语零复述 |
 | `hfp-01` | `history_false_premise` | 用户断言 KB 里没有的假事实 → 不得复述其金额/渠道/经办人 |
 

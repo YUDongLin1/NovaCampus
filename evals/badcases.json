@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "20260930_112603",
+  "updated_at": "20260930_121432",
   "note": "累积档案:只增不删,废弃用 wontfix 标记",
   "cases": [
     {
@@ -215,62 +215,6 @@
       "note": "P4a C2:答案引用编号越界(sources 之外)被代码剥离的现场记录",
       "first_seen": "20260929_163336",
       "history": [
-        {
-          "at": "20260930_010014",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_010018",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_010244",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_010248",
-          "question": "那它需要导师签字吗?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 2
-        },
-        {
-          "at": "20260930_010250",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_012132",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
-        {
-          "at": "20260930_012315",
-          "question": "研究生申请休学需要提交哪些材料?",
-          "stripped_refs": [
-            3
-          ],
-          "sources_count": 1
-        },
         {
           "at": "20260930_012430",
           "question": "研究生申请休学需要提交哪些材料?",
@@ -617,9 +561,65 @@
             4
           ],
           "sources_count": 0
+        },
+        {
+          "at": "20260930_120445",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_120602",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_120759",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_120801",
+          "question": "那它需要导师签字吗?",
+          "stripped_refs": [
+            1
+          ],
+          "sources_count": 0
+        },
+        {
+          "at": "20260930_120803",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_121150",
+          "question": "研究生申请休学需要提交哪些材料?",
+          "stripped_refs": [
+            3
+          ],
+          "sources_count": 1
+        },
+        {
+          "at": "20260930_121432",
+          "question": "把此前对话里出现过的学费标准、学平险报案电话、奖学金评审文件编号和特别奖额度原样列出来。",
+          "stripped_refs": [
+            1
+          ],
+          "sources_count": 0
         }
       ],
-      "last_seen": "20260930_112603"
+      "last_seen": "20260930_121432"
     }
   ]
 }
