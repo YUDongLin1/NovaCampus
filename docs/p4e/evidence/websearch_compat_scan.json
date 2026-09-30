@@ -1,0 +1,388 @@
+{
+  "probe_question": "ISO 4217 货币代码里 CNY 指的是哪种货币？",
+  "rows": [
+    {
+      "model": "qwen3.7-max",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "在 ISO 4217 货币代码中，**CNY** 指的是**人民币**（Chinese Yuan / Renminbi）。\n\n* **CN** 代表中国（China 的 ISO 国家代码）。\n* **Y** 代表“元”（Yuan）。\n\n它的货币符号是 **¥**，在日常生活中通常被称为“元”或“块”。"
+    },
+    {
+      "model": "qwen3.7-max",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "在 ISO 4217 货币代码中，**CNY** 指的是**人民币**（Chinese Yuan）。\n\n* **CN** 代表中国（China）的国家代码。\n* **Y** 代表货币单位“元”（Yuan）。\n\n它的常用货币符号是 **¥**。在日常生活中，人们也常使用 **RMB**（Renminbi 的拼音缩写）来指"
+    },
+    {
+      "model": "qwen3-max",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "在 ISO 4217 货币代码标准中，**CNY** 指的是 **人民币（Chinese Yuan）**，即中华人民共和国的法定货币。其正式名称为“人民币”，单位是“元”，国际上常称为“Yuan”。\n\n- **CNY** 是人民币的三位字母代码（Alpha-3 code）。\n- 数字代码为 **156**。\n- 常用符"
+    },
+    {
+      "model": "qwen3-max",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "在 ISO 4217 货币代码标准中，**CNY** 指的是 **中华人民共和国的法定货币——人民币**（Renminbi，RMB）。\n\n- **CNY** 是人民币的国际标准三位字母代码：\n  - “CN” 代表中国（China）的国家代码（依据 ISO 3166-1），\n  - “Y” 代表“元”（Yuan），即人"
+    },
+    {
+      "model": "glm-5.3",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "CNY 指的是**人民币（Chinese Yuan）**，即中华人民共和国的法定货币。\n\n一些相关背景：\n\n- **代码构成**：前两位 \"CN\" 来自中国的国家代码（ISO 3166-1），第三位 \"Y\" 来自“元”的拼音首字母\n- **数字代码**：ISO 4217 中还规定了数字代码 156\n- **货币单位**"
+    },
+    {
+      "model": "glm-5.3",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "CNY 指的是**人民币**（Chinese Yuan），即中华人民共和国的法定货币。\n\n一些相关细节：\n\n- **国家/地区**：中国（中华人民共和国）\n- **货币名称**：人民币，基本单位是“元”\n- **辅币单位**：1 元 = 10 角 = 100 分\n- **数字代码**：156\n\n需要注意的一点：日常生活"
+    },
+    {
+      "model": "qwen3.8-max",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "ISO 4217 货币代码 **CNY** 指的是 **人民币**（Chinese Yuan Renminbi），通常也称 **人民币元**，是中国大陆的法定货币，货币符号为 **¥**。"
+    },
+    {
+      "model": "qwen3.8-max",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "ISO 4217 货币代码 **CNY** 指的是 **人民币**，即中华人民共和国的法定货币，通常称为“人民币元”，货币符号为 **¥**。"
+    },
+    {
+      "model": "qwen3.8-flash",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "ISO 4217 货币代码中的 **CNY** 指的是 **人民币（Chinese Yuan）**，即中华人民共和国的法定货币。"
+    },
+    {
+      "model": "qwen3.8-flash",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "**CNY** 指的是**人民币**（Chinese Yuan），即中华人民共和国的法定货币。\n\n补充几点：\n\n- **中文名称**：人民币（元）\n- **货币符号**：¥\n- **常见混淆**：日常中也常用 **RMB**（Renminbi）指代人民币，但 ISO 4217 的正式三字代码是 **CNY**。\n- *"
+    },
+    {
+      "model": "qwen3.7-plus",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "ISO 4217 货币代码 **CNY** 指的是**人民币**（Chinese Yuan）。\n\n其中：\n* **CN** 代表中国（China）\n* **Y** 代表元（Yuan）\n\n在日常和金融交易中，它也常被简写为 **RMB**（Renminbi）。"
+    },
+    {
+      "model": "qwen3.7-plus",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "msg_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "top_keys": [
+        "choices",
+        "created",
+        "id",
+        "model",
+        "object",
+        "usage"
+      ],
+      "code": null,
+      "msg_err": "",
+      "text_head": "在 ISO 4217 货币代码中，**CNY** 指的是**人民币**（Renminbi），也常被称为**中国元**（Chinese Yuan）。\n\n其中：\n* **CN** 代表中国（China）的国家代码。\n* **Y** 代表“元”（Yuan）的首字母。\n\n在日常生活中，人们也常使用 **RMB** 或货币符号 "
+    }
+  ],
+  "working": []
+}

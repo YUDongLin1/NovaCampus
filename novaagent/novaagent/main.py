@@ -5,11 +5,12 @@ import io
 import json
 import logging
 import re
+from urllib.parse import urlsplit
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -216,16 +217,19 @@ async def kb_upload(
 
 
 @app.post("/api/kb/import_url")
-async def kb_import_url(body: dict, user=Depends(require_role("counselor"))):
+async def kb_import_url(body: dict, request: Request, user=Depends(require_role("counselor"))):
     """导入网页:抓取 URL → 提取正文文本 → 与文件上传同一入库管线"""
     url = (body.get("url") or "").strip()
     role_min = body.get("role_min", "student")
     category = (body.get("category") or "其他").strip()[:20] or "其他"
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "URL 必须以 http(s):// 开头")
+    # P4e M5 ②: 把**本次请求的 origin** 纳入禁抓判定 —— 「自家前端一律禁抓」
+    # 不再依赖硬编码端口 8900(服务跑在 :8905 时同样禁抓自家前端)。
+    _rt_origins = _runtime_deny_origins(request)
     # P4a C4: 抓取前先拦禁抓清单(名单/登录页/自家前端)——禁抓页不发起网络请求;
     # 其余质量项在抓取+提取后对真实正文执行
-    if url in DENY_URLS or any(u in url for u in DENY_URLS):
+    if _deny_url_hit(url, _rt_origins):
         logger.warning("导入被质量门拦截: code=deny_url url=%s", url)
         raise HTTPException(400, detail={"code": "deny_url",
                                          "reason": "URL 命中禁抓清单(含学生姓名的名单页/登录页首页/自家前端)",
@@ -253,7 +257,7 @@ async def kb_import_url(body: dict, user=Depends(require_role("counselor"))):
     if not text:
         raise HTTPException(400, "未能从网页中提取到文本")
     text, _stats = clean_body(text)  # P4a C6: 导航/页脚裁剪(fetch_public_pages 原型移植)
-    _gate_or_400(url, title, text)   # P4a C4: 质量门(登录页/短正文/口令/敏感/名单)
+    _gate_or_400(url, title, text, _rt_origins)   # P4a C4: 质量门(登录页/短正文/口令/敏感/名单)
     chunks = rag.chunk_text(text)
     if not chunks:
         raise HTTPException(400, "切分结果为空")
@@ -321,6 +325,42 @@ DENY_URLS = [
     "https://cwc.swjtu.edu.cn/",                          # 计财处首页=登录框(脏数据 id=109 来源)
     "http://127.0.0.1:8900/",                             # 自家前端(曾把演示口令写进库 id=22/120)
 ]
+
+# P4e M5 ②:「自家前端禁抓」此前是**端口绑定**的 —— DENY_URLS 里写死了 8900,
+# 服务一旦跑在别的端口(如冒烟常用的 :8905),`http://127.0.0.1:<port>/` 就不再命中
+# 禁抓清单,会落到 index_page 判据被拒(code 由 deny_url 变 index_page)。
+# **安全语义没破**(仍然被拒),但这条防线本意是"自家前端一律禁抓",不该依赖端口。
+#
+# 修法:**从请求自身的 origin 推导**运行时禁用 origin(而不是猜端口、也不是改测试)。
+# 服务跑在哪个端口就禁哪个端口 —— 端口绑定问题从根上消失。
+# 匹配范围只到 origin(协议+主机+端口)+ 路径根,不会误伤外部站点。
+def _runtime_deny_origins(request) -> list[str]:
+    """本次请求的 origin(如 http://127.0.0.1:8905/)——即"自家前端"可能出现的地址。
+
+    ⚠ `request.url` 是 `starlette.datastructures.URL`,**不是 str**;
+    直接 `u.scheme` 会抛 AttributeError。第一版我用 try/except 吞掉异常返回 [],
+    结果**静默失效**(自己写的单测才发现:origins=[] → 判定不命中)。
+    这正是「静默兜底」的反面教材:安全判定的兜底分支不能吞异常后照常放行。
+    现显式转 str 并在失败时**记日志**。
+    """
+    try:
+        u = str(request.url)          # URL 对象必须显式转字符串
+        p = urlsplit(u)
+        if not p.scheme or not p.netloc:
+            logger.warning("运行时 origin 推导失败(url=%r),自家前端禁抓本次不生效", u)
+            return []
+        return [f"{p.scheme}://{p.netloc}/"]
+    except Exception as e:            # 极端情况不因安全判定而 500,但必须留痕
+        logger.warning("运行时 origin 推导异常(自家前端禁抓本次不生效): %s", e)
+        return []
+
+
+def _deny_url_hit(url: str, extra_origins: list[str] | None = None) -> bool:
+    """URL 是否命中禁抓清单(静态清单 + 运行时 origin)。`main.py` 两处质量门共用,避免判据分叉。"""
+    if url in DENY_URLS or any(u in url for u in DENY_URLS):
+        return True
+    return any(url.startswith(o) for o in (extra_origins or []))
+
 LOGIN_FEATURES = ["浏览器版本过旧", "兼容性提示", "请输入验证码", "用户名", "登录密码", "忘记密码"]
 MIN_EFFECTIVE_CHARS = 200
 
@@ -420,14 +460,19 @@ def clean_body(text: str) -> tuple[str, dict]:
     return "\n".join(kept), {"dropped_nav": nav_drop, "cut_head": start, "cut_tail": len(lines) - end}
 
 
-def quality_gate_reject(url: str, title: str, text: str) -> dict | None:
+def quality_gate_reject(url: str, title: str, text: str,
+                        runtime_origins: list[str] | None = None) -> dict | None:
     """导入质量门(纯函数,可单测)。返回 None=放行;{code, reason, hint}=拒绝原因。
 
     检查项(P4a C4):禁抓 URL → 登录类标题 → 正文过短 → 登录页特征 →
     口令/演示凭据(四种措辞样式) → 手机号/身份证 → 名单特征(人名+名单)。
+
+    ⚠ P4e M5 ②:`runtime_origins` 是**本次请求的 origin**(自家前端地址),由路由层从
+    `request.url` 推导后传入 —— 让"自家前端一律禁抓"不再依赖硬编码端口 8900。
+    保持**纯函数**(默认 None 时行为与从前逐字一致),单测仍可直接调用。
     """
     if url:
-        if url in DENY_URLS or any(u in url for u in DENY_URLS):
+        if _deny_url_hit(url, runtime_origins):
             return {"code": "deny_url",
                     "reason": "URL 命中禁抓清单(含学生姓名的名单页/登录页首页/自家前端)",
                     "hint": "请粘贴具体文章页 URL;含学生姓名的公示/名单页一律禁止入库"}
@@ -467,8 +512,9 @@ def quality_gate_reject(url: str, title: str, text: str) -> dict | None:
     return None
 
 
-def _gate_or_400(url: str, title: str, text: str) -> None:
-    reject = quality_gate_reject(url, title, text)
+def _gate_or_400(url: str, title: str, text: str,
+                 runtime_origins: list[str] | None = None) -> None:
+    reject = quality_gate_reject(url, title, text, runtime_origins)
     if reject:
         logger.warning("导入被质量门拦截: code=%s url=%s title=%s", reject["code"], url, title[:60])
         raise HTTPException(400, detail=reject)

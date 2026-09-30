@@ -1,0 +1,739 @@
+{
+  "n_chunks": 323,
+  "ab_axis": "rag.FUSION_TOP_K 8(before) vs 12(after)",
+  "qa_ab": [
+    {
+      "id": "qa-01",
+      "question": "研究生申请休学需要提交哪些材料?",
+      "expect_sources": [
+        "研究生学籍管理规定"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 1,
+        "r_at_k": 1.0,
+        "top_score": 0.9952,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 6,
+        "titles": [
+          "EVAL-研究生学籍管理规定"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.9952,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 8,
+        "titles": [
+          "EVAL-研究生学籍管理规定",
+          "普通高等学校学生管理规定（教育部令第41号）"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-02",
+      "question": "休学申请的审批流程是怎样的?",
+      "expect_sources": [
+        "研究生学籍管理规定"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.7044,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "EVAL-研究生学籍管理规定",
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "EVAL-学生请假管理办法"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.7044,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 8,
+        "titles": [
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "EVAL-研究生学籍管理规定",
+          "EVAL-学生请假管理办法"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-03",
+      "question": "研究生的最长学习年限是几年?",
+      "expect_sources": [
+        "研究生学籍管理规定",
+        "学生管理规定"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.9693,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 6,
+        "titles": [
+          "EVAL-研究生学籍管理规定",
+          "西南交通大学兼职辅导员管理办法（西交校学生〔2022〕7号）",
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "西南交通大学兼职辅导员管理办法（西交校学生〔2022〕7号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 5,
+        "r_at_k": 1.0,
+        "top_score": 0.9692,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 9,
+        "titles": [
+          "EVAL-研究生学籍管理规定",
+          "西南交通大学兼职辅导员管理办法（西交校学生〔2022〕7号）",
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "西南交通大学兼职辅导员管理办法（西交校学生〔2022〕7号）",
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-04",
+      "question": "国家奖学金的绩点要求是多少?",
+      "expect_sources": [
+        "奖学金评定办法"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.9607,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 3,
+        "titles": [
+          "EVAL-研究生奖学金评定办法",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.9602,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "EVAL-研究生奖学金评定办法",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-05",
+      "question": "申请国家奖学金要交什么材料?",
+      "expect_sources": [
+        "奖学金评定办法"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.9711,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 3,
+        "titles": [
+          "EVAL-研究生奖学金评定办法",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+          "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.9711,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "EVAL-研究生奖学金评定办法",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+          "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-06",
+      "question": "请假 3 天以内需要谁批准?",
+      "expect_sources": [
+        "学生请假管理办法"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 3,
+        "r_at_k": 1.0,
+        "top_score": 0.9819,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "EVAL-学生请假管理办法",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 3,
+        "r_at_k": 1.0,
+        "top_score": 0.982,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 6,
+        "titles": [
+          "EVAL-学生请假管理办法",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-07",
+      "question": "请假超过 7 天要走什么流程?",
+      "expect_sources": [
+        "学生请假管理办法"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.7341,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "EVAL-学生请假管理办法",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.7336,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 6,
+        "titles": [
+          "EVAL-学生请假管理办法",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-08",
+      "question": "休学期满怎么申请复学?",
+      "expect_sources": [
+        "研究生学籍管理规定"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.9477,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "EVAL-研究生学籍管理规定",
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "普通高等学校学生管理规定（教育部令第41号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.948,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 7,
+        "titles": [
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "EVAL-研究生学籍管理规定",
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "普通高等学校学生管理规定（教育部令第41号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-09",
+      "question": "本科生离校请假的手续是怎么规定的?",
+      "expect_sources": [
+        "离校请销假"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 5,
+        "r_at_k": 1.0,
+        "top_score": 0.9741,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 4,
+        "titles": [
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）",
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）",
+          "普通高等学校学生管理规定（教育部令第41号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 5,
+        "r_at_k": 1.0,
+        "top_score": 0.9742,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 6,
+        "titles": [
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）",
+          "西南交通大学学生离校请（销）假管理办法（试行）（西交校学生〔2018〕224号）",
+          "EVAL-学生请假管理办法",
+          "普通高等学校学生管理规定（教育部令第41号）",
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-10",
+      "question": "申请国家助学贷款需要满足什么条件?",
+      "expect_sources": [
+        "国家助学贷款"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 6,
+        "r_at_k": 1.0,
+        "top_score": 0.9907,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+          "西南交通大学国家助学贷款还款救助操作细则（西交校学生〔2019〕27号）",
+          "西南交通大学毕业生基层就业学费补偿国家助学贷款代偿实施办法（西交校学生〔2025",
+          "西南交通大学学生服兵役国家教育资助实施办法（西交校学生〔2025〕21号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 6,
+        "r_at_k": 1.0,
+        "top_score": 0.9907,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "西南交通大学国家助学贷款实施办法（西交校学生〔2025〕20号）",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+          "西南交通大学国家助学贷款还款救助操作细则（西交校学生〔2019〕27号）",
+          "西南交通大学毕业生基层就业学费补偿国家助学贷款代偿实施办法（西交校学生〔2025",
+          "西南交通大学学生服兵役国家教育资助实施办法（西交校学生〔2025〕21号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-11",
+      "question": "学生宿舍矛盾怎么谈心?",
+      "expect_sources": [
+        "QA-Q02"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 3,
+        "r_at_k": 1.0,
+        "top_score": 0.8803,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "S1-NO47-学生因恋爱问题遭遇死亡威胁,辅导员应该如何应对",
+          "QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她",
+          "QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 5,
+        "r_at_k": 1.0,
+        "top_score": 0.8791,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 7,
+        "titles": [
+          "S1-NO47-学生因恋爱问题遭遇死亡威胁,辅导员应该如何应对",
+          "QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她",
+          "QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她",
+          "高等学校辅导员职业能力标准（暂行）（教思政〔2014〕2号）",
+          "S1-NO47-学生因恋爱问题遭遇死亡威胁,辅导员应该如何应对"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-12",
+      "question": "研究生奖助学金评审是怎么规定的?",
+      "expect_sources": [
+        "奖助学金评审"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 3,
+        "r_at_k": 1.0,
+        "top_score": 0.9669,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 2,
+        "titles": [
+          "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+          "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.966,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 4,
+        "titles": [
+          "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+          "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+          "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+          "EVAL-研究生奖学金评定办法"
+        ]
+      },
+      "changed": true,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-13",
+      "question": "学生在宿舍使用违章电器该怎么处理?",
+      "expect_sources": [
+        "QA-Q12"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.9895,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 4,
+        "titles": [
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）",
+          "QA-Q12-一个男生在宿舍使用违章电器，被宿管老师发现并没收。该男生",
+          "QA-Q12-一个男生在宿舍使用违章电器，被宿管老师发现并没收。该男生",
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 4,
+        "r_at_k": 1.0,
+        "top_score": 0.9895,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 4,
+        "titles": [
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）",
+          "QA-Q12-一个男生在宿舍使用违章电器，被宿管老师发现并没收。该男生",
+          "QA-Q12-一个男生在宿舍使用违章电器，被宿管老师发现并没收。该男生",
+          "西南交通大学学生公寓管理办法（西交校学生〔2021〕8 号 ）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-14",
+      "question": "老师您好，想咨询一下医保的事。我的参保地目前还挂在原来学校所在的某市，想问下要怎么办才能转到现在这边？这学期的医保我已经交了",
+      "expect_sources": [
+        "大学生医疗保险缴费"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.7821,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "大学生医保假期使用的温馨提示",
+          "关于2026年度大学生医疗保险缴费的通知"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.7775,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 8,
+        "titles": [
+          "大学生医保假期使用的温馨提示",
+          "关于2026年度大学生医疗保险缴费的通知"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-15",
+      "question": "学平险",
+      "expect_sources": [
+        "学平险"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.8878,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "关于西南交通大学2016年度新生学平险保险的通知",
+          "大学生意外伤害保险理赔须知(学平险)"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.8869,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 8,
+        "titles": [
+          "关于西南交通大学2016年度新生学平险保险的通知",
+          "大学生意外伤害保险理赔须知(学平险)"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-16",
+      "question": "本科生荣誉称号评选办法里，哪些荣誉不能同时获得?",
+      "expect_sources": [
+        "荣誉称号"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 3,
+        "r_at_k": 1.0,
+        "top_score": 0.9805,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 2,
+        "titles": [
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）",
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）",
+          "西南交通大学本科生优秀毕业生评审管理办法（西交校学生〔2025〕14号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 3,
+        "r_at_k": 1.0,
+        "top_score": 0.9805,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 3,
+        "titles": [
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）",
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）",
+          "西南交通大学本科生优秀毕业生评审管理办法（西交校学生〔2025〕14号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "qa-17",
+      "question": "我是研究生，2025-2026学年学生个人荣誉称号申请，一名同学可以同时获得两个及以上荣誉吗",
+      "expect_sources": [
+        "荣誉称号"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.5093,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 3,
+        "titles": [
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）",
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）"
+        ]
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 2,
+        "r_at_k": 1.0,
+        "top_score": 0.5093,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 5,
+        "titles": [
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）",
+          "西南交通大学本科生荣誉称号评审管理办法（西交校学生〔2025〕13号）"
+        ]
+      },
+      "changed": false,
+      "r_delta": 0.0
+    },
+    {
+      "id": "rind-02",
+      "question": "我们学校有学平险吗，我看我们计财处只有医保这项",
+      "expect_sources": [
+        "学平险",
+        "医保"
+      ],
+      "before": {
+        "fuse_k": 8,
+        "n": 0,
+        "r_at_k": 0.0,
+        "top_score": 0.1164,
+        "fused_candidates": 8,
+        "fused_candidate_docs": 4,
+        "titles": []
+      },
+      "after": {
+        "fuse_k": 12,
+        "n": 0,
+        "r_at_k": 0.0,
+        "top_score": 0.1164,
+        "fused_candidates": 12,
+        "fused_candidate_docs": 5,
+        "titles": []
+      },
+      "changed": false,
+      "r_delta": 0.0
+    }
+  ],
+  "matrix": [
+    {
+      "variant": "纯术语",
+      "question": "学平险",
+      "hit": true,
+      "n_sources": 2,
+      "attempts": 1,
+      "rewritten": false,
+      "final_query": "学平险"
+    },
+    {
+      "variant": "术语+一般问",
+      "question": "学校有学平险吗",
+      "hit": true,
+      "n_sources": 2,
+      "attempts": 1,
+      "rewritten": false,
+      "final_query": "学校有学平险吗"
+    },
+    {
+      "variant": "术语+具体意图",
+      "question": "学平险在哪里买",
+      "hit": true,
+      "n_sources": 3,
+      "attempts": 2,
+      "rewritten": true,
+      "final_query": "学平险 学生平安保险 大学生意外伤害保险"
+    },
+    {
+      "variant": "真实原句(学生口吻)",
+      "question": "我们学校有学平险吗，我看我们计财处只有医保这项",
+      "hit": true,
+      "n_sources": 4,
+      "attempts": 2,
+      "rewritten": true,
+      "final_query": "学平险 医保 学生平安保险 大学生意外伤害保险 大学生医疗保险 城乡居民基本医疗保险"
+    },
+    {
+      "variant": "背景前置倒装",
+      "question": "我看计财处只有医保这一项，那学校还给学平险吗",
+      "hit": true,
+      "n_sources": 4,
+      "attempts": 2,
+      "rewritten": true,
+      "final_query": "学平险 医保 学生平安保险 大学生意外伤害保险 大学生医疗保险 城乡居民基本医疗保险"
+    },
+    {
+      "variant": "口语加称呼情境",
+      "question": "老师，我想问下咱们学校那个学平险是要单独交钱买吗，我没在缴费项目里看到",
+      "hit": true,
+      "n_sources": 3,
+      "attempts": 2,
+      "rewritten": true,
+      "final_query": "学平险 学生平安保险 大学生意外伤害保险"
+    },
+    {
+      "variant": "书面正式名",
+      "question": "学生平安保险是否由学校统一办理？",
+      "hit": true,
+      "n_sources": 3,
+      "attempts": 2,
+      "rewritten": true,
+      "final_query": "学生平安保险 学平险 大学生意外伤害保险"
+    },
+    {
+      "variant": "多子句书面全称",
+      "question": "关于学生在校期间的意外与医疗保障，除了城乡居民基本医疗保险之外，学校是否还统一办理学生平安保险？",
+      "hit": true,
+      "n_sources": 3,
+      "attempts": 2,
+      "rewritten": true,
+      "final_query": "学生平安保险 学平险 大学生意外伤害保险"
+    }
+  ],
+  "qa12_target": {
+    "target": "EVAL-研究生奖学金评定办法",
+    "in_before": false,
+    "in_after": true,
+    "after_titles": [
+      "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+      "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+      "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+      "EVAL-研究生奖学金评定办法"
+    ],
+    "after_candidate_docs": 4
+  },
+  "summary": {
+    "qa_total": 18,
+    "qa_changed": 7,
+    "qa_r_down": [],
+    "qa_r_up": [],
+    "qa_zero_after": [
+      "rind-02"
+    ],
+    "qa12_target_in_after": true,
+    "matrix_hit": 8,
+    "matrix_total": 8
+  }
+}

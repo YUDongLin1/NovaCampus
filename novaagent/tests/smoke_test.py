@@ -17,6 +17,10 @@ from pathlib import Path
 
 import httpx
 
+# P4e M5 ②:默认端口仍是 8900(保持既有调用方式不变),但**必须能用 --base 指到别处**——
+# 此前 BASE 硬编码,服务跑在 :8905 时,「自家前端禁抓」断言会假红
+# (期望 code=deny_url、实得 index_page),而质量门代码一行没变。
+# 根因已在 main.py 修掉(禁抓判定纳入**运行时 origin**),本参数只是让冒烟能指向任意端口。
 BASE = "http://127.0.0.1:8900"
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from novaagent import refusal  # noqa: E402  纯函数单测(不依赖运行中的服务)
@@ -169,9 +173,13 @@ class _FixtureHandler(http.server.BaseHTTPRequestHandler):
 
 
 def main() -> int:
+    global BASE  # P4e M5 ②: --base 改写模块级 BASE(各检查函数共用)
     ap = argparse.ArgumentParser()
     ap.add_argument("--cleanup", action="store_true", help="清理历史残留的冒烟测试文档后继续")
+    ap.add_argument("--base", default=BASE,
+                    help="被测服务地址(须与 run_with_server.sh 起的端口一致)")
     args = ap.parse_args()
+    BASE = args.base.rstrip("/")
 
     with httpx.Client(timeout=180) as c:
         admin = login(c, "admin", "admin123")
@@ -337,6 +345,11 @@ def main() -> int:
         print(f"[15] 文档摘要 OK: {d['summary'][:40]}...")
 
         # P4a: 网页导入质量门回归——自家前端/计财处首页必须被拦(禁抓页不发起抓取)
+        # P4e M5 ②: `f"{BASE}/"` 跟随 --base,不再依赖硬编码 8900。此前服务跑在 :8905 时
+        # 这条会落到 index_page 判据 → 期望 deny_url 实得 index_page(**假红**),
+        # 而质量门代码一行没变——说明"自家前端禁抓"是**端口绑定**的。
+        # 根因已在 main.py 修掉(禁抓判定纳入**运行时 origin**),故在任意端口上都应判 deny_url;
+        # 本条因此同时充当该修复的回归闸门。
         for denied in ("https://cwc.swjtu.edu.cn/", f"{BASE}/"):
             r = c.post(f"{BASE}/api/kb/import_url", headers=auth(counselor["token"]),
                        json={"url": denied, "role_min": "counselor"})

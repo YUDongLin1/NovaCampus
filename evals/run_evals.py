@@ -129,6 +129,103 @@ def seed_corpus_if_needed(c: httpx.Client, counselor_token: str) -> int:
     return uploaded
 
 
+# P4e C0-②（M1②）：共现判据的**邻近**阈值。
+# 原判据是「整篇答案两词都在」，实测会误杀据实引用的正常答案——复核方发现
+# `录取通知书` 在 student 可见块有 **5 块**，《国家助学贷款实施办法》第十七条原文
+# 「在线提交录取通知书、身份证等相关证明资料」里两词相隔 40+ 字、用于**完全不同**的
+# 用途（继续贴息申请），却会被整篇共现判成「夹带无据断言」。
+# 现改为邻近共现：**同句** 或 两词**首次出现位置**距离 ≤ COOCUR_WINDOW 字。
+# 80 字的依据：足够容纳一个完整分句（「…须提交录取通知书，并提供相关证明资料」，
+# 约 20~30 字），又不会跨越到另一个独立用途（实测误杀样本间隔 40+ 字但语义独立，
+# 取 80 仍偏保守；若复核方认为该放宽，改这一个常量即可，判据逻辑不动）。
+COOCUR_WINDOW = 80
+_SENT_SPLIT = re.compile(r"(?<=[。；;!?！？\n])")
+
+
+def _cooccur_near(answer: str, a: str, b: str) -> bool:
+    """判断 a 与 b 在 answer 中是否**邻近共现**（同句，或首次出现位置距离 ≤ COOCUR_WINDOW）。
+
+    ⚠ 与旧判据的关键差别：旧判据只问「两词是否都在这篇答案里」，不问是否相邻；
+    这会把**分处不同用途**的据实引用判成违规（M1 修订的根因）。
+    同句优先——中文答案里同一分句的两词几乎必然是同一件事的表述。
+    """
+    if a not in answer or b not in answer:
+        return False
+    # ① 同句共现（对中文更稳，优先判）
+    for sent in _SENT_SPLIT.split(answer):
+        if a in sent and b in sent:
+            return True
+    # ② 窗口邻近（兜底：跨句但紧邻的情形，如分号断开的并列成分）
+    ia = answer.find(a)
+    ib = answer.find(b)
+    return abs(ia - ib) <= COOCUR_WINDOW
+
+
+def _check_absent_keywords(case: dict, answer: str) -> list[str]:
+    """P4e C0-②：「答案不得出现无据断言」的两段式检查（qa / refusal_indomain 共用同一判据）。
+
+    原实现只有**无条件** `expect_absent_keywords` 一种判据，坑 54 指出它埋雷：
+    rind-07 选的 `证明`(student 可见 **42 块**) / `录取`(14 块) 是**宽词**——
+    《学生公寓管理办法》「应当妥善保管宿舍房门钥匙」、教育部令 41 号讲录取报到都是
+    **正当出处**。C0-① 把检索补强之后，这类块会被召回并据实引用，届时该用例必然
+    假红（"必然，不是偶发"）。
+
+    改为两段：
+      1. **无条件段** `expect_absent_keywords`：只放**库内零命中**的具体事项词
+         （交回/退卡/提档/调档/饭卡/档案转递…实测 student 可见 323 块全为 0 块）。
+         出现即夹带无据断言——这类处置动作全库无条款可答，是本用例的**主判据**。
+      2. **共现段** `expect_absent_keywords_cooccur`：[[词, [共现词...]], ...]，
+         只有该词**与共现词邻近共现**才算夹带（如答案里「证明」与「交回」出现在
+         同一句或邻近处，才说明它在替用户"认定"这件事该开证明）。共现词**必须取
+         库内零命中的处置动词**——见下方 M2 修订。
+
+    ⚠ **M1 修订（2026-09-30 第二回打回）**：共现判据原为「**整篇答案**两词都在」，
+    复核方实测 `录取通知书` 在 student 可见块 **5 块**，且《国家助学贷款实施办法》
+    第十七条原文就是「在线提交录取通知书、身份证等相关**证明**资料」——
+    于是一个**据实引用该条款的正常答案**（两词都在，但相隔 40+ 字、分处不同用途）
+    会被整篇共现判红。**这正是 C0-② 要消除的「检索一增强就必然假红」在改进后的断言里复发。**
+    两处修法（都做）：① `录取通知书` 从 `证明` 的共现词里删掉（复核方实测 5 块，非零命中）；
+    ② 共现判据改为**窗口邻近**（`_cooccur_near`，默认同句或距离 ≤ `COOCUR_WINDOW` 字）。
+
+    ⚠ **M2 修订**：注释原写「共现词一律取零命中的处置动词」而**未验证过共现词本身**，
+    `录取通知书` 就是被漏掉的反例。现所有共现词都由 `docs/p4e/probe_rind07_kw.py`
+    实测并落盘 `rind07_kw_probe.json` 的 `c0_2_cooccur_context_all_zero` 字段把关。
+    实测结论（student 可见 323 块）：`交回/提档/调档/凭据/退还/退卡/借阅/回收` 全 0 块；
+    ⚠ `录取通知书` **5 块**、`报到` 5 块、`注销` 6 块 → **均不得作共现词**。
+
+    ⚠ **M3 修订**：原 `if not pair or len(pair) < 2: continue` 会让写成 `["证明"]`
+    的畸形对**永久失效且不报错**（自测只校验每对的 `[0]`、从不校验 `[1]`，坑 45/52 同形状）。
+    现改为结构不符即 `raise ValueError`——坏数据必须吵，不能静默失效。
+
+    返回违规词列表（空 = 通过）。
+    """
+    bad = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    for idx, pair in enumerate(case.get("expect_absent_keywords_cooccur", []) or []):
+        # M3：结构不符即吵。静默 continue 会让断言**永久失效而不报错**（坑 45/52）。
+        if not isinstance(pair, (list, tuple)) or len(pair) < 2:
+            raise ValueError(
+                f"{case.get('id')} 的 expect_absent_keywords_cooccur[{idx}] 结构不符: "
+                f"须为 [主词, [共现词...]]，实得 {pair!r}")
+        word, ctxs = pair[0], pair[1]
+        if not isinstance(ctxs, (list, tuple)):
+            raise ValueError(
+                f"{case.get('id')} 的 expect_absent_keywords_cooccur[{idx}][1] 须为 list，"
+                f"实得 {type(ctxs).__name__}")
+        if not word:
+            raise ValueError(
+                f"{case.get('id')} 的 expect_absent_keywords_cooccur[{idx}] 主词为空")
+        if not ctxs or not all(isinstance(c, str) and c for c in ctxs):
+            raise ValueError(
+                f"{case.get('id')} 的 expect_absent_keywords_cooccur[{idx}] 共现词列表为空或有非法项")
+        if word not in answer:
+            continue
+        # M1②：邻近共现，不再是"整篇两词都在"
+        hit_ctx = [c for c in ctxs if _cooccur_near(answer, word, c)]
+        if hit_ctx:
+            bad.append(f"{word}(与 {'/'.join(hit_ctx)} 邻近共现)")
+    return bad
+
+
 def judge_qa(case: dict, answer: str, sources: list) -> tuple[bool, str]:
     if not sources:
         return False, "无引用来源"
@@ -170,13 +267,13 @@ def judge_qa(case: dict, answer: str, sources: list) -> tuple[bool, str]:
                else "剥离免责措辞后实质内容为 0")
         return False, (f"非答案:命中免责措辞 {marks},但{why}——"
                        f"关键词命中来自问题复述,不是答案(引用 {[s['title'] for s in sources]})")
-    # P4d-fix ①：qa 型也支持 expect_absent_keywords（rind-02 迁移后要断言
-    # 「95585 不得作现行」——历史文件里的报案电话不能被当现行规定给出）。
+    # P4d-fix ① / P4e C0-②：qa 型也检查"不得夹带无据断言"（rind-02 迁移后要断言
+    # 「95585 不得作现行」；rind-07 迁回 refusal 型后由 judge_refusal_indomain 共用同一判据）。
     # 此前只有 refusal 类判定检查该字段，qa 型忽略；迁移后必须真的检查，否则断言形同虚设。
     # （自测抓到过一次真实缺陷：这段曾被误放到 return 之后成为死代码，硬断言形同虚设。）
-    absent = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    absent = _check_absent_keywords(case, answer)
     if absent:
-        return False, (f"夹带禁用内容(历史文件信息不得作现行): {absent}"
+        return False, (f"夹带禁用内容(历史文件信息不得作现行/无据断言): {absent}"
                        f"(引用 {[s['title'] for s in sources]})")
     return True, f"命中 {case['expect_keywords']},引用 {len(sources)} 条"
 
@@ -201,7 +298,7 @@ def judge_refusal_indomain(case: dict, answer: str, sources: list) -> tuple[bool
     contact = case.get("expect_contact")
     if contact and contact not in answer:
         return False, f"拒答未含出口信息({contact})"
-    absent = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    absent = _check_absent_keywords(case, answer)
     if absent:
         return False, f"拒答/答案夹带无据断言: {absent}"
     return True, f"域内无据正确拒答(sources={len(sources)},出口与断言检查通过)"

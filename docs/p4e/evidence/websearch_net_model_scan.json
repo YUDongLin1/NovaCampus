@@ -1,0 +1,398 @@
+{
+  "probe_question": "ISO 4217 货币代码里 CNY 指的是哪种货币？",
+  "rows": [
+    {
+      "model": "qwen3.8-max",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.8-max",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.8-flash",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.8-flash",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.7-plus",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.7-plus",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.7-max",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [
+        "choices"
+      ],
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "qwen3.7-max",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [
+        "choices"
+      ],
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "qwen3.5-plus",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.5-plus",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.5-flash",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3.5-flash",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "qwen3-max",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [
+        "choices"
+      ],
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "qwen3-max",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [
+        "choices"
+      ],
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "deepseek-v4.1-flash",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "deepseek-v4.1-flash",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "glm-5.3",
+      "strategy": "turbo",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [
+        "choices"
+      ],
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "glm-5.3",
+      "strategy": "agent",
+      "http": 200,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [
+        "choices"
+      ],
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "kimi-k3",
+      "strategy": "turbo",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    },
+    {
+      "model": "kimi-k3",
+      "strategy": "agent",
+      "http": 400,
+      "si": false,
+      "n": 0,
+      "fields": [],
+      "missing": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "plugins": null,
+      "cite": false,
+      "out_keys": [],
+      "code": "InvalidParameter",
+      "msg": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/err"
+    }
+  ],
+  "working": []
+}

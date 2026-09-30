@@ -1,0 +1,446 @@
+{
+  "design": "同一批问句、同一库副本、进程内切换 rag.FUSION_TOP_K；每条 warmup 1 次后连测 3 次取中位数",
+  "db_source": "C:\\Users\\<user>\\AppData\\Local\\Temp\\p4e_fusion_latency.db",
+  "n_queries": 18,
+  "case_ids": [
+    "qa-01",
+    "qa-02",
+    "qa-03",
+    "qa-04",
+    "qa-05",
+    "qa-06",
+    "qa-07",
+    "qa-08",
+    "qa-09",
+    "qa-10",
+    "qa-11",
+    "qa-12",
+    "qa-13",
+    "qa-14",
+    "qa-15",
+    "qa-16",
+    "qa-17",
+    "rind-02"
+  ],
+  "warmup": 1,
+  "repeat": 3,
+  "summary": {
+    "FUSION_TOP_K=8": {
+      "n_queries": 18,
+      "median_ms": 954.9,
+      "mean_ms": 1037.0,
+      "p90_ms": 1011.1,
+      "min_ms": 796.6,
+      "max_ms": 2261.1
+    },
+    "FUSION_TOP_K=12": {
+      "n_queries": 18,
+      "median_ms": 1121.4,
+      "mean_ms": 1585.2,
+      "p90_ms": 3143.8,
+      "min_ms": 998.9,
+      "max_ms": 3381.5
+    }
+  },
+  "delta_median_ms": 166.5,
+  "delta_median_pct": 17.4,
+  "note": "扩槽位只让**更多候选进 rerank**，不改变向量/关键词两路召回，故成本增量只体现在 rerank 段；rerank 分 <RERANK_MIN_SCORE 的块会被丢弃，不进入最终上下文，因此**生成段 token 增量远小于候选增量**。",
+  "detail": [
+    {
+      "slot_k": 8,
+      "case_id": "qa-01",
+      "ms_median": 976.7,
+      "ms_all": [
+        1061.6,
+        960.2,
+        976.7
+      ],
+      "n_sources": 1
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-02",
+      "ms_median": 984.3,
+      "ms_all": [
+        984.3,
+        945.6,
+        1796.0
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-03",
+      "ms_median": 802.4,
+      "ms_all": [
+        768.8,
+        813.2,
+        802.4
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-04",
+      "ms_median": 796.6,
+      "ms_all": [
+        796.6,
+        793.8,
+        877.3
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-05",
+      "ms_median": 891.7,
+      "ms_all": [
+        1029.4,
+        891.7,
+        861.8
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-06",
+      "ms_median": 876.4,
+      "ms_all": [
+        803.1,
+        876.4,
+        912.2
+      ],
+      "n_sources": 3
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-07",
+      "ms_median": 879.6,
+      "ms_all": [
+        1060.4,
+        796.5,
+        879.6
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-08",
+      "ms_median": 882.8,
+      "ms_all": [
+        882.8,
+        955.6,
+        810.8
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-09",
+      "ms_median": 843.5,
+      "ms_all": [
+        821.8,
+        912.9,
+        843.5
+      ],
+      "n_sources": 5
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-10",
+      "ms_median": 875.7,
+      "ms_all": [
+        842.1,
+        875.7,
+        1273.1
+      ],
+      "n_sources": 6
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-11",
+      "ms_median": 1011.1,
+      "ms_all": [
+        988.8,
+        1158.9,
+        1011.1
+      ],
+      "n_sources": 3
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-12",
+      "ms_median": 2261.1,
+      "ms_all": [
+        2182.2,
+        2261.1,
+        2817.9
+      ],
+      "n_sources": 3
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-13",
+      "ms_median": 1700.4,
+      "ms_all": [
+        1700.4,
+        1671.6,
+        1700.7
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-14",
+      "ms_median": 997.1,
+      "ms_all": [
+        1323.8,
+        891.2,
+        997.1
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-15",
+      "ms_median": 1005.2,
+      "ms_all": [
+        1005.2,
+        997.0,
+        1048.0
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-16",
+      "ms_median": 951.9,
+      "ms_all": [
+        951.9,
+        1100.9,
+        939.9
+      ],
+      "n_sources": 3
+    },
+    {
+      "slot_k": 8,
+      "case_id": "qa-17",
+      "ms_median": 971.3,
+      "ms_all": [
+        971.3,
+        928.6,
+        1382.0
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 8,
+      "case_id": "rind-02",
+      "ms_median": 957.8,
+      "ms_all": [
+        901.6,
+        957.8,
+        1659.3
+      ],
+      "n_sources": 0
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-01",
+      "ms_median": 1053.1,
+      "ms_all": [
+        1026.0,
+        1053.1,
+        1381.6
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-02",
+      "ms_median": 998.9,
+      "ms_all": [
+        985.9,
+        998.9,
+        1064.6
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-03",
+      "ms_median": 3381.5,
+      "ms_all": [
+        3486.4,
+        3381.5,
+        2887.4
+      ],
+      "n_sources": 5
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-04",
+      "ms_median": 3326.1,
+      "ms_all": [
+        6088.9,
+        2799.8,
+        3326.1
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-05",
+      "ms_median": 3143.8,
+      "ms_all": [
+        2970.0,
+        3731.4,
+        3143.8
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-06",
+      "ms_median": 2499.8,
+      "ms_all": [
+        1739.9,
+        3261.9,
+        2499.8
+      ],
+      "n_sources": 3
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-07",
+      "ms_median": 1143.2,
+      "ms_all": [
+        1278.9,
+        1011.2,
+        1143.2
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-08",
+      "ms_median": 1075.2,
+      "ms_all": [
+        1075.2,
+        1050.2,
+        1080.4
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-09",
+      "ms_median": 1076.5,
+      "ms_all": [
+        1196.1,
+        1044.9,
+        1076.5
+      ],
+      "n_sources": 5
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-10",
+      "ms_median": 1027.9,
+      "ms_all": [
+        1088.0,
+        1027.9,
+        1011.7
+      ],
+      "n_sources": 6
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-11",
+      "ms_median": 1164.3,
+      "ms_all": [
+        1161.3,
+        1164.3,
+        1301.1
+      ],
+      "n_sources": 5
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-12",
+      "ms_median": 1086.1,
+      "ms_all": [
+        978.8,
+        1174.1,
+        1086.1
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-13",
+      "ms_median": 1145.6,
+      "ms_all": [
+        1145.2,
+        1145.6,
+        1430.4
+      ],
+      "n_sources": 4
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-14",
+      "ms_median": 1038.2,
+      "ms_all": [
+        1008.3,
+        1038.2,
+        1119.4
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-15",
+      "ms_median": 1099.7,
+      "ms_all": [
+        1047.3,
+        1163.6,
+        1099.7
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-16",
+      "ms_median": 1215.4,
+      "ms_all": [
+        1386.1,
+        1215.4,
+        1066.3
+      ],
+      "n_sources": 3
+    },
+    {
+      "slot_k": 12,
+      "case_id": "qa-17",
+      "ms_median": 1095.5,
+      "ms_all": [
+        1036.5,
+        1095.5,
+        1104.5
+      ],
+      "n_sources": 2
+    },
+    {
+      "slot_k": 12,
+      "case_id": "rind-02",
+      "ms_median": 1962.6,
+      "ms_all": [
+        1123.2,
+        1962.6,
+        3047.5
+      ],
+      "n_sources": 0
+    }
+  ]
+}

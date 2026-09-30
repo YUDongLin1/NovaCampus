@@ -11,6 +11,27 @@ REL="$1"; shift
 ROOT="E:/AILearn/NovaCampus"
 export NO_PROXY="127.0.0.1,localhost"
 export NOVAAGENT_EVAL_TEMPERATURE=0
+
+# P4e M5 ①:自检 —— 评测脚本必须显式 --base,否则会回落到模块级默认 :8900。
+#
+# 【为什么必须自检】run_evals.py 有模块级 `BASE = "http://127.0.0.1:8900"`,而本脚本
+# 起的服务在 $PORT。两者不一致时,评测**全程连的是 :8900** —— 极可能是**他人的常驻
+# 旧实例**(实测过一次:15:40 启动的进程,加载的是 FUSION_TOP_K 改动前的 8 槽代码),
+# 于是"代码改了但评测没生效",表现为 `qa-12` 之类的**假红**,极易被误判成修法失败
+# 去改用例(违反坑 39/52)。本单就因此白跑 6 轮整轮评测。
+#
+# 判据:被跑的脚本是 run_evals.py(或 smoke_test.py,见下)却没有 --base → 直接退出。
+# 二者历史上都有模块级默认 BASE 的问题,故一并检查。
+if [[ "$REL" == *run_evals.py* || "$REL" == *smoke_test.py* ]]; then
+  if [[ "$*" != *--base* ]]; then
+    echo "[FATAL] $REL 未指定 --base。" >&2
+    echo "        服务起在 $PORT,而脚本会回落到模块级默认 http://127.0.0.1:8900 ——" >&2
+    echo "        极可能是他人的常驻旧实例,会造出「代码改了但评测没生效」的假红(坑 39/52)。" >&2
+    echo "        正确用法: bash $0 $PORT $REL --base http://127.0.0.1:$PORT" >&2
+    exit 3
+  fi
+fi
+
 cd "$ROOT/novaagent"
 .venv/Scripts/python.exe -m uvicorn novaagent.main:app --port "$PORT" --host 127.0.0.1 > /tmp/nova"$PORT".log 2>&1 &
 SRV=$!

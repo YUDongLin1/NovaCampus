@@ -1,0 +1,70 @@
+{
+  "probe_question": "ISO 4217 货币代码里 CNY 指的是哪种货币？",
+  "native_url": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+  "note": "出网仅此一个字符串：构造的公开知识问句，不含任何校内/个人信息",
+  "native_status": 200,
+  "native_skeleton": {
+    "output": {
+      "finish_reason": "str",
+      "text": "str"
+    },
+    "usage": {
+      "input_tokens": "int",
+      "output_tokens": "int",
+      "prompt_tokens_details": {
+        "cached_tokens": "int"
+      },
+      "total_tokens": "int"
+    },
+    "request_id": "str"
+  },
+  "native_has_search_info": false,
+  "native_n_results": 0,
+  "native_result_fields": [],
+  "native_results_sample": [],
+  "native_text_has_citation": false,
+  "native_text_head": "在 ISO 4217 货币代码中，**CNY** 指的是 **人民币**，即中华人民共和国的法定货币。\n\n- **全称**：人民币（Renminbi）\n- **货币单位**：元（Yuan）\n- **符号**：¥\n- **常用别名**：RMB（Renminbi 的缩写）\n\n因此，当看到货币代码 CNY 时，表示的就是中国的人民币。",
+  "native_usage": {
+    "input_tokens": 29,
+    "output_tokens": 96,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 125
+  },
+  "native_missing_fields": [
+    "index",
+    "site_name",
+    "title",
+    "url"
+  ],
+  "compat_status": 200,
+  "compat_skeleton": {
+    "choices": [
+      {
+        "finish_reason": "str",
+        "index": "int",
+        "message": {
+          "content": "str",
+          "role": "str"
+        }
+      },
+      "...共1条"
+    ],
+    "created": "int",
+    "id": "str",
+    "model": "str",
+    "object": "str",
+    "usage": {
+      "completion_tokens": "int",
+      "prompt_tokens": "int",
+      "prompt_tokens_details": {
+        "cached_tokens": "int"
+      },
+      "total_tokens": "int"
+    }
+  },
+  "compat_has_search_info": false,
+  "compat_usage_plugins": null,
+  "pass": false
+}

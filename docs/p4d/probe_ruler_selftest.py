@@ -144,6 +144,163 @@ check("答案含 95585 → FAIL（硬断言生效）", ok7 is False, d7)
 print(f"    失败详情: {d7}")
 
 print("\n" + "=" * 72)
+print("C0-② rind-07 两段式「不得夹带无据断言」（坑 54 宽词修正）")
+rind07 = next(c for c in r2c if c["id"] == "rind-07")
+r7_absent = rind07.get("expect_absent_keywords") or []
+r7_coocur = rind07.get("expect_absent_keywords_cooccur") or []
+check("无条件段 >=3 个词（规格硬要求）", len(r7_absent) >= 3, str(r7_absent))
+check("无条件段不含宽词 证明/录取/钥匙/图书馆",
+      not ({"证明", "录取", "钥匙", "图书馆"} & set(r7_absent)), str(r7_absent))
+check("共现段已配置（证明/录取/钥匙/图书馆）",
+      {p[0] for p in r7_coocur} >= {"证明", "录取"}, str([p[0] for p in r7_coocur]))
+
+# a) 正向:真正的拒答模板(无处置动作、无宽词共现)必须 PASS
+TEMPLATE_OK = ("知识库中暂无相关内容，无法就该问题给出有依据的回答。\n"
+               "（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，"
+               "本回答由系统模板生成，未采用模型自由发挥。）\n"
+               "建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n"
+               "如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。")
+ok8, d8 = R.judge_refusal_indomain(rind07, TEMPLATE_OK, [])
+check("拒答模板原文 → PASS", ok8, d8)
+
+# b) 反向(规格点名要的那条):含「需医院诊断证明」的**正当引用**不得被误判为夹带。
+#    ⚠ 用例写法踩了两次坑,都记在这里:
+#      ① `refusal_indomain` 先看有没有拒答 —— 直接喂纯作答答案会 FAIL 在"未拒答"上,
+#         根本走不到 absent 检查(等于没测到目标代码路径);
+#      ② 拒答说明里**不能出现零命中处置词**——本用例答案要如实说"哪部分无据",
+#         若写成「暂无离校物品**交回**的相关内容」,"交回"本身就是零命中处置词,
+#         正确判红。缺口描述必须避开处置动词(用"物品处置"这类中性说法)。
+#    故构造"拒答 + 仍如实给出有出处引用"的答案(检索增强后的真实形态:库内只有休学
+#    材料能答、离校处置类诉求确实无据),确保断言真正落在 absent 判据上。
+JUST = ("知识库中暂无离校物品处置的相关内容，无法就该部分给出有依据的回答。\n"
+        "（缺口说明：现有条款只覆盖因病休学的材料要求，未覆盖毕业生离校物品处置。）\n"
+        "另需说明：因病休学需提交医院诊断证明书，由二级甲等医院开具并加盖公章[1]；"
+        "证明材料齐全后由辅导员提交学院审批[2]。该规定为学籍管理要求，"
+        "与离校事项无关，请以学校最新通知为准。")
+ok9, d9 = R.judge_refusal_indomain(
+    rind07, JUST, [{"title": "西南交通大学研究生学籍管理规定"}, {"title": "西南交通大学学生请假管理办法"}])
+check("正当引用「需医院诊断证明」→ PASS（宽词不再误伤）", ok9, d9)
+
+# c) 反向:真正的夹带——零命中处置词出现即 FAIL
+for word, tag in (("交回", "宿舍钥匙应在离校时交回"), ("退卡", "饭卡需退卡"),
+                  ("提档", "档案须提档"), ("调档", "可申请调档")):
+    ans = "知识库中暂无相关内容。离校时" + tag + "，具体请咨询相关部门。"
+    bad, dbad = R.judge_refusal_indomain(rind07, ans, [])
+    check(f"夹带处置词「{word}」→ FAIL", bad is False, dbad)
+
+# d) 反向:宽词 + 零命中处置词共现才算夹带(共现判据的正例)
+#    ⚠ M1 修订:原判例用「录取通知书」作共现词,**该词实测 5 块**(复核方查出),
+#    已在 cases.json 删除。此处保留「交回」——它才是真正的零命中处置词(实测 0 块),
+#    判例的**检测意图不变**:宽词「录取」与零命中处置词邻近共现 → 仍须 FAIL。
+ok10, d10 = R.judge_refusal_indomain(
+    rind07, "知识库中暂无相关内容。录取通知书相关材料需交回后再办。", [])
+check("「证明/录取」与零命中处置词邻近共现 → FAIL", ok10 is False, d10)
+
+# d2) 【M1 核心判例】复核方点名的两条:邻近共现 vs 整篇共现
+#     背景:`录取通知书` 在 student 可见块 **5 块**,《国家助学贷款实施办法》第十七条
+#     原文「借款学生需在线提交录取通知书、身份证等相关证明资料」——两词都在答案里,
+#     但用于**完全不同的用途**。旧的「整篇两词都在」判据会把它判红。
+#     (a) 两词**分处不同段落/不同用途** → 必须 PASS(不得误伤据实引用)
+ok_m1a, d_m1a = R.judge_refusal_indomain(
+    rind07,
+    "知识库中暂无相关内容。国家助学贷款办法要求借款学生在线提交录取通知书、身份证等"
+    "相关证明材料，用于继续贴息申请；该条与离校事项无关。",
+    [])
+check("M1(a)「录取通知书」与「证明」分处不同用途（非邻近）→ PASS", ok_m1a, d_m1a)
+#     (b) 同句「录取通知书…相关证明资料」→ 明确判 FAIL 并写理由。
+#         理由:同一分句里把两词连起来说,语义上就是**在替用户认定"该开证明"**,
+#         正是本用例要抓的夹带形态(且此时两词都零命中的共现词已不在断言里,
+#         真正触发的是**无条件段**以外的邻近共现;此例用于锁定"同句即邻接"这一侧)。
+ok_m1b, d_m1b = R.judge_refusal_indomain(
+    rind07, "知识库中暂无相关内容。录取通知书所需证明应由学校开具并交回。", [])
+check("M1(b)「录取通知书…证明」同句且与「交回」邻近 → FAIL", ok_m1b is False, d_m1b)
+#     (c) 邻近但不同句、间隔 ≤80 字 → 仍判 FAIL(窗口邻近这一侧也要被测到,
+#         否则「同句」实现退化成整篇判据也测不出来)
+ok_m1c, d_m1c = R.judge_refusal_indomain(
+    rind07, "知识库中暂无相关内容。录取通知书与相关证明材料需一并交回。", [])
+check("M1(c) 邻近但非同句（间隔≤80字）→ FAIL", ok_m1c is False, d_m1c)
+
+# d3) 【M3 判例】畸形共现对必须 raise,不得静默失效(坑 45/52 同形状:
+#     写成 ["证明"] 会让该对永久失效且不报错,而旧自测从不校验 [1])
+def _raises(fn, *a) -> bool:
+    try:
+        fn(*a)
+    except ValueError:
+        return True
+    except Exception:
+        return False
+    return False
+
+for bad_pair, why in [(["证明"], "只有主词、缺共现词列表"),
+                      (["证明", []], "共现词列表为空"),
+                      (["证明", ["交回", ""]], "共现词含空串"),
+                      (["证明", "交回"], "共现词不是 list 而是 str"),
+                      ([], "整对为空")]:
+    case_bad = {"id": "selftest-malformed", "expect_absent_keywords": [],
+                "expect_absent_keywords_cooccur": [bad_pair]}
+    check(f"M3 畸形共现对 {bad_pair!r} → raise（{why}）",
+          _raises(R._check_absent_keywords, case_bad, "任意答案"))
+# 反向:结构正确时不得 raise
+case_ok = {"id": "selftest-wellformed", "expect_absent_keywords": [],
+           "expect_absent_keywords_cooccur": [["证明", ["交回"]]]}
+try:
+    R._check_absent_keywords(case_ok, "任意答案")
+    wellformed_ok = True
+except ValueError:
+    wellformed_ok = False
+check("M3 结构正确的共现对 → 不 raise", wellformed_ok)
+# 反向:共现词零命中证据必须真校验 —— 直接查库(read-only),不依赖外部探针是否跑过。
+# 复核方指出:旧自测「没有一条校验共现段的词是否真的零命中」,所以 `录取通知书`(实测 5 块)
+# 被我当零命中词写进断言而无人发现。这里开 ro 连接实测,**尺子自己带证据**。
+# ⚠ 只读、零写入;且**必须**在整轮评测之外跑(坑 58:并发取数会读到中间态)。
+def _zero_hit_in_student_chunks(words: list[str]) -> dict[str, int]:
+    import sqlite3
+    db = ROOT / "novaagent" / "data" / "agent.db"
+    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        rows = conn.execute(
+            """SELECT ch.content FROM chunks ch JOIN documents d ON d.id = ch.doc_id
+               WHERE d.role_min IN ('student','common')"""
+        ).fetchall()
+    finally:
+        conn.close()
+    return {w: sum(1 for (c,) in rows if w in (c or "")) for w in words}
+
+
+_uncond = [k for k in (rind07.get("expect_absent_keywords") or []) if k]
+_ctx_all = sorted({c for p in (rind07.get("expect_absent_keywords_cooccur") or []) for c in (p[1] or [])})
+_hits = _zero_hit_in_student_chunks(sorted(set(_uncond + _ctx_all)))
+_bad_u = {w: n for w, n in _hits.items() if w in _uncond and n}
+_bad_c = {w: n for w, n in _hits.items() if w in _ctx_all and n}
+check("M2 无条件段全部零命中（实测库，非探针口径）", not _bad_u, _bad_u)
+check("M2 共现段上下文词全部零命中（实测库，非探针口径）", not _bad_c, _bad_c)
+# 显式锁死本次打回的那条:录取通知书实测 5 块,**不得**出现在共现词里
+check("M2「录取通知书」不得作共现词（实测 5 块）", "录取通知书" not in _ctx_all,
+      f"共现词={_ctx_all}")
+
+# e) 反向:共现段不能被"只有宽词、无处置词"绕过成假阳性
+#    ⚠ 判例一:只出现「录取」+「报到」这种**有正当出处**的组合(教育部令 41 号 5 块)
+#       必须 PASS —— 这条曾把共现侧的 `报到` 打成假阳性,是本单真实修掉的一个缺陷。
+ok11, d11 = R.judge_refusal_indomain(
+    rind07, "知识库中暂无相关内容。如需在校办理录取报到，请以学校最新通知为准。", [])
+check("仅宽词「录取」+ 有出处的「报到」共现 → PASS（不误伤）", ok11, d11)
+#    判例二:「图书馆」+「借阅」**应当 FAIL** —— 这正是本用例 7 项诉求之一
+#       (「图书馆借的东西在哪归还」),库内 0 条款可答,答案一旦认领就是夹带无据断言。
+#       ⚠ 这条判例第一版我写成了"应 PASS",自测当场判红——**是我把判例写反了**,
+#       不是判据错。记在这里:共现段不是"越宽越安全",它只在"处置动作"上收紧。
+ok11b, d11b = R.judge_refusal_indomain(
+    rind07, "知识库中暂无相关内容。图书馆借阅的东西请在离校时归还前台。", [])
+check("「图书馆」+「借阅」共现 → FAIL（第 6 项诉求被认领）", ok11b is False, d11b)
+
+# f) 反向:同一断言在 qa 型也生效（_check_absent_keywords 两型共用，防只修一型）
+qa_probe = {"expect_keywords": ["诊断证明"], "expect_absent_keywords": ["交回"],
+            "expect_absent_keywords_cooccur": [["录取", ["提档"]]]}
+ok12, d12 = R.judge_qa(qa_probe, "因病休学需医院诊断证明书[1]。", [{"title": "研究生学籍管理规定"}])
+check("qa 型:正当「诊断证明」→ PASS", ok12, d12)
+ok13, d13 = R.judge_qa(qa_probe, "需医院诊断证明书[1]；录取后需提档。", [{"title": "研究生学籍管理规定"}])
+check("qa 型:共现段生效（录取+提档）→ FAIL", ok13 is False, d13)
+
+print("\n" + "=" * 72)
 print(f"[selftest] {'全部通过 ✓' if not fails else '存在失败 ✗'}")
 for f in fails:
     print("  -", f)
