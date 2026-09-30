@@ -18,7 +18,8 @@ import numpy as np
 
 from novaagent import config, db, rag
 
-REPORT = "../docs/p4/evidence/query_variant_matrix.txt" if len(sys.argv) > 1 else None
+# P4d: 支持命令行指定输出路径(默认仍写历史路径);本单 before/after 需同名配对落盘
+REPORT = sys.argv[1] if len(sys.argv) > 1 else "../docs/p4/evidence/query_variant_matrix.txt"
 
 VARIANTS = [
     ("纯术语", "学平险"),
@@ -75,7 +76,7 @@ async def main() -> None:
                  ("%.4f" % r["rerank_best"]) if r["rerank_best"] is not None else "None",
                  r["n_sources"], r["n_hit_target"]))
 
-    out = io.open(REPORT or "../docs/p4/evidence/query_variant_matrix.txt", "w", encoding="utf-8")
+    out = io.open(REPORT, "w", encoding="utf-8")
     out.write("问法变体矩阵 · 同一知识点(学平险) · 目标分块=%s《%s》等 %d 块\n" % (tgt, chunks[tgt[0]]["title"], len(tgt)))
     out.write("RERANK_MIN_SCORE=%s FUSION_TOP_K=%s FINAL_TOP_K=%s MAX_PER_DOC=%s\n" % (
         rag.RERANK_MIN_SCORE, rag.FUSION_TOP_K, rag.FINAL_TOP_K, rag.MAX_PER_DOC))

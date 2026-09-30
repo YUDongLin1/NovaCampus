@@ -1,0 +1,14 @@
+问法变体矩阵 · 同一知识点(学平险) · 目标分块=[317, 318, 319, 320, 321, 322]《大学生意外伤害保险理赔须知(学平险)》等 6 块
+RERANK_MIN_SCORE=0.3 FUSION_TOP_K=8 FINAL_TOP_K=7 MAX_PER_DOC=2
+
+措辞类型           字数   向量层秩           关键词层秩            融合层秩         目标rerank峰值 返回条数      命中目标      判定
+纯术语            3    [2, 4, 5, 1, 13, 18] [2, None, None, 1, None, None] [2, 4, 5, 1, None, None] 0.8875     2         2         OK
+术语+一般问         7    [2, None, None, 1, None, None] [None, None, None, None, None, None] [None, None, None, 7, None, None] 0.8053     1         1         OK
+术语+具体意图        7    [2, 4, 3, 1, 8, 9] [2, None, None, 1, None, None] [2, 4, 3, 1, 8, None] 0.1008     0         0         崩塌(rerank<0.3)
+真实原句(学生口吻)     23   [3, 6, None, 2, None, 9] [None, None, None, None, None, None] [7, None, None, 6, None, None] 0.1156     0         0         崩塌(rerank<0.3)
+背景前置倒装         22   [2, 6, None, 3, None, 8] [None, None, None, None, None, None] [5, None, None, 7, None, None] 0.0313     0         0         崩塌(rerank<0.3)
+口语加称呼情境        35   [2, 11, None, 1, None, None] [None, None, None, None, None, None] [5, None, None, 3, None, None] 0.0519     0         0         崩塌(rerank<0.3)
+书面正式名          16   [3, 1, 5, 4, None, None] [None, None, None, None, None, None] [None, 7, None, None, None, None] 0.0194     0         0         崩塌(rerank<0.3)
+多子句书面全称        48   [1, 3, 10, 5, None, 18] [None, None, None, None, None, None] [6, None, None, None, None, None] 0.4114     1         1         OK
+
+结论口径:向量层秩=目标分块在 top20 中的名次(None=未进 top20);命中目标=最终 sources 里属于目标文档的条数;判定 OK 要求命中目标>=1。
