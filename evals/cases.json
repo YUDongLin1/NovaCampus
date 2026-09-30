@@ -716,24 +716,24 @@
       "type": "stream_sse",
       "stream_kind": "basic",
       "role": "student",
-      "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
-      "note": "P4e S1-② ①②③:事件序列 sources→context→delta*→done;delta>1;E2E-TTFB>=300ms(防 M4 把真流式缓冲成一次下发,坑 60)"
+      "question": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+      "note": "P4e S1-② ①②③:事件序列 sources→context→delta*→done;delta>1;E2E-TTFB>=300ms(防 M4 把真流式缓冲成一次下发,坑 60)；⚠ 问句改为三段式的**实证原因**:单/双段问句答案仅 110~230 字,全缓冲档 flush 20~40 个 delta 就要 68~164ms,与早窗档下界 208ms 只差 27%,任何绝对阈值都压在缝隙里;改长问句把早窗档 span 抬到秒级以拉开分布"
     },
     {
       "id": "ss-02",
       "type": "stream_sse",
       "stream_kind": "abort",
       "role": "student",
-      "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
-      "note": "P4e S1-② ④:收到首个 delta 立即断开 → 本轮 user 消息必须被回滚(P4b C5 不变量);该用例不回 conversation_id,不进隔离断言(回滚后 user 条数为 0)"
+      "question": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+      "note": "P4e S1-② ④:收到首个 delta 立即断开 → 本轮 user 消息必须被回滚(P4b C5 不变量);该用例不回 conversation_id,不进隔离断言(回滚后 user 条数为 0)；⚠ 问句改为三段式的**实证原因**:单/双段问句答案仅 110~230 字,全缓冲档 flush 20~40 个 delta 就要 68~164ms,与早窗档下界 208ms 只差 27%,任何绝对阈值都压在缝隙里;改长问句把早窗档 span 抬到秒级以拉开分布"
     },
     {
       "id": "ss-03",
       "type": "stream_sse",
       "stream_kind": "gate",
       "role": "student",
-      "question": "研究生申请休学需要提交哪些材料？审批流程又是怎样的？",
-      "note": "P4e S1-② ⑤:闸门命中 → 出现 grounding_retry、重生文本分多个 delta 下发、done.answer 与落库答案均为重生后版本。⚠ 需服务端带 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 才**必然**命中闸门;不带该变量时本用例退化为一致性断言(闸门命中 ⇔ retry 出现),不会假红。"
+      "question": "研究生申请休学需要提交哪些材料？审批流程具体是怎样的？休学期满之后又该怎么申请复学？请把每一步的时限和经办部门一并说明。",
+      "note": "P4e S1-② ⑤:闸门命中 → 出现 grounding_retry、重生文本分多个 delta 下发、done.answer 与落库答案均为重生后版本。⚠ 需服务端带 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 才**必然**命中闸门;不带该变量时本用例退化为一致性断言(闸门命中 ⇔ retry 出现),不会假红。；⚠ 问句改为三段式的**实证原因**:单/双段问句答案仅 110~230 字,全缓冲档 flush 20~40 个 delta 就要 68~164ms,与早窗档下界 208ms 只差 27%,任何绝对阈值都压在缝隙里;改长问句把早窗档 span 抬到秒级以拉开分布"
     },
     {
       "id": "wg-01",

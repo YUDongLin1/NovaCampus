@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import re
 import sys
 import time
@@ -55,12 +56,30 @@ REFUSAL_MARKS = ("暂无", "没有找到", "未检索", "知识库中未", "无�
 #
 # 【三条量化断言分别防什么】
 #   ② delta 事件数 > 1 且 非「一条承载全文」 —— 防「整段合成一个 delta 下发」;
-#   ③ E2E - TTFB >= STREAM_MIN_SPAN_MS —— 防「12 个 delta 挤在最后 36ms」(真流式被关掉)。
-#      ⚠ 单据原文写的是「之差 > 0」,但实测旧实现 E2E-TTFB 也有 36ms(12 个 delta 集中在最后),
-#        「>0」判不出旧实现 → 必须给阈值。300ms 的取值理由见 docs/P4E.md §S1。
+#   ③ E2E - TTFB >= STREAM_MIN_SPAN_MS —— 防「21 个 delta 挤在最后 73ms」(真流式被关掉)。
+#
+#      【阈值为什么从 300 降到 150】300 是复核方拍的数,实测**压在真流式分布里面**
+#      (复核方自带证据:早窗档 208 / 239 / 343 / 574ms,其中 208/239 都 < 300 → 随机 FAIL)。
+#
+#      【先修测量,再定阈值】原双段问句答案仅 110~230 字,两档分布**几乎贴在一起**:
+#        全缓冲档 span 观测上界 164ms(逐次 68/97/100/133/151/164;另批 66.5~109.4、31/48)
+#        早窗档   span 观测下界 208ms(逐次 212.3/244.6/252.0/274.2/567.3/626.8;复核方 208/239)
+#        → 无论取 120/150/180,缝隙都只有 20~30%,一个抖动就串档。
+#      故把用例问句改成**三段式长问句**(答案 ~500 字、130~170 个 delta),让 span 回到
+#      "整段生成耗时"这个它本该度量的量:
+#        全缓冲档(6/6 FAIL) span = 82 / 94 / 96 / 97 / 98 / 108 ms        → 上界 108ms
+#        早窗档  (6/6 PASS) span = 3044 / 3272 / 3275 / 3309 / 3511 / 4410 → 下界 3044ms
+#        → 两档间隔 **~28 倍**,取 150ms 时下侧余量 39%、上侧余量 20 倍。
+#      证据: docs/p4e/evidence/stream_sse_s2_{full6,early6}_long.json(两档各连测 6 次);
+#            旧问句的分布另存 stream_latency_span_{full,early80}.json,保留不抹。
+#
+#      ⚠ 单据原文写的是「之差 > 0」,实测旧实现也有 31~119ms(>0),判不出 → 必须给阈值。
+#      ⚠ **未采用**复核方给的备选相对判据 `span >= max(120, 0.10 × E2E)`:本语料 E2E ≈ 3.0~6.4s,
+#        0.10×E2E = 300~640ms —— 恰好又落回被判定为"压在分布里"的量级;且该比例会随
+#        **检索段变慢**而变严(E2E 5.3s 时要求 span≥530ms),对网络抖动不稳健。故取绝对阈值。
+STREAM_MIN_SPAN_MS = 150
 #   ④ 客户端中途断开 → 本轮 user 消息被回滚(P4b C5 不变量)
 #   ⑤ 闸门命中 → 出现 grounding_retry 且落库答案是重生后版本
-STREAM_MIN_SPAN_MS = 300
 # 事件语法:sources → context → delta* → [grounding_retry → delta*] → done(tools 可插在 delta 之间)
 STREAM_HEAD = ("sources", "context")
 STREAM_MID_OK = ("delta", "grounding_retry", "tools")
@@ -839,7 +858,11 @@ def run_stream_case(c: httpx.Client, tokens: dict, case: dict):
     if kind == "gate":
         # ⑤ 闸门命中 → 必须有 retry 事件,且最终落库答案是**重生后**的版本
         if not gate.get("hit"):
-            bad.append(f"grounding_gate 未命中(gate={gate or '无'}) → 无法验证重生通道")
+            bad.append(
+                "grounding_gate 未命中 → 无法验证重生通道。"
+                "本用例需服务端以 NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 启动才**必然**命中;"
+                "canonical 命令见 docs/TASKS.md P4e 回执与 docs/EVAL_BASELINE.md §十九。"
+                f"当前 gate={gate or '无'}")
         if not seen_retry:
             bad.append(f"闸门命中却无 grounding_retry 事件(gate={gate})")
         else:
@@ -961,6 +984,19 @@ def run() -> int:
         counselor = login(c, "counselor", "counselor123")
         student = login(c, "student", "student123")
         tokens = {"admin": admin, "counselor": counselor, "student": student}
+        # P4e S2-②: **服务端**配置才是权威(客户端 env 可能与服务端不一致,坑 57 同源)
+        server_flags: dict = {}
+        try:
+            hr = c.get(f"{BASE}/api/health")
+            hr.raise_for_status()
+            server_flags = (hr.json() or {}).get("flags") or {}
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] 取服务端 flags 失败({type(e).__name__}),env_flags 只含客户端 env")
+        env_flags = {
+            "server": server_flags,
+            "client_env": {k: v for k, v in os.environ.items() if k.startswith("NOVA")},
+        }
+        print(f"[env_flags] server={server_flags}")
         n = seed_corpus_if_needed(c, counselor)
         if n:
             print(f"[seed] 播种评测语料 {n} 篇")
@@ -1120,6 +1156,8 @@ def run() -> int:
         out.write_text(json.dumps(
             {"version": spec["version"], "base": BASE, "summary": summary,
              "total_pass": total_pass, "total": total, "results": results,
+             # P4e S2-②: 报告自带"当时是什么配置",否则后人拿到 55/55 无法判断怎么跑出来的
+             "env_flags": env_flags,
              "eval_isolation": {"ok": iso_ok, "checked_conversations": len(conv_cases),
                                 "errors": iso_errors}},
             ensure_ascii=False, indent=2), encoding="utf-8")

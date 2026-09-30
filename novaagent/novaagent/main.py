@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import logging
 import re
 from urllib.parse import urlsplit
@@ -1040,7 +1041,25 @@ async def weekly_archive(body: dict, user=Depends(require_role("counselor"))):
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "weekly_mcp": agent.weekly.session is not None}
+    # P4e S2-②: 暴露**本进程生效**的关键配置,供评测/排障把"当时是什么配置"写进报告。
+    # 只读、无敏感字段(不含 key/口令)。新增字段对既有消费端(冒烟连通性检查)无影响。
+    try:
+        flags = {
+            "grounding_gate_enabled": config.GROUNDING_GATE_ENABLED,
+            "grounding_early_window_chars": config.GROUNDING_EARLY_WINDOW_CHARS,
+            "grounding_stream_force_ungrounded": config.GROUNDING_STREAM_FORCE_UNGROUNDED,
+            "web_search_enabled_default": config.WEB_SEARCH_ENABLED,
+            "web_search_timeout_s": config.WEB_SEARCH_TIMEOUT_S,
+            "web_search_max_sources": config.WEB_SEARCH_MAX_SOURCES,
+            "graph_enabled": config.GRAPH_ENABLED,
+            "max_rewrite": config.MAX_REWRITE,
+            "llm_model": config.LLM_MODEL,
+            "eval_temperature": os.environ.get("NOVAAGENT_EVAL_TEMPERATURE", ""),
+        }
+    except Exception as e:  # noqa: BLE001  — 自检字段不该让 health 挂掉
+        logger.warning("health flags 组装失败: %s", e)
+        flags = {}
+    return {"status": "ok", "weekly_mcp": agent.weekly.session is not None, "flags": flags}
 
 
 @app.get("/")
