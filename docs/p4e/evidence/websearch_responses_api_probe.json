@@ -1,0 +1,521 @@
+{
+  "probe_question": "中国国家统计局最新公布的 GDP 同比增速是多少？请引用来源。",
+  "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1/responses",
+  "rows": [
+    {
+      "model": "qwen3.8-max",
+      "http": 200,
+      "top_keys": [
+        "background",
+        "completed_at",
+        "created_at",
+        "frequency_penalty",
+        "id",
+        "metadata",
+        "model",
+        "object",
+        "output",
+        "parallel_tool_calls",
+        "presence_penalty",
+        "service_tier",
+        "status",
+        "store",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p",
+        "usage"
+      ],
+      "output_types": [
+        "reasoning",
+        "message",
+        "web_search_call",
+        "reasoning",
+        "message"
+      ],
+      "n_sources": 28,
+      "src_fields": [
+        "type",
+        "url"
+      ],
+      "missing": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "src_head": [
+        {
+          "type": "url",
+          "url": "https://www.stats.gov.cn/sj/zxfb/202607/t20260716_1964142.html"
+        },
+        {
+          "type": "url",
+          "url": "https://www.stats.gov.cn/sj/xwfbh/fbhwd/202607/t20260715_1964121.html"
+        },
+        {
+          "type": "url",
+          "url": "https://economy.caixin.com/2026-07-15/102464330.html"
+        }
+      ],
+      "output_text": "",
+      "code": null,
+      "msg": ""
+    },
+    {
+      "model": "qwen3.7-flash",
+      "http": 200,
+      "top_keys": [
+        "background",
+        "completed_at",
+        "created_at",
+        "frequency_penalty",
+        "id",
+        "metadata",
+        "model",
+        "object",
+        "output",
+        "parallel_tool_calls",
+        "presence_penalty",
+        "service_tier",
+        "status",
+        "store",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p",
+        "usage"
+      ],
+      "output_types": [
+        "reasoning",
+        "web_search_call",
+        "reasoning",
+        "message"
+      ],
+      "n_sources": 20,
+      "src_fields": [
+        "type",
+        "url"
+      ],
+      "missing": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "src_head": [
+        {
+          "type": "url",
+          "url": "https://www.stats.gov.cn/sj/zxfbhjd/202602/t20260228_1962662.html"
+        },
+        {
+          "type": "url",
+          "url": "https://www.stats.gov.cn/sj/zxfb/202601/t20260120_1962349.html"
+        },
+        {
+          "type": "url",
+          "url": "https://www.stats.gov.cn/sj/sjjd/202601/t20260119_1962345.html"
+        }
+      ],
+      "output_text": "",
+      "code": null,
+      "msg": ""
+    }
+  ],
+  "web_search_call_full_dump": [
+    {
+      "action": {
+        "queries": [
+          "杭州天气预报 2026年10月1日",
+          "杭州明天天气 10月1日 气温"
+        ],
+        "query": "杭州天气预报 2026年10月1日",
+        "sources": [
+          {
+            "type": "url",
+            "url": "https://m.weather.com.cn/mweather15d/101210101.shtml"
+          },
+          {
+            "type": "url",
+            "url": "https://hk.trip.com/guide/info/%E6%9D%AD%E5%B7%9E%E6%B0%A3%E6%BA%AB.html"
+          },
+          {
+            "type": "url",
+            "url": "https://www.nmc.cn/publish/forecast/AZJ/hangzhou.html"
+          },
+          {
+            "type": "url",
+            "url": "https://zh.climate-data.org/%E4%BA%9E%E6%B4%B2/%E4%B8%AD%E5%9B%BD/%E6%B5%99%E6%B1%9F%E7%9C%81/%E6%9D%AD%E5%B7%9E-2330/t/%E5%8D%81%E6%9C%88-10/"
+          },
+          {
+            "type": "url",
+            "url": "https://www.accuweather.com/zh/cn/hangzhou/106832/november-weather/106832"
+          },
+          {
+            "type": "url",
+            "url": "https://mirror-earth.com/wea_history/330100"
+          },
+          {
+            "type": "url",
+            "url": "https://tw.weatherspark.com/m/135673/10/%E6%9D%AD%E5%B7%9E%E3%80%81%E4%B8%AD%E5%9C%8B%E7%9A%8410%E6%9C%88%E5%B9%B3%E5%9D%87%E5%A4%A9%E6%B0%A3"
+          },
+          {
+            "type": "url",
+            "url": "https://worldweather.wmo.int/zh/city.html?cityId=556"
+          },
+          {
+            "type": "url",
+            "url": "https://tidenews.com.cn/news.html?id=3348210"
+          },
+          {
+            "type": "url",
+            "url": "https://www.weather.com.cn/weather/101210101.shtml"
+          },
+          {
+            "type": "url",
+            "url": "https://www.nmc.cn/publish/forecast/AZJ/hangzhou.html"
+          },
+          {
+            "type": "url",
+            "url": "https://zh.climate-data.org/%E4%BA%9E%E6%B4%B2/%E4%B8%AD%E5%9B%BD/%E6%B5%99%E6%B1%9F%E7%9C%81/%E6%9D%AD%E5%B7%9E-2330/t/%E5%8D%81%E6%9C%88-10/"
+          },
+          {
+            "type": "url",
+            "url": "https://hk.trip.com/guide/info/%E6%9D%AD%E5%B7%9E%E6%B0%A3%E6%BA%AB.html"
+          },
+          {
+            "type": "url",
+            "url": "https://zh.wikipedia.org/wiki/%E6%9D%AD%E5%B7%9E%E6%B0%94%E5%80%99"
+          },
+          {
+            "type": "url",
+            "url": "https://www.weather.com.cn/weather40d/101210101.shtml"
+          },
+          {
+            "type": "url",
+            "url": "https://worldweather.wmo.int/zh/city.html?cityId=556"
+          },
+          {
+            "type": "url",
+            "url": "https://www.accuweather.com/zh/cn/hangzhou/106832/january-weather/106832"
+          },
+          {
+            "type": "url",
+            "url": "https://www.ventusky.com/zh-tw/hangzhou"
+          }
+        ],
+        "type": "search"
+      },
+      "id": "msg_6a06e419-6360-4e2a-b378-76651f10d517",
+      "status": "completed",
+      "type": "web_search_call"
+    },
+    {
+      "action": {
+        "queries": [
+          "杭州市气象台 国庆 10月1日 冷空气 降雨 预报",
+          "杭州 10月1日 天气 国庆 出游 穿衣"
+        ],
+        "query": "杭州市气象台 国庆 10月1日 冷空气 降雨 预报",
+        "sources": [
+          {
+            "type": "url",
+            "url": "https://www.weather.com.cn/weather/101210101.shtml"
+          },
+          {
+            "type": "url",
+            "url": "https://www.sohu.com/a/1082235280_121106902"
+          },
+          {
+            "type": "url",
+            "url": "https://cj.sina.com.cn/articles/view/7879849926/1d5acf7c6068021gbq?froms=ggmp"
+          },
+          {
+            "type": "url",
+            "url": "https://www.nmc.cn/publish/forecast/AZJ/hangzhou.html"
+          },
+          {
+            "type": "url",
+            "url": "https://m.hz.bendibao.com/jieri/guoqing/130910.shtm"
+          },
+          {
+            "type": "url",
+            "url": "https://m.sohu.com/a/1082511649_121627717?scm=10001.325_13-325_13.0.0-0-0-0-0.5_1334"
+          },
+          {
+            "type": "url",
+            "url": "https://www.accuweather.com/zh/cn/hangzhou/106832/10-day-weather-forecast/106832"
+          },
+          {
+            "type": "url",
+            "url": "https://www.163.com/dy/article/L80L0CQD0514EA9P.html"
+          },
+          {
+            "type": "url",
+            "url": "https://k.sina.com.cn/article_7879777377_1d5abdc6106801nf9m.html"
+          },
+          {
+            "type": "url",
+            "url": "https://www.weather.com.cn/weather/101210101.shtml"
+          },
+          {
+            "type": "url",
+            "url": "https://pic.hangzhou.com.cn/hzyx/content/content_9324229.html"
+          },
+          {
+            "type": "url",
+            "url": "https://feng.ifeng.com/c/8wmvLKEUA67"
+          },
+          {
+            "type": "url",
+            "url": "https://hk.trip.com/blog/hangzhou-weather-tour/"
+          },
+          {
+            "type": "url",
+            "url": "https://www.tianqi.com/hangzhou/chuanyi.html"
+          },
+          {
+            "type": "url",
+            "url": "https://www.cztv.com/newsDetail/696718"
+          },
+          {
+            "type": "url",
+            "url": "https://view.inews.qq.com/a/20260928A07D5Y00"
+          },
+          {
+            "type": "url",
+            "url": "https://hz.bendibao.com/jieri/guoqing/2025928/166781.shtm"
+          },
+          {
+            "type": "url",
+            "url": "https://post.smzdm.com/p/a5rolmo7/"
+          }
+        ],
+        "type": "search"
+      },
+      "id": "msg_11746c28-9e95-413d-b181-b7797c4663e9",
+      "status": "completed",
+      "type": "web_search_call"
+    }
+  ],
+  "host_probe": {
+    "question": "杭州明天天气如何？",
+    "http": 200,
+    "all_source_urls": [
+      {
+        "type": "url",
+        "url": "https://m.weather.com.cn/mweather15d/101210101.shtml"
+      },
+      {
+        "type": "url",
+        "url": "https://hk.trip.com/guide/info/%E6%9D%AD%E5%B7%9E%E6%B0%A3%E6%BA%AB.html"
+      },
+      {
+        "type": "url",
+        "url": "https://www.nmc.cn/publish/forecast/AZJ/hangzhou.html"
+      },
+      {
+        "type": "url",
+        "url": "https://zh.climate-data.org/%E4%BA%9E%E6%B4%B2/%E4%B8%AD%E5%9B%BD/%E6%B5%99%E6%B1%9F%E7%9C%81/%E6%9D%AD%E5%B7%9E-2330/t/%E5%8D%81%E6%9C%88-10/"
+      },
+      {
+        "type": "url",
+        "url": "https://www.accuweather.com/zh/cn/hangzhou/106832/november-weather/106832"
+      },
+      {
+        "type": "url",
+        "url": "https://mirror-earth.com/wea_history/330100"
+      },
+      {
+        "type": "url",
+        "url": "https://tw.weatherspark.com/m/135673/10/%E6%9D%AD%E5%B7%9E%E3%80%81%E4%B8%AD%E5%9C%8B%E7%9A%8410%E6%9C%88%E5%B9%B3%E5%9D%87%E5%A4%A9%E6%B0%A3"
+      },
+      {
+        "type": "url",
+        "url": "https://worldweather.wmo.int/zh/city.html?cityId=556"
+      },
+      {
+        "type": "url",
+        "url": "https://tidenews.com.cn/news.html?id=3348210"
+      },
+      {
+        "type": "url",
+        "url": "https://www.weather.com.cn/weather/101210101.shtml"
+      },
+      {
+        "type": "url",
+        "url": "https://www.nmc.cn/publish/forecast/AZJ/hangzhou.html"
+      },
+      {
+        "type": "url",
+        "url": "https://zh.climate-data.org/%E4%BA%9E%E6%B4%B2/%E4%B8%AD%E5%9B%BD/%E6%B5%99%E6%B1%9F%E7%9C%81/%E6%9D%AD%E5%B7%9E-2330/t/%E5%8D%81%E6%9C%88-10/"
+      },
+      {
+        "type": "url",
+        "url": "https://hk.trip.com/guide/info/%E6%9D%AD%E5%B7%9E%E6%B0%A3%E6%BA%AB.html"
+      },
+      {
+        "type": "url",
+        "url": "https://zh.wikipedia.org/wiki/%E6%9D%AD%E5%B7%9E%E6%B0%94%E5%80%99"
+      },
+      {
+        "type": "url",
+        "url": "https://www.weather.com.cn/weather40d/101210101.shtml"
+      },
+      {
+        "type": "url",
+        "url": "https://worldweather.wmo.int/zh/city.html?cityId=556"
+      },
+      {
+        "type": "url",
+        "url": "https://www.accuweather.com/zh/cn/hangzhou/106832/january-weather/106832"
+      },
+      {
+        "type": "url",
+        "url": "https://www.ventusky.com/zh-tw/hangzhou"
+      },
+      {
+        "type": "url",
+        "url": "https://www.weather.com.cn/weather/101210101.shtml"
+      },
+      {
+        "type": "url",
+        "url": "https://www.sohu.com/a/1082235280_121106902"
+      },
+      {
+        "type": "url",
+        "url": "https://cj.sina.com.cn/articles/view/7879849926/1d5acf7c6068021gbq?froms=ggmp"
+      },
+      {
+        "type": "url",
+        "url": "https://www.nmc.cn/publish/forecast/AZJ/hangzhou.html"
+      },
+      {
+        "type": "url",
+        "url": "https://m.hz.bendibao.com/jieri/guoqing/130910.shtm"
+      },
+      {
+        "type": "url",
+        "url": "https://m.sohu.com/a/1082511649_121627717?scm=10001.325_13-325_13.0.0-0-0-0-0.5_1334"
+      },
+      {
+        "type": "url",
+        "url": "https://www.accuweather.com/zh/cn/hangzhou/106832/10-day-weather-forecast/106832"
+      },
+      {
+        "type": "url",
+        "url": "https://www.163.com/dy/article/L80L0CQD0514EA9P.html"
+      },
+      {
+        "type": "url",
+        "url": "https://k.sina.com.cn/article_7879777377_1d5abdc6106801nf9m.html"
+      },
+      {
+        "type": "url",
+        "url": "https://www.weather.com.cn/weather/101210101.shtml"
+      },
+      {
+        "type": "url",
+        "url": "https://pic.hangzhou.com.cn/hzyx/content/content_9324229.html"
+      },
+      {
+        "type": "url",
+        "url": "https://feng.ifeng.com/c/8wmvLKEUA67"
+      },
+      {
+        "type": "url",
+        "url": "https://hk.trip.com/blog/hangzhou-weather-tour/"
+      },
+      {
+        "type": "url",
+        "url": "https://www.tianqi.com/hangzhou/chuanyi.html"
+      },
+      {
+        "type": "url",
+        "url": "https://www.cztv.com/newsDetail/696718"
+      },
+      {
+        "type": "url",
+        "url": "https://view.inews.qq.com/a/20260928A07D5Y00"
+      },
+      {
+        "type": "url",
+        "url": "https://hz.bendibao.com/jieri/guoqing/2025928/166781.shtm"
+      },
+      {
+        "type": "url",
+        "url": "https://post.smzdm.com/p/a5rolmo7/"
+      }
+    ],
+    "source_union_fields": [
+      "type",
+      "url"
+    ]
+  },
+  "message_node_probe": {
+    "question": "杭州明天天气如何？",
+    "http": 200,
+    "content_node_count": 1,
+    "text_head": "明天是 **10月1日（周四）**，杭州天气情况如下：\n\n| 项目 | 预报 |\n|---|---|\n| 天气 | 阴（部分预报有零星小雨可能） |\n| 气温 | 18℃ ~ 24℃ |\n| 风力 | 东北风，微风（<3级） |\n| 日出/日落 | 约 05:51 / 17:47 |\n\n**要点提醒：**\n- 今天（9/30）杭州有大雨转小雨，明天雨势明显减弱，转为阴天为主，但**10月2日起又将转为小雨到中雨**，国庆假期前半段湿冷明显。\n- 受冷空气影响，明天最高温比今天下降约5℃，体感偏凉，建议穿长袖外套或薄夹克，早晚注意保暖。\n- 若明天出行（如西湖、灵隐寺等），阴天适合游览、光线柔和，但仍建议随身带把折叠伞以防零星降雨。\n\n数据来源：中国天气网、中央气象台（NMC）。如需更精细的逐小时预报，可查询杭州气象局官网 hzqx.cn。",
+    "citation_markers": [],
+    "n_citation_markers": 0,
+    "inline_urls": 0,
+    "unique_hosts": 13,
+    "hosts_head": [
+      "m.weather.com.cn",
+      "www.nmc.cn",
+      "www.ventusky.com",
+      "worldweather.wmo.int",
+      "hk.trip.com",
+      "zh.climate-data.org",
+      "www.accuweather.com",
+      "www.hzqx.cn",
+      "www.weather.com.cn",
+      "tw.weatherspark.com",
+      "zh.wikipedia.org",
+      "www.hko.gov.hk"
+    ],
+    "usage": {
+      "input_tokens": 3063,
+      "input_tokens_details": {
+        "cached_tokens": 0
+      },
+      "output_tokens": 447,
+      "output_tokens_details": {
+        "reasoning_tokens": 132
+      },
+      "total_tokens": 3510,
+      "x_details": [
+        {
+          "input_tokens": 3063,
+          "output_tokens": 447,
+          "output_tokens_details": {
+            "reasoning_tokens": 132
+          },
+          "plugins": {
+            "web_search": {
+              "count": 1
+            }
+          },
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          },
+          "total_tokens": 3510,
+          "x_billing_type": "response_api"
+        }
+      ],
+      "x_tools": {
+        "web_search": {
+          "count": 1
+        }
+      }
+    }
+  },
+  "annotations_probe": {
+    "question": "杭州明天天气如何？",
+    "http": 200,
+    "n_annotations": 0,
+    "annotation_field_union": [],
+    "annotations_head": []
+  }
+}

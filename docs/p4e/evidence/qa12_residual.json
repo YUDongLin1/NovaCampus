@@ -1,0 +1,33 @@
+{
+  "question": "研究生奖助学金评审是怎么规定的?",
+  "n_sources_final": 4,
+  "quality": {
+    "top_score": 0.9669,
+    "n_above_threshold": 7,
+    "rerank_available": true,
+    "fused_candidates": 12,
+    "fused_candidate_docs": 4
+  },
+  "final_titles": [
+    "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+    "西南交通大学本科生奖助学金评审管理办法（西交校学生〔2025〕15 号）",
+    "西南交通大学本科生国家奖助学金评审管理办法（西交校学生〔2025〕16 号）",
+    "EVAL-研究生奖学金评定办法"
+  ],
+  "final_scores": [
+    0.9801,
+    0.923,
+    0.8319,
+    0.5822
+  ],
+  "RERANK_MIN_SCORE": 0.3,
+  "MAX_PER_DOC": 2,
+  "FUSION_TOP_K": 12,
+  "FINAL_TOP_K": 7,
+  "RERANK_BLEND": 0.6,
+  "stages": {
+    "has_rerank_filter": true,
+    "uses_max_per_doc": true
+  },
+  "target_in_final": true
+}

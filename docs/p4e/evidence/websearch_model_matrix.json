@@ -1,0 +1,123 @@
+{
+  "probe_question": "ISO 4217 货币代码里 CNY 指的是哪种货币？",
+  "models_tried": [
+    "qwen-flash",
+    "qwen-plus",
+    "qwen-turbo",
+    "qwen-max",
+    "qwen3-plus",
+    "qwen-long"
+  ],
+  "rows": [
+    {
+      "model": "qwen-flash",
+      "http": 200,
+      "has_search_info": false,
+      "n_results": 0,
+      "fields": [],
+      "missing_fields": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "text_has_citation": false,
+      "text_head": "在 ISO 4217 货币代码中，**CNY** 指的是 **人民币**（Chinese Yuan），是中国的法定货币。\n\n- **全称**：人民币（Renminbi）\n- **货币单位**：元（Yuan）\n- **ISO 4217 代码**：CNY\n- **中文简称**：人民币或元\n- **符号**：¥\n\n需要注意的是，虽然“RMB”常被用来指代人民币（如在日常交流中），但根据国际标准，**正确",
+      "code": null,
+      "message": null
+    },
+    {
+      "model": "qwen-plus",
+      "http": 200,
+      "has_search_info": false,
+      "n_results": 0,
+      "fields": [],
+      "missing_fields": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "text_has_citation": false,
+      "text_head": "CNY 是 ISO 4217 货币代码，代表**人民币（Chinese Yuan）**，即中华人民共和国的法定货币。\n\n- **全称**：Chinese Yuan（人民币）\n- **中文名称**：人民币（常简称为“元”）\n- **符号**：¥（与日元 JPY 共享同一符号，但通过上下文或代码区分）\n- **辅币单位**：1 元 = 10 角 = 100 分\n- **发行机构**：中国人民银行（Th",
+      "code": null,
+      "message": null
+    },
+    {
+      "model": "qwen-turbo",
+      "http": 200,
+      "has_search_info": false,
+      "n_results": 0,
+      "fields": [],
+      "missing_fields": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "text_has_citation": false,
+      "text_head": "在 **ISO 4217 货币代码** 中，**CNY** 指的是 **人民币**，即 **中华人民共和国的法定货币**。\n\n- **CNY** 是 **Chinese Yuan** 的缩写。\n- 人民币的国际标准代码是 **CNY**，它用于国际贸易、金融交易和货币兑换中，以唯一标识人民币这一货币单位。\n\n### 补充说明：\n- 人民币的基本单位是 **元（Yuan）**，辅币单位为 **角（J",
+      "code": null,
+      "message": null
+    },
+    {
+      "model": "qwen-max",
+      "http": 200,
+      "has_search_info": false,
+      "n_results": 0,
+      "fields": [],
+      "missing_fields": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "text_has_citation": false,
+      "text_head": "ISO 4217 是国际标准化组织（ISO）制定的一套货币代码标准，用于表示世界各国的货币。根据这一标准，CNY 是指中国的法定货币——人民币（Chinese Yuan）。这里的“CNY”是“China Yuan”的缩写。此外，还有一个较少使用的代码CNH，特指在中国大陆以外地区交易的离岸人民币。但通常情况下，提到CNY时，就是指人民币。",
+      "code": null,
+      "message": null
+    },
+    {
+      "model": "qwen3-plus",
+      "http": 400,
+      "has_search_info": false,
+      "n_results": 0,
+      "fields": [],
+      "missing_fields": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "text_has_citation": false,
+      "text_head": "",
+      "code": "InvalidParameter",
+      "message": "Model not exist."
+    },
+    {
+      "model": "qwen-long",
+      "http": 200,
+      "has_search_info": false,
+      "n_results": 0,
+      "fields": [],
+      "missing_fields": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "text_has_citation": false,
+      "text_head": "",
+      "code": null,
+      "message": null
+    }
+  ],
+  "working_models": [],
+  "conclusion": "H1/H2 均未排除：所有候选模型都无 search_info；可用模型=[]"
+}

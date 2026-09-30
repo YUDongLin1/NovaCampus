@@ -1,0 +1,691 @@
+{
+  "probe_questions": {
+    "facts": "中国国家统计局最新公布的 GDP 同比增速是多少？请引用来源。",
+    "time_sensitive": "杭州明天天气如何？"
+  },
+  "compliance_note": "出网仅发构造的公开知识问句；未发任何库内文档/会话历史/个人信息",
+  "spec_expected_fields": [
+    "index",
+    "site_name",
+    "title",
+    "url"
+  ],
+  "key_model_acl": {
+    "http": 200,
+    "n_models": 261,
+    "sample": [
+      "MiniMax-M2.1",
+      "MiniMax-M2.5",
+      "MiniMax/MiniMax-M2.1",
+      "MiniMax/MiniMax-M2.5",
+      "MiniMax/MiniMax-M2.7",
+      "MiniMax/MiniMax-M3",
+      "MiniMax/speech-02-hd",
+      "MiniMax/speech-02-turbo",
+      "MiniMax/speech-2.8-hd",
+      "MiniMax/speech-2.8-turbo",
+      "ZHIPU/GLM-5",
+      "ZHIPU/GLM-5.1",
+      "ZHIPU/GLM-5.2",
+      "ZHIPU/GLM-5.3",
+      "ZHIPU/GLM-5.3-Flash"
+    ]
+  },
+  "rows": [
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen3.8-max",
+      "strategy": "turbo",
+      "http": 400,
+      "output_keys": [],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": "InvalidParameter",
+      "message": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen3.8-max",
+      "strategy": "agent",
+      "http": 400,
+      "output_keys": [],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": "InvalidParameter",
+      "message": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen3.7-flash",
+      "strategy": "turbo",
+      "http": 400,
+      "output_keys": [],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": "InvalidParameter",
+      "message": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen3.7-flash",
+      "strategy": "agent",
+      "http": 400,
+      "output_keys": [],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": "InvalidParameter",
+      "message": "url error, please check url！ For details, see: https://help.aliyun.com/zh/model-studio/error-code#error-url"
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen3-max",
+      "strategy": "turbo",
+      "http": 200,
+      "output_keys": [
+        "choices"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen3-max",
+      "strategy": "agent",
+      "http": 200,
+      "output_keys": [
+        "choices"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen-flash",
+      "strategy": "turbo",
+      "http": 200,
+      "output_keys": [
+        "choices"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "native_text_generation",
+      "param": "parameters.search_options",
+      "model": "qwen-flash",
+      "strategy": "agent",
+      "http": 200,
+      "output_keys": [
+        "choices"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen3.8-max",
+      "strategy": "turbo",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 75,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen3.8-max",
+      "strategy": "agent",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 75,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen3.7-flash",
+      "strategy": "turbo",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 24,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen3.7-flash",
+      "strategy": "agent",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "reasoning_content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 24,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen3-max",
+      "strategy": "turbo",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 24,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen3-max",
+      "strategy": "agent",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 24,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen-flash",
+      "strategy": "turbo",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 24,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_chat_completions",
+      "param": "extra_body.search_options",
+      "model": "qwen-flash",
+      "strategy": "agent",
+      "http": 200,
+      "message_keys": [
+        "content",
+        "role"
+      ],
+      "has_search_info": false,
+      "n_results": 0,
+      "result_fields": [],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title",
+        "url"
+      ],
+      "prompt_tokens": 24,
+      "usage_plugins": null,
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_responses_api",
+      "param": "tools=[{\"type\":\"web_search\"}]",
+      "model": "qwen3.8-max",
+      "http": 200,
+      "output_types": [
+        "reasoning",
+        "web_search_call",
+        "reasoning",
+        "message"
+      ],
+      "n_sources": 28,
+      "source_fields_union": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "text_citation_markers": [],
+      "text_inline_urls": 0,
+      "n_annotations": 0,
+      "unique_hosts": 20,
+      "hosts_head": [
+        "m.weather.com.cn",
+        "www.nmc.cn",
+        "hk.trip.com",
+        "worldweather.wmo.int",
+        "zh.climate-data.org",
+        "www.ventusky.com",
+        "www.accuweather.com",
+        "tidenews.com.cn",
+        "tw.weatherspark.com",
+        "www.weather.com.cn",
+        "zh.wikipedia.org",
+        "en.climate-data.org"
+      ],
+      "n_text_chars": 460,
+      "text_head": "## 杭州明天（10月1日 周四）天气\n\n| 项目 | 预报 |\n|---|---|\n| 天气状况 | **阴天**（以多云到阴为主，局部可能有零星小雨） |\n| 气温 | **18～24℃** |\n| 风力 | 白天东北风、夜间转北风，均为**微风** |\n| 湿度 | 较高，约 **90%以上**，体感略潮闷 |\n| 紫外线 | **弱** |\n| 日出/日落 | 05:51 / 17:48 |\n\n**小提示：**\n- 今天（9月30日）杭州还是**大雨转小雨，20～29℃**，明天雨势明显减弱、气温回落5℃左右，出门**建议带把折叠伞**，穿薄长袖或加件外套即可。\n- 需要注意：**10",
+      "usage_plugins": {
+        "web_search": {
+          "count": 1
+        }
+      },
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_responses_api",
+      "param": "tools=[{\"type\":\"web_search\"}]",
+      "model": "qwen3.7-flash",
+      "http": 200,
+      "output_types": [
+        "reasoning",
+        "web_search_call",
+        "reasoning",
+        "message"
+      ],
+      "n_sources": 19,
+      "source_fields_union": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "text_citation_markers": [],
+      "text_inline_urls": 0,
+      "n_annotations": 0,
+      "unique_hosts": 18,
+      "hosts_head": [
+        "www.accuweather.com",
+        "en.climate-data.org",
+        "www.chinahighlights.com",
+        "www.traveloka.com",
+        "www.weather2travel.com",
+        "www.chinadiscovery.com",
+        "www.tripbase.com",
+        "www.easeweather.com",
+        "my.trip.com",
+        "wanderlog.com",
+        "m.weather.com.cn",
+        "hk.trip.com"
+      ],
+      "n_text_chars": 358,
+      "text_head": "根据查询到的天气预报信息，明天是 **2026年10月1日（星期四）**，也是中国的国庆节当天。\n\n杭州明天的天气概况如下：\n\n*   **天气状况**：预计为 **小雨** 或 **阴天**（部分来源显示有零星小雨）。\n*   **气温范围**：最低气温约 **18°C**，最高气温约 **22°C** 至 **24°C**。\n*   **体感**：相比今天（9月30日）可能的较高温度，明天会有较明显的**降温**趋势，且伴有降雨，体感较为湿冷。\n\n**出行建议：**\n1.  **携带雨具**：明天大概率有雨，出门请记得带伞。\n2.  **注意保暖**：气温回落明显，建议穿着长袖外套或风衣，",
+      "usage_plugins": {
+        "web_search": {
+          "count": 1
+        }
+      },
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_responses_api",
+      "param": "tools=[{\"type\":\"web_search\"}]",
+      "model": "qwen3-max",
+      "http": 200,
+      "output_types": [
+        "web_search_call",
+        "message"
+      ],
+      "n_sources": 10,
+      "source_fields_union": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "text_citation_markers": [],
+      "text_inline_urls": 0,
+      "n_annotations": 0,
+      "unique_hosts": 8,
+      "hosts_head": [
+        "www.weather.com.cn",
+        "hk.trip.com",
+        "m.nmc.cn",
+        "www.accuweather.com",
+        "tw.weatherspark.com",
+        "zh.climate-data.org",
+        "www.zgjia.com",
+        "www.tianqi24.com"
+      ],
+      "n_text_chars": 122,
+      "text_head": "根据最新的天气预报，杭州明天（2026年10月1日，星期四）的天气情况如下：\n\n*   **天气状况**：有小雨。\n*   **气温**：最高气温约为22°C至24°C，最低气温在18°C左右。\n\n建议您出门时携带雨具，并根据气温适当增添衣物。",
+      "usage_plugins": {
+        "web_search": {
+          "count": 1
+        }
+      },
+      "code": null,
+      "message": ""
+    },
+    {
+      "entry": "compat_responses_api",
+      "param": "tools=[{\"type\":\"web_search\"}]",
+      "model": "qwen-flash",
+      "http": 200,
+      "output_types": [
+        "web_search_call",
+        "message"
+      ],
+      "n_sources": 9,
+      "source_fields_union": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "text_citation_markers": [],
+      "text_inline_urls": 0,
+      "n_annotations": 0,
+      "unique_hosts": 7,
+      "hosts_head": [
+        "www.weather.com.cn",
+        "www.nmc.cn",
+        "www.hzqx.cn",
+        "www.accuweather.com",
+        "www.msn.com",
+        "www.ventusky.com",
+        "tianqi.so.com"
+      ],
+      "n_text_chars": 111,
+      "text_head": "根据您提供的信息，杭州明天（2026年10月1日，星期四）的天气预报如下：\n\n- **天气状况**：阴天\n- **气温**：最高气温24℃，最低气温18℃\n- **风力**：小于3级\n\n建议您出门时适当增添衣物，以防着凉。",
+      "usage_plugins": {
+        "web_search": {
+          "count": 1
+        }
+      },
+      "code": null,
+      "message": ""
+    }
+  ],
+  "entrypoints_returning_urls": [
+    {
+      "entry": "compat_responses_api",
+      "model": "qwen3.8-max",
+      "n_sources": 28,
+      "fields": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "citation_markers": [],
+      "inline_urls": 0,
+      "n_annotations": 0
+    },
+    {
+      "entry": "compat_responses_api",
+      "model": "qwen3.7-flash",
+      "n_sources": 19,
+      "fields": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "citation_markers": [],
+      "inline_urls": 0,
+      "n_annotations": 0
+    },
+    {
+      "entry": "compat_responses_api",
+      "model": "qwen3-max",
+      "n_sources": 10,
+      "fields": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "citation_markers": [],
+      "inline_urls": 0,
+      "n_annotations": 0
+    },
+    {
+      "entry": "compat_responses_api",
+      "model": "qwen-flash",
+      "n_sources": 9,
+      "fields": [
+        "type",
+        "url"
+      ],
+      "missing_vs_spec": [
+        "index",
+        "site_name",
+        "title"
+      ],
+      "citation_markers": [],
+      "inline_urls": 0,
+      "n_annotations": 0
+    }
+  ],
+  "entrypoints_returning_spec_4_fields": [],
+  "searched_but_sources_silently_dropped": [],
+  "verdict": {
+    "spec_field_contract_met": false,
+    "url_available": true,
+    "upstream_can_suppress_W_index": false,
+    "hard_stop_reason": "单据记录的 output.search_info.search_results[{index,site_name,title,url}] 四字段契约在当前 DashScope 任何入口都不成立；唯一能回 URL 的 Responses API 只给 {type,url}，且正文无 [n] 角标 / 无内联 URL / annotations 为空 → [W1] 编号须由本系统自行分配，site_name 只能由 netloc 推导（非官方字段）。属契约级裁决项，按单据『若与记录不符 → 硬停上报，不要按猜测实现』停下。"
+  },
+  "url_dedup_stats": [
+    {
+      "model": "qwen-flash",
+      "n_raw": 9,
+      "n_dedup": 9,
+      "dup_rate": 0.0,
+      "unique_hosts": 7,
+      "web_search_call_blocks": 1,
+      "usage_input_tokens": 1536,
+      "usage_plugins": {
+        "web_search": {
+          "count": 1
+        }
+      }
+    },
+    {
+      "model": "qwen3.8-max",
+      "n_raw": 18,
+      "n_dedup": 17,
+      "dup_rate": 0.056,
+      "unique_hosts": 14,
+      "web_search_call_blocks": 1,
+      "usage_input_tokens": 3137,
+      "usage_plugins": {
+        "web_search": {
+          "count": 1
+        }
+      }
+    }
+  ]
+}
