@@ -34,7 +34,7 @@ function newConversation() {
 
 async function switchConversation(cid) {
   if (cid === window._convId) return;
-  abortInflight();  // P4b C5: 切走即中止进行中的 SSE(服务端生成器随之取消,不落库)
+  abortInflight();  // P4b C5: 切走即中止进行中的 SSE(服务端生成器随之取消并回滚该轮 user 消息,P4b-fix ⑤)
   window._convId = cid;
   const bar = document.getElementById('ctx-bar');
   if (bar) bar.style.display = 'none';  // 占用条随会话切换清空(下一轮回答时按事件重建)

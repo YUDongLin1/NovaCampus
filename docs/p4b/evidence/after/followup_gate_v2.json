@@ -1,0 +1,174 @@
+{
+ "A_first_turn": {
+  "conversation_id": 196,
+  "question_last": "学校游泳馆办深水证需要什么材料，在哪里办?",
+  "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+  "ctx": {
+   "used": 0,
+   "budget": 85196,
+   "compressed": false,
+   "followup_no_new_sources": null,
+   "history_gate": null,
+   "history_count": 0
+  },
+  "hard_refusal": {
+   "ok": true,
+   "detail": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答"
+  },
+  "ctx_zero": {
+   "ok": true,
+   "detail": "{\"used\": 0, \"history_count\": 0}"
+  },
+  "all_ok": true
+ },
+ "B_followup_uncovered": {
+  "conversation_id": 197,
+  "question_last": "学校游泳馆办深水证需要什么材料，在哪里办?",
+  "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+  "ctx": {
+   "used": 48,
+   "budget": 85196,
+   "compressed": false,
+   "followup_no_new_sources": null,
+   "history_gate": "miss",
+   "history_count": 2
+  },
+  "is_template": {
+   "ok": true,
+   "detail": "模板指纹=有; head='知识库中暂无相关内容，无法就该问题给出有依据的回答。\\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答'"
+  },
+  "no_self_dept": {
+   "ok": true,
+   "detail": "自拟部门检查"
+  },
+  "gate_miss": {
+   "ok": true,
+   "detail": "history_gate=miss"
+  },
+  "all_ok": true
+ },
+ "C_false_premise": {
+  "conversation_id": 198,
+  "question_last": "那我们宿舍的空调费具体怎么交？",
+  "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+  "ctx": {
+   "used": 206,
+   "budget": 85196,
+   "compressed": false,
+   "followup_no_new_sources": null,
+   "history_gate": "miss",
+   "history_count": 2
+  },
+  "is_template": {
+   "ok": true,
+   "detail": "模板指纹=有; head='知识库中暂无相关内容，无法就该问题给出有依据的回答。\\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答'"
+  },
+  "no_self_dept": {
+   "ok": true,
+   "detail": "自拟部门检查"
+  },
+  "no_amount": {
+   "ok": true,
+   "detail": "金额 237 复述检查"
+  },
+  "no_channel": {
+   "ok": true,
+   "detail": "渠道/经办人复述检查"
+  },
+  "gate_miss": {
+   "ok": true,
+   "detail": "history_gate=miss"
+  },
+  "all_ok": true
+ },
+ "D_out_of_domain": {
+  "conversation_id": 199,
+  "question_last": "那明天成都天气怎么样?",
+  "answer": "知识库中暂无相关内容，无法就该问题给出有依据的回答。\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。）\n建议通过学校官方网站（https://www.swjtu.edu.cn/）或对应职能部门页面查询联系方式。\n如需更精确的解答，请补充：具体政策/通知的名称或文号、适用的年级学段、办理时间等背景信息。",
+  "ctx": {
+   "used": 48,
+   "budget": 85196,
+   "compressed": false,
+   "followup_no_new_sources": null,
+   "history_gate": "miss",
+   "history_count": 2
+  },
+  "is_template": {
+   "ok": true,
+   "detail": "模板指纹=有; head='知识库中暂无相关内容，无法就该问题给出有依据的回答。\\n（缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答'"
+  },
+  "no_self_dept": {
+   "ok": true,
+   "detail": "自拟部门检查"
+  },
+  "gate_miss": {
+   "ok": true,
+   "detail": "history_gate=miss"
+  },
+  "all_ok": true
+ },
+ "E_pronoun": {
+  "conversation_id": 200,
+  "question_last": "那它需要导师签字吗?",
+  "answer": "是的，研究生申请休学需要导师签字。根据相关规定，申请材料中需包含导师意见，且须由导师签署意见并签字确认 。",
+  "ctx": {
+   "used": 48,
+   "budget": 85196,
+   "compressed": false,
+   "followup_no_new_sources": true,
+   "history_gate": "hit",
+   "history_count": 2
+  },
+  "pronoun_answered": {
+   "ok": true,
+   "detail": "是的，研究生申请休学需要导师签字。根据相关规定，申请材料中需包含导师意见，且须由导师签署意见并签字确认 。"
+  },
+  "gate_hit": {
+   "ok": true,
+   "detail": "history_gate=hit"
+  },
+  "flag_followup": {
+   "ok": true,
+   "detail": "followup 标志"
+  },
+  "all_ok": true
+ },
+ "F_ref_integrity": {
+  "conversation_id": 201,
+  "question_last": "学校校医院周末门诊时间是什么?",
+  "answer": "知识库中暂无相关内容。请以学校校医院最新公告为准，或直接咨询校医院服务台获取准确信息。",
+  "ctx": {
+   "used": 48,
+   "budget": 85196,
+   "compressed": false,
+   "followup_no_new_sources": true,
+   "history_gate": "hit",
+   "history_count": 2
+  },
+  "honest": {
+   "ok": true,
+   "detail": "知识库中暂无相关内容。请以学校校医院最新公告为准，或直接咨询校医院服务台获取准确信息。"
+  },
+  "no_fabricated_ref": {
+   "ok": true,
+   "detail": "越界引用检查"
+  },
+  "exit_in_whitelist": {
+   "ok": true,
+   "detail": "出口白名单检查"
+  },
+  "gate_path": {
+   "ok": true,
+   "detail": "history_gate=hit(已知边际,允许 hit)"
+  },
+  "all_ok": true
+ },
+ "_summary": {
+  "A_first_turn": "ALL_OK",
+  "B_followup_uncovered": "ALL_OK",
+  "C_false_premise": "ALL_OK",
+  "D_out_of_domain": "ALL_OK",
+  "E_pronoun": "ALL_OK",
+  "F_ref_integrity": "ALL_OK"
+ }
+}

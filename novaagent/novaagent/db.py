@@ -151,6 +151,12 @@ def _migrate() -> None:
         with _lock:
             _conn.execute("ALTER TABLE messages ADD COLUMN conversation_id INTEGER")
             _conn.commit()
+    # P4b-fix ①: assistant 消息回答时的来源快照(有效 sources 才落)——追问轮门控用它把
+    # "可采信历史证据"限定为此前带有效来源的回答;user 消息与拒答模板恒为 NULL。
+    if "sources_json" not in mcols:
+        with _lock:
+            _conn.execute("ALTER TABLE messages ADD COLUMN sources_json TEXT")
+            _conn.commit()
     _conn.execute(
         """CREATE TABLE IF NOT EXISTS conversation_summary (
                conversation_id INTEGER PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
@@ -451,17 +457,32 @@ def fts_search(query: str, role_mins: list[str], top_k: int) -> list[tuple[int, 
         return None
 
 
-def add_message(user_id: int, role: str, content: str, conversation_id: int | None = None) -> int:
-    """T9: 追加一条会话消息(role: user/assistant);P4b 起可挂 conversation_id。返回消息 id。"""
+def add_message(user_id: int, role: str, content: str, conversation_id: int | None = None,
+                sources: list[dict] | None = None) -> int:
+    """T9: 追加一条会话消息(role: user/assistant);P4b 起可挂 conversation_id。返回消息 id。
+    P4b-fix ①: assistant 消息可带回答时实际使用的 sources 快照(空/None 不落),
+    供追问轮门控判定"可采信历史证据"。"""
+    sources_json = json.dumps(sources, ensure_ascii=False) if sources else None
     with _lock:
         cur = _conn.execute(
-            "INSERT INTO messages (user_id, role, content, created_at, conversation_id) VALUES (?,?,?,?,?)",
-            (user_id, role, content, _now(), conversation_id),
+            "INSERT INTO messages (user_id, role, content, created_at, conversation_id, sources_json) "
+            "VALUES (?,?,?,?,?,?)",
+            (user_id, role, content, _now(), conversation_id, sources_json),
         )
         if conversation_id:
             _conn.execute("UPDATE conversations SET updated_at=? WHERE id=?", (_now(), conversation_id))
         _conn.commit()
     return cur.lastrowid
+
+
+def delete_message(message_id: int, conversation_id: int) -> bool:
+    """P4b-fix ⑤: 客户端中止时回滚本轮 user 消息(仅限指定会话内的该条,防误删)。"""
+    with _lock:
+        cur = _conn.execute(
+            "DELETE FROM messages WHERE id=? AND conversation_id=?", (message_id, conversation_id)
+        )
+        _conn.commit()
+    return cur.rowcount > 0
 
 
 def get_messages(user_id: int, limit: int = 50) -> list[dict]:
@@ -557,9 +578,10 @@ def conversation_messages(conv_id: int, limit: int = 50, offset: int = 0) -> tup
 
 
 def get_conversation_history(conv_id: int) -> list[dict]:
-    """历史注入用:时间正序全量(含消息 id,供压缩覆盖标记与评测隔离断言)。"""
+    """历史注入用:时间正序全量(含消息 id 与 sources_json,供压缩覆盖标记、
+    评测隔离断言与 P4b-fix ① 追问轮门控的可采信证据判定)。"""
     rows = _conn.execute(
-        "SELECT id, role, content FROM messages WHERE conversation_id=? ORDER BY id ASC",
+        "SELECT id, role, content, sources_json FROM messages WHERE conversation_id=? ORDER BY id ASC",
         (conv_id,),
     ).fetchall()
     return [dict(r) for r in rows]

@@ -10,6 +10,7 @@ import json
 import logging
 import math
 import re
+import time
 from typing import Any
 
 from . import config, db, llm, rag, refusal
@@ -75,6 +76,58 @@ def model_ctx(model: str) -> int:
     return next((m["ctx"] for m in config.MODEL_CANDIDATES if m["id"] == model), 32000)
 
 
+# P4b-fix ①(决策 1 裁决落地): 追问轮"能否基于历史作答"由代码判定,不再是一句 prompt 豁免。
+# 可采信历史证据(admissible)只有两类:
+#   a) 此前 assistant 且带有效 sources 的回答(db.add_message 落库的 sources_json 快照);
+#   b) 会话压缩摘要(assistant 生成的聚合产物,见 conversation_summary)。
+# user 消息与拒答模板(无 sources)一律不进池——用户自述内容(金额/渠道/地点)没有任何
+# 通道被当作事实依据复述;池为空或未命中 → 走 refusal.build_refusal 确定性模板。
+_NORM_RE = re.compile(r"[^0-9A-Za-z\u4e00-\u9fff]+")
+_GATE_MIN_UNIGRAM_COVER = 0.30   # 单字覆盖率下限(配合 ≥3 个不同单字命中)
+_GATE_MIN_BIGRAM_COVER = 0.15    # 2-gram 覆盖率下限(配合 ≥2 个不同命中)
+
+
+def history_gate_hit(question: str, admissible_texts: list[str]) -> bool:
+    """P4b-fix ①: 追问轮历史门控(确定性,零依赖,判据与阈值见 docs/P4B.md §三.1)。
+
+    对问句与每条可采信文本做字符 n-gram 覆盖匹配,命中任一即放行"依据历史回答":
+      - 细节命中:问句的 2-gram 有 ≥2 个不同命中,且覆盖率 ≥ 0.15(显式主题追问);
+      - 指代命中:问句的 2-gram 有 ≥1 个命中,且不同单字命中 ≥3、单字覆盖率 ≥ 0.30
+        (代词/省略式追问与既有答案共享"导师"类实词,但字面覆盖天然偏低)。
+    阈值标定:代词追问 3/9=0.333 命中;游泳馆 0.222 / 天气 0 / 空池 拒绝(实测见
+    docs/p4b/evidence/after/followup_gate_v2.json)。已知边际:校医院门诊类问句
+    (h1=4/13=0.308)会走历史提示路径——可采信池内并无该主题内容,模型按提示词
+    约定仍应如实说明未覆盖,不存在编造/洗白通道。
+    """
+    q = _NORM_RE.sub("", question or "")
+    if len(q) < 2 or not admissible_texts:
+        return False
+    q_uni = set(q)
+    q_bi = {q[i:i + 2] for i in range(len(q) - 1)}
+    for text in admissible_texts:
+        t = _NORM_RE.sub("", text or "")
+        if not t:
+            continue
+        h1 = len(q_uni & set(t))
+        h2_set = q_bi & {t[i:i + 2] for i in range(len(t) - 1)}
+        h2 = len(h2_set)
+        if h2 >= 2 and h2 / len(q_bi) >= _GATE_MIN_BIGRAM_COVER:
+            return True
+        if h2 >= 1 and h1 >= 3 and h1 / len(q_uni) >= _GATE_MIN_UNIGRAM_COVER:
+            return True
+    return False
+
+
+HISTORY_GATE_NOTE = (
+    "[系统提示] 知识库未检索到与该问句直接相关的新来源（检索判定: {reason}）。"
+    "经代码级历史匹配判定：本会话此前存在与该问句相关的可信内容，可基于历史回答并注明「依据此前对话」。"
+    "但可采信的历史证据仅限：此前助手回答中带知识库来源标注的内容、以及会话压缩摘要；"
+    "用户消息中的自述内容（尤其金额、缴费渠道、办理地点等操作细节）未经核实，"
+    "不得作为事实依据复述——确需提及必须显式标注「用户自述、未经核实」。"
+    "历史与知识库都不足以回答的部分，请明确说明两者均未覆盖，不得编造；"
+    "如需建议咨询部门，只能使用知识库资料或系统模板中出现过的部门名称，不得自拟。")
+
+
 async def build_conversation_context(conversation_id: int, model: str) -> tuple[list[dict], dict]:
     """P4b C2/C3/C4: 组装历史注入消息与上下文预算信息。
 
@@ -120,6 +173,7 @@ async def build_conversation_context(conversation_id: int, model: str) -> tuple[
         if cached and cached["covered_until_message_id"] >= older[-1]["id"] and cached["summary_text"]:
             summary = cached["summary_text"]  # 摘要已覆盖到同一点,复用(避免每轮重复压缩)
         else:
+            t0 = time.perf_counter()
             chunks = [older[i:i + 40] for i in range(0, len(older), 40)]
 
             async def _compress_chunk(ch: list[dict]) -> str:
@@ -135,6 +189,9 @@ async def build_conversation_context(conversation_id: int, model: str) -> tuple[
             if not summary:
                 raise ValueError("压缩结果为空")
             db.upsert_conversation_summary(conversation_id, summary, older[-1]["id"])
+            # P4b 决策 2 补充要求:首次超预算轮的压缩实测毫秒数(块数与调用数关系式见 docs/P4B.md §三.2)
+            ctx_info["compress_ms"] = round((time.perf_counter() - t0) * 1000)
+            ctx_info["compress_blocks"] = len(chunks)
         ctx_info["compressed"] = True
         ctx_info["summary_covered_until"] = older[-1]["id"]
         ctx_info["compressed_from_count"] = len(older)
@@ -343,56 +400,78 @@ class AgentService:
         do_refuse, reason = refusal.should_refuse(sources, quality)
         followup_note = ""
         if do_refuse and hist_msgs:
-            do_refuse = False
-            ctx_info["followup_no_new_sources"] = True
-            followup_note = ("[系统提示] 知识库未检索到与该问句直接相关的新来源"
-                             f"（检索判定: {reason}）。若能从上方对话历史（含压缩摘要）中找到答案，"
-                             "请基于历史回答并注明「依据此前对话」；若历史与知识库都不足以回答，"
-                             "请明确说明两者均未覆盖，不得编造。")
-        db.add_message(user_id, "user", question, conversation_id)
-        if do_refuse:
-            answer = refusal.build_refusal(question, reason)
-            db.add_message(user_id, "assistant", answer, conversation_id)
-            return {"answer": answer, "sources": [], "tool_trace": [],
+            # P4b-fix ①(决策 1 裁决): 追问轮是否放行"依据历史回答"由代码门控判定。
+            # 可采信证据=此前 assistant 且带有效 sources 的回答 + 压缩摘要;
+            # 未命中(含池为空)→ 维持 do_refuse,走 build_refusal 确定性模板(contacts 出口)。
+            admissible = [m["content"] for m in db.get_conversation_history(conversation_id)
+                          if m["role"] == "assistant" and m.get("sources_json")]
+            cached = db.get_conversation_summary(conversation_id)
+            if cached and cached.get("summary_text"):
+                admissible.append(cached["summary_text"])
+            if history_gate_hit(question, admissible):
+                do_refuse = False
+                ctx_info["followup_no_new_sources"] = True
+                ctx_info["history_gate"] = "hit"
+                followup_note = HISTORY_GATE_NOTE.format(reason=reason)
+            else:
+                ctx_info["history_gate"] = "miss"
+        user_msg_id = db.add_message(user_id, "user", question, conversation_id)
+        assistant_saved = False
+        try:
+            if do_refuse:
+                answer = refusal.build_refusal(question, reason)
+                db.add_message(user_id, "assistant", answer, conversation_id)
+                assistant_saved = True
+                return {"answer": answer, "sources": [], "tool_trace": [],
+                        "conversation_id": conversation_id, "context": ctx_info}
+            stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
+            context = "\n\n".join(
+                f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
+            ) or "(本角色可见范围内未检索到相关资料)"
+            if followup_note:
+                context = f"{followup_note}\n\n{context}"
+            if stage_note:
+                context = f"{stage_note}\n\n{context}"
+            messages = [{"role": "system", "content": SYSTEM_PROMPT.format(context=context)}]
+            messages += hist_msgs
+            messages.append({"role": "user", "content": question})
+            tool_trace: list[dict] = []
+            answer = ""
+            for _ in range(3):  # 最多 3 轮工具调用
+                msg = await llm.chat(messages, tools=WEEKLY_TOOLS, model=eff["model"],
+                                     base_url=eff["base_url"], api_key=eff["api_key"])
+                if not msg.get("tool_calls"):
+                    answer = msg.get("content") or ""
+                    break
+                messages.append(msg)
+                for tc in msg["tool_calls"]:
+                    name = tc["function"]["name"]
+                    args = json.loads(tc["function"]["arguments"] or "{}")
+                    logger.info("tool call: %s(%s) by %s", name, args, username)
+                    result = await self.weekly.call(name, args)
+                    tool_trace.append({"tool": name, "args": args, "result": result})
+                    messages.append(
+                        {"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result, ensure_ascii=False)}
+                    )
+            else:
+                answer = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
+            # P4a C2 引用硬校验:越界 [n] 代码剥离并记 fabricated_ref badcase
+            answer, stripped = refusal.strip_invalid_refs(answer, len(sources))
+            if stripped:
+                refusal.record_fabricated_ref(question, stripped, len(sources))
+            db.add_message(user_id, "assistant", answer, conversation_id, sources=sources)
+            assistant_saved = True
+            return {"answer": answer, "sources": sources, "tool_trace": tool_trace,
                     "conversation_id": conversation_id, "context": ctx_info}
-        stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
-        context = "\n\n".join(
-            f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
-        ) or "(本角色可见范围内未检索到相关资料)"
-        if followup_note:
-            context = f"{followup_note}\n\n{context}"
-        if stage_note:
-            context = f"{stage_note}\n\n{context}"
-        messages = [{"role": "system", "content": SYSTEM_PROMPT.format(context=context)}]
-        messages += hist_msgs
-        messages.append({"role": "user", "content": question})
-        tool_trace: list[dict] = []
-        answer = ""
-        for _ in range(3):  # 最多 3 轮工具调用
-            msg = await llm.chat(messages, tools=WEEKLY_TOOLS, model=eff["model"],
-                                 base_url=eff["base_url"], api_key=eff["api_key"])
-            if not msg.get("tool_calls"):
-                answer = msg.get("content") or ""
-                break
-            messages.append(msg)
-            for tc in msg["tool_calls"]:
-                name = tc["function"]["name"]
-                args = json.loads(tc["function"]["arguments"] or "{}")
-                logger.info("tool call: %s(%s) by %s", name, args, username)
-                result = await self.weekly.call(name, args)
-                tool_trace.append({"tool": name, "args": args, "result": result})
-                messages.append(
-                    {"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result, ensure_ascii=False)}
-                )
-        else:
-            answer = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
-        # P4a C2 引用硬校验:越界 [n] 代码剥离并记 fabricated_ref badcase
-        answer, stripped = refusal.strip_invalid_refs(answer, len(sources))
-        if stripped:
-            refusal.record_fabricated_ref(question, stripped, len(sources))
-        db.add_message(user_id, "assistant", answer, conversation_id)
-        return {"answer": answer, "sources": sources, "tool_trace": tool_trace,
-                "conversation_id": conversation_id, "context": ctx_info}
+        except (asyncio.CancelledError, GeneratorExit):
+            # P4b-fix ⑤: 客户端断开/任务取消 → 回滚本轮 user 消息,维持"中止=该轮未发生"口径。
+            # assistant 已落库则视为完整轮次不回滚;db 调用为同步 sqlite,取消点内安全。
+            if not assistant_saved:
+                try:
+                    db.delete_message(user_msg_id, conversation_id)
+                except Exception as de:  # 回滚失败只记日志,不吞取消
+                    logger.warning("中止回滚 user 消息失败(会话 %s): %s", conversation_id, de)
+            raise
 
     async def chat_stream_for(self, user_id: int, username: str, role: str, question: str,
                               conversation_id: int | None = None):
@@ -415,93 +494,113 @@ class AgentService:
         min_rank = db.config.ROLE_RANK[role]
         hist_msgs, ctx_info = await build_conversation_context(conversation_id, eff["model"])
         sources, quality = await rag.search_with_quality(question, min_rank)
-        # P4b C2/C4 多轮分支(与 chat_for 同款):追问轮检索不达标 → 注入历史依据指令而非硬拒
+        # P4b-fix ①(与 chat_for 同款代码门控):命中才注入历史依据指令;未命中维持硬拒。
         do_refuse, reason = refusal.should_refuse(sources, quality)
         followup_note = ""
         if do_refuse and hist_msgs:
-            do_refuse = False
-            ctx_info["followup_no_new_sources"] = True
-            followup_note = ("[系统提示] 知识库未检索到与该问句直接相关的新来源"
-                             f"（检索判定: {reason}）。若能从上方对话历史（含压缩摘要）中找到答案，"
-                             "请基于历史回答并注明「依据此前对话」；若历史与知识库都不足以回答，"
-                             "请明确说明两者均未覆盖，不得编造。")
-        db.add_message(user_id, "user", question, conversation_id)
-        if do_refuse:  # P4a C1: 确定性拒答模板直接作为流式输出
-            text = refusal.build_refusal(question, reason)
-            db.add_message(user_id, "assistant", text, conversation_id)
-            yield {"type": "sources", "sources": []}
+            admissible = [m["content"] for m in db.get_conversation_history(conversation_id)
+                          if m["role"] == "assistant" and m.get("sources_json")]
+            cached = db.get_conversation_summary(conversation_id)
+            if cached and cached.get("summary_text"):
+                admissible.append(cached["summary_text"])
+            if history_gate_hit(question, admissible):
+                do_refuse = False
+                ctx_info["followup_no_new_sources"] = True
+                ctx_info["history_gate"] = "hit"
+                followup_note = HISTORY_GATE_NOTE.format(reason=reason)
+            else:
+                ctx_info["history_gate"] = "miss"
+        user_msg_id = db.add_message(user_id, "user", question, conversation_id)
+        assistant_saved = False
+        try:
+            if do_refuse:  # P4a C1: 确定性拒答模板直接作为流式输出
+                text = refusal.build_refusal(question, reason)
+                db.add_message(user_id, "assistant", text, conversation_id)
+                assistant_saved = True
+                yield {"type": "sources", "sources": []}
+                yield {"type": "context", **ctx_info}
+                yield {"type": "delta", "content": text}
+                yield {"type": "done", "answer": text, "sources": [], "tool_trace": [],
+                       "conversation_id": conversation_id, "context": ctx_info}
+                return
+            yield {"type": "sources", "sources": sources}
             yield {"type": "context", **ctx_info}
-            yield {"type": "delta", "content": text}
-            yield {"type": "done", "answer": text, "sources": [], "tool_trace": [],
-                   "conversation_id": conversation_id, "context": ctx_info}
-            return
-        yield {"type": "sources", "sources": sources}
-        yield {"type": "context", **ctx_info}
-        stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
-        context = "\n\n".join(
-            f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
-        ) or "(本角色可见范围内未检索到相关资料)"
-        if followup_note:
-            context = f"{followup_note}\n\n{context}"
-        if stage_note:
-            context = f"{stage_note}\n\n{context}"
-        messages = [{"role": "system", "content": SYSTEM_PROMPT.format(context=context)}]
-        messages += hist_msgs
-        messages.append({"role": "user", "content": question})
-        tool_trace: list[dict] = []
-        answer_parts: list[str] = []
-        ref_filter = _StreamRefFilter(len(sources))  # P4a C2 流式引用越界过滤
-        for _ in range(4):  # 工具轮 + 最终流式轮
-            round_text: list[str] = []
-            calls: dict[int, dict] = {}
-            async for ev in llm.chat_stream(messages, tools=WEEKLY_TOOLS,
-                                            model=eff["model"], base_url=eff["base_url"],
-                                            api_key=eff["api_key"]):
-                if ev["type"] == "delta":
-                    safe = ref_filter.feed(ev["content"])
-                    if safe:
-                        yield {"type": "delta", "content": safe}
-                        round_text.append(safe)
-                        answer_parts.append(safe)
-                elif ev["type"] == "tool_delta":
-                    slot = calls.setdefault(ev["index"], {"id": "", "name": "", "args": ""})
-                    if ev["id"]:
-                        slot["id"] = ev["id"]
-                    if ev["name"]:
-                        slot["name"] = ev["name"]
-                    slot["args"] += ev["args"]
-            if not calls:  # 无工具调用 → 本次流式即最终答案
-                break
-            ordered = [calls[i] for i in sorted(calls)]
-            messages.append({
-                "role": "assistant",
-                "content": "".join(round_text) or None,
-                "tool_calls": [
-                    {"id": c["id"], "type": "function",
-                     "function": {"name": c["name"], "arguments": c["args"]}}
-                    for c in ordered
-                ],
-            })
-            for c in ordered:
-                logger.info("tool call: %s(%s) by %s", c["name"], c["args"][:80], username)
-                result = await self.weekly.call(c["name"], json.loads(c["args"] or "{}"))
-                tool_trace.append({"tool": c["name"], "args": json.loads(c["args"] or "{}"), "result": result})
-                yield {"type": "tools", "trace": tool_trace}
-                messages.append({"role": "tool", "tool_call_id": c["id"],
-                                 "content": json.dumps(result, ensure_ascii=False)})
-        else:
-            timeout_msg = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
-            answer_parts.append(timeout_msg)
-            yield {"type": "delta", "content": timeout_msg}
-        tail = ref_filter.flush()
-        if tail:
-            yield {"type": "delta", "content": tail}
-            answer_parts.append(tail)
-        if ref_filter.stripped:  # P4a C2: 流中剥离的越界引用记 badcase
-            refusal.record_fabricated_ref(question, ref_filter.stripped, len(sources))
-        db.add_message(user_id, "assistant", "".join(answer_parts), conversation_id)  # P4b: 答案落库
-        yield {"type": "done", "answer": "".join(answer_parts), "sources": sources, "tool_trace": tool_trace,
-               "conversation_id": conversation_id, "context": ctx_info}
+            stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
+            context = "\n\n".join(
+                f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
+            ) or "(本角色可见范围内未检索到相关资料)"
+            if followup_note:
+                context = f"{followup_note}\n\n{context}"
+            if stage_note:
+                context = f"{stage_note}\n\n{context}"
+            messages = [{"role": "system", "content": SYSTEM_PROMPT.format(context=context)}]
+            messages += hist_msgs
+            messages.append({"role": "user", "content": question})
+            tool_trace: list[dict] = []
+            answer_parts: list[str] = []
+            ref_filter = _StreamRefFilter(len(sources))  # P4a C2 流式引用越界过滤
+            for _ in range(4):  # 工具轮 + 最终流式轮
+                round_text: list[str] = []
+                calls: dict[int, dict] = {}
+                async for ev in llm.chat_stream(messages, tools=WEEKLY_TOOLS,
+                                                model=eff["model"], base_url=eff["base_url"],
+                                                api_key=eff["api_key"]):
+                    if ev["type"] == "delta":
+                        safe = ref_filter.feed(ev["content"])
+                        if safe:
+                            yield {"type": "delta", "content": safe}
+                            round_text.append(safe)
+                            answer_parts.append(safe)
+                    elif ev["type"] == "tool_delta":
+                        slot = calls.setdefault(ev["index"], {"id": "", "name": "", "args": ""})
+                        if ev["id"]:
+                            slot["id"] = ev["id"]
+                        if ev["name"]:
+                            slot["name"] = ev["name"]
+                        slot["args"] += ev["args"]
+                if not calls:  # 无工具调用 → 本次流式即最终答案
+                    break
+                ordered = [calls[i] for i in sorted(calls)]
+                messages.append({
+                    "role": "assistant",
+                    "content": "".join(round_text) or None,
+                    "tool_calls": [
+                        {"id": c["id"], "type": "function",
+                         "function": {"name": c["name"], "arguments": c["args"]}}
+                        for c in ordered
+                    ],
+                })
+                for c in ordered:
+                    logger.info("tool call: %s(%s) by %s", c["name"], c["args"][:80], username)
+                    result = await self.weekly.call(c["name"], json.loads(c["args"] or "{}"))
+                    tool_trace.append({"tool": c["name"], "args": json.loads(c["args"] or "{}"), "result": result})
+                    yield {"type": "tools", "trace": tool_trace}
+                    messages.append({"role": "tool", "tool_call_id": c["id"],
+                                     "content": json.dumps(result, ensure_ascii=False)})
+            else:
+                timeout_msg = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
+                answer_parts.append(timeout_msg)
+                yield {"type": "delta", "content": timeout_msg}
+            tail = ref_filter.flush()
+            if tail:
+                yield {"type": "delta", "content": tail}
+                answer_parts.append(tail)
+            if ref_filter.stripped:  # P4a C2: 流中剥离的越界引用记 badcase
+                refusal.record_fabricated_ref(question, ref_filter.stripped, len(sources))
+            db.add_message(user_id, "assistant", "".join(answer_parts), conversation_id,
+                           sources=sources)  # P4b: 答案落库;P4b-fix ①: 带来源快照
+            assistant_saved = True
+            yield {"type": "done", "answer": "".join(answer_parts), "sources": sources,
+                   "tool_trace": tool_trace, "conversation_id": conversation_id, "context": ctx_info}
+        except (asyncio.CancelledError, GeneratorExit):
+            # P4b-fix ⑤: 真 token 流阶段中止也维持"该轮未发生"——回滚本轮 user 消息。
+            # (此前口径只覆盖构建/压缩先于落库的一半;实测中止于流中会残留 1 条无回复 user 消息。)
+            if not assistant_saved:
+                try:
+                    db.delete_message(user_msg_id, conversation_id)
+                except Exception as de:
+                    logger.warning("中止回滚 user 消息失败(会话 %s): %s", conversation_id, de)
+            raise
 
     # 周报 REST 直调(供前端周报页与评测脚本确定性使用,不依赖 LLM 决策)
     async def weekly_add(self, content: str, category: str, occurred_at: str) -> dict:

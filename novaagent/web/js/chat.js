@@ -59,7 +59,7 @@ async function send() {
     if (!got) bot.textContent = '(空回复)';
     renderMeta(bot, srcs, trace);
   } catch (e) {
-    if (e.name === 'AbortError') {  // 切换会话中止:不写残留内容(服务端同样不落库)
+    if (e.name === 'AbortError') {  // 切换会话中止:前端不留残影,服务端会回滚该轮 user 消息(P4b-fix ⑤)
       bot.classList.remove('streaming');
       bot.textContent += '\n(已切换会话,本次回答中止)';
       return;

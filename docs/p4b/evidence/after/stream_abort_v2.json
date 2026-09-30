@@ -1,0 +1,33 @@
+{
+ "abort_mid_stream": {
+  "conversation_id": 202,
+  "chunks_read": 3,
+  "roles_after": [],
+  "nothing_persisted": true
+ },
+ "full_stream": {
+  "conversation_id": 203,
+  "event_types": [
+   "sources",
+   "context",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "delta",
+   "done"
+  ],
+  "roles_after": [
+   "user",
+   "assistant"
+  ],
+  "persisted_two": true
+ },
+ "_verdict": "PASS: 中止轮零落库(回滚生效),完整轮正常落 2 条"
+}
