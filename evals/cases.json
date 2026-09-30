@@ -741,22 +741,21 @@
       "role": "student",
       "web_search": true,
       "expect_web_called": true,
-      "question": "ISO 4217 标准里人民币的三字母代码是什么？",
+      "question": "学校填报统计报表时，GDP 这个英文缩写指的是什么指标？",
       "expect_web_sources_min": 1,
       "expect_web_declaration": [
         "未经本校核实"
       ],
       "expect_keywords": [
         [
-          "CNY",
-          "RMB"
+          "GDP"
         ],
         [
-          "人民币"
+          "国内生产总值"
         ]
       ],
       "expect_no_w_citation": true,
-      "note": "P4e M-D 开:库内无据的公开知识题 → 出现联网分区、URL 可点、整段级「未经本校核实」"
+      "note": "P4e M-D 开:库内无据的公开知识题 → 出现联网分区、URL 可点、整段级「未经本校核实」；⚠ 问句加校园框定的原因(实测):纯域外问法「ISO 4217…」被意图分类器判为 chitchat → 走 direct 直答,根本到不了「本地拒答 → 联网」这条链"
     },
     {
       "id": "wg-02",
@@ -764,13 +763,13 @@
       "role": "student",
       "web_search": false,
       "expect_web_called": false,
-      "question": "ISO 4217 标准里人民币的三字母代码是什么？",
+      "question": "学校填报统计报表时，GDP 这个英文缩写指的是什么指标？",
       "expect_absent_keywords": [
         "未经本校核实",
         "联网检索"
       ],
       "expect_no_w_citation": true,
-      "note": "P4e M-D 关:同一问句必须走 P4a 确定性拒答模板(指纹「系统模板生成」),且绝不发起联网请求"
+      "note": "P4e M-D 关:同一问句必须走 P4a 确定性拒答模板(指纹「系统模板生成」),且绝不发起联网请求；⚠ 问句加校园框定的原因(实测):纯域外问法「ISO 4217…」被意图分类器判为 chitchat → 走 direct 直答,根本到不了「本地拒答 → 联网」这条链"
     },
     {
       "id": "wg-03",
@@ -778,7 +777,7 @@
       "role": "student",
       "web_search": true,
       "expect_web_called": true,
-      "question": "中国国家统计局公布的居民消费价格指数的英文缩写是什么？",
+      "question": "后勤保障部统计物价时用的居民消费价格指数，英文缩写是什么？",
       "expect_web_sources_min": 1,
       "expect_web_declaration": [
         "未经本校核实"
@@ -792,7 +791,7 @@
         ]
       ],
       "expect_no_w_citation": true,
-      "note": "P4e M-D 开(第二条构造问句,防单例偶然)"
+      "note": "P4e M-D 开(第二条构造问句,防单例偶然)；⚠ 同上:纯域外问法被判 chitchat;加校园框定后 intent=retrieval、本地检索无据,联网通道才有机会生效"
     },
     {
       "id": "wg-04",
@@ -800,13 +799,13 @@
       "role": "student",
       "web_search": false,
       "expect_web_called": false,
-      "question": "中国国家统计局公布的居民消费价格指数的英文缩写是什么？",
+      "question": "后勤保障部统计物价时用的居民消费价格指数，英文缩写是什么？",
       "expect_absent_keywords": [
         "未经本校核实",
         "联网检索"
       ],
       "expect_no_w_citation": true,
-      "note": "P4e M-D 关(第二条构造问句的对照组)"
+      "note": "P4e M-D 关(第二条构造问句的对照组)；⚠ 同上:纯域外问法被判 chitchat;加校园框定后 intent=retrieval、本地检索无据,联网通道才有机会生效"
     }
   ]
 }

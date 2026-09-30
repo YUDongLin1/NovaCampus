@@ -78,6 +78,27 @@ async def me(user=Depends(current_user)):
 
 # ---------- 个人设置(模型选择 / 自定义 API) ----------
 
+def _web_search_override(body: dict):
+    """P4e M-B:单次请求覆盖。**键不存在 → None**(交回用户级/全局默认),显式 false 才强制关。"""
+    v = body.get("web_search")
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    return str(v).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _web_on(s: dict) -> bool:
+    """用户设置 → 布尔(未设置过回落全局默认,默认关)。"""
+    from . import config
+    v = str(s.get("web_search_enabled") or "").strip().lower()
+    if v in ("1", "true", "yes", "on"):
+        return True
+    if v in ("0", "false", "no", "off"):
+        return False
+    return config.WEB_SEARCH_ENABLED
+
+
 @app.get("/api/me/settings")
 async def get_settings(user=Depends(current_user)):
     s = db.get_user_settings(user["id"])
@@ -93,11 +114,16 @@ async def get_settings(user=Depends(current_user)):
         },
         "effective_model": eff["model"],
         "username": user["username"], "role": user["role"], "role_zh": ROLE_ZH[user["role"]],
+        # P4e M-B: 当前联网开关状态(UI 要能看见当前是开还是关)
+        "web_search_enabled": _web_on(s),
     }
 
 
 @app.put("/api/me/settings")
 async def put_settings(body: dict, user=Depends(current_user)):
+    # P4e M-B: 用户级默认开关(与 custom/model 互斥无关,独立处理)
+    if body.get("web_search") is not None:
+        db.set_web_search_enabled(user["id"], body["web_search"])
     custom = body.get("custom")
     if custom is not None:
         if not isinstance(custom, dict):
@@ -832,7 +858,7 @@ async def chat(body: dict, user=Depends(current_user)):
         return empty
     try:
         d = await agent.chat_for(user["id"], user["username"], user["role"], question, cid,
-                                 scope=scope)
+                                 scope=scope, web_search=_web_search_override(body))
     except LookupError as e:
         raise HTTPException(404, str(e))
     return d
@@ -865,7 +891,8 @@ async def chat_stream(body: dict, user=Depends(current_user)):
                 yield f"data: {json.dumps(done_ev, ensure_ascii=False)}\n\n"
             else:
                 async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"],
-                                                      question, cid, scope=scope):
+                                                      question, cid, scope=scope,
+                                                      web_search=_web_search_override(body)):
                     if ev["type"] == "delta":
                         answer_parts.append(ev["content"])
                     yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"

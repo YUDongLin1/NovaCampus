@@ -120,7 +120,9 @@ GROUNDING_STREAM_FORCE_UNGROUNDED = env("NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED"
 
 # ---------- P4e M7: 联网搜索(默认关闭) ----------
 WEB_SEARCH_ENABLED = env("NOVA_WEB_SEARCH_ENABLED", "0") not in ("0", "false", "False")
-WEB_SEARCH_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_TIMEOUT_S", "20"))
+# 默认 60s:实测强制 tool_choice 的联网检索方差极大(同一问句 12.3s / 79.4s)，
+# 20s 会把可用性打成"随缘"。超时一律走可见降级(web_error),不静默。
+WEB_SEARCH_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_TIMEOUT_S", "60"))
 WEB_SEARCH_MAX_SOURCES = int(env("NOVA_WEB_SEARCH_MAX_SOURCES", "8"))
 
 

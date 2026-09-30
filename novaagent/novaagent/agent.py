@@ -13,7 +13,7 @@ import re
 import time
 from typing import Any
 
-from . import config, db, graph, llm, rag, refusal
+from . import config, db, graph, llm, rag, refusal, websearch
 from .weekly_client import WeeklyMCP
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,24 @@ def est_tokens(text: str) -> int:
 # 【失败后不许静默兜底】重生仍不合格 → **保留答案**、写 trace flag + 记 badcase,
 #   评测照旧判红。静默兜底会把缺陷藏起来(坑 46/47),宁可让闸门显式地失败。
 _FACTUAL_RE = re.compile(r"\[\d+\]|\d")
+
+# P4e M-A:正文里**逐句绑定**的联网角标 `[W<n>]` —— 上游无「句子 ↔ URL」映射,写了就是假精确。
+# 实测 wg-01 首轮模型即写出 `[W3]`(尽管 WEB_CONTEXT_BLOCK 明令禁止)→ 与 P4a 同源:
+# **prompt 挡不住,必须落代码**。剥离时记 warning,不是静默兜底。
+_WEB_CITATION_RE = re.compile(r"\[W\d{1,2}\]")
+
+
+def strip_web_citations(answer: str) -> tuple[str, int]:
+    """剥离答案正文里的 `[W<n>]` 角标,返回 (清理后答案, 剥离处数)。纯函数,可单测。
+
+    ⚠ 只处理 `[W<n>]` 这一种;本地 `[1..n]` 归 P4a C2 的 `strip_invalid_refs` 管,互不越界。
+    """
+    hits = _WEB_CITATION_RE.findall(answer or "")
+    if not hits:
+        return answer, 0
+    logger.warning("答案正文出现逐句绑定的 [W<n>] 角标 %d 处,已代码剥离"
+                   "(上游只给 {type,url},无句子↔来源映射)", len(hits))
+    return _WEB_CITATION_RE.sub("", answer or ""), len(hits)
 _REGEN_HINT = (
     "\n\n【强制要求·上一版输出无效】你上一版回答既没有任何引用标注 [n],也没有任何具体数字"
     "(条款编号/年限/金额/日期),被视为**未给出实质内容**。库内已有可引用的资料,必须复述其中"
@@ -462,12 +480,18 @@ class _StreamRefFilter:
 
     _MAX_PENDING = 8  # "[12]" 全长 4;超出即判非引用
 
-    def __init__(self, n_sources: int):
+    def __init__(self, n_sources: int, drop_web: bool = False):
         self.n_sources = n_sources
+        # P4e M-A: 联网模式下还要流内剥离逐句绑定的 [W<n>](同 P4a C2 的"越界即剥离")
+        self.drop_web = drop_web
         self.pending = ""
         self.stripped: list[int] = []
+        self.web_stripped = 0
 
     def _decide(self, token: str) -> str:
+        if self.drop_web and _WEB_CITATION_RE.fullmatch(token):
+            self.web_stripped += 1
+            return ""
         m = re.fullmatch(r"\[(\d{1,2})\]", token)
         if not m:
             return token
@@ -498,7 +522,8 @@ class _StreamRefFilter:
                 self.pending = self.pending[1:]
                 continue
             token, rest = self.pending[: j + 1], self.pending[j + 1:]
-            if re.fullmatch(r"\[\d{1,2}\]", token):
+            is_web_cite = bool(self.drop_web and _WEB_CITATION_RE.fullmatch(token))
+            if is_web_cite or re.fullmatch(r"\[\d{1,2}\]", token):
                 out.append(self._decide(token))
                 self.pending = rest
             else:  # 形如 "[abc]" 不是引用标注,放行首个字符防止死循环
@@ -509,6 +534,52 @@ class _StreamRefFilter:
     def flush(self) -> str:
         rest, self.pending = self.pending, ""
         return rest
+
+
+# ---------- P4e M-A / M-C:联网来源的分区上下文与整段级声明 ----------
+#
+# 【引用语义为什么是「分区 + 整段级标注」而不是 `[W1]` 角标】
+# 上游 Responses API 每条来源**只有 `{type, url}`**(四入口全矩阵实测,
+# 见 docs/p4e/evidence/WEBSEARCH_PROTOCOL_HARDSTOP.md):
+#   · 无 `index` → 没有上游编号;
+#   · 正文**零 `[n]` 角标、零内联 URL、`annotations` 为空** → **不存在「哪句出自哪条 URL」的映射**。
+# 若由我方自建「第 k 句 ↔ 第 k 条 URL」的对应关系,那是**用假精确换好看**——
+# 面试与审计都答不出"凭什么说这句出自这条",属于不可辩护的引用。故:
+#   · 联网来源**单独分区**列出真实 URL(可点、可核);
+#   · `site_name` 由 `urlparse().netloc` 推导并在 UI 明确标注「由 URL 推导」;
+#   · `index` 由我方按 `action.sources` 原序分配,**仅作列表编号**;
+#   · 答案里**禁止**出现逐句绑定的 `[W<n>]`(评测有反向断言,见 run_evals._W_CITATION_RE);
+#   · 改为**整段级**声明,由**代码注入**(不靠模型自觉,与 P4a C8 学段声明同一手法)。
+WEB_DECLARE = ("⚠ 本节含公网检索内容，未经本校核实；"
+               "涉及本校具体政策、流程与办理口径的，请以学校官方文件为准。")
+
+WEB_CONTEXT_BLOCK = """
+
+联网检索资料（公网检索，未经本校核实，仅作参考）:
+{urls}
+
+联网资料使用规则:
+1. 只在上列联网资料能支撑时才作答，不得用自有知识补充联网资料里没有的事实；
+2. **禁止**在正文里写 [W1]、[W2] 之类的角标——上游不提供「哪句出自哪条来源」的映射，
+   写了就是假精确；需要指代来源时直接说站点名（如"据国家统计局网站"）；
+3. 联网资料不能替代本校规定；涉及本校具体政策/流程/时限的，如实说明公网查不到本校口径。
+"""
+
+# M-C 降级提示:联网不可用必须让用户看见(坑 46/47:静默兜底等于把缺陷藏起来)
+WEB_UNAVAILABLE_NOTE = ("\n\n（已尝试联网检索，但本次联网搜索不可用或未返回结果；"
+                        "以上仍为知识库范围的判定。）")
+
+
+def _web_enabled(user_id: int, override: bool | None) -> bool:
+    """P4e M-B 开关优先级:**单次请求覆盖 > 用户级默认 > 全局默认(默认关闭)**。"""
+    if override is not None:
+        return bool(override)
+    v = str(db.get_user_settings(user_id).get("web_search_enabled") or "").strip().lower()
+    if v in ("1", "true", "yes", "on"):
+        return True
+    if v in ("0", "false", "no", "off"):
+        return False
+    return config.WEB_SEARCH_ENABLED   # 未设置过的用户 → 全局默认(False)
 
 
 class AgentService:
@@ -559,7 +630,8 @@ class AgentService:
 
     async def chat_for(self, user_id: int, username: str, role: str, question: str,
                        conversation_id: int | None = None,
-                       scope: dict | None = None) -> dict[str, Any]:
+                       scope: dict | None = None,
+                       web_search: bool | None = None) -> dict[str, Any]:
         # P4c C4: scope 为 main.resolve_scope 解析后的生效范围(folder_ids/categories/audience),
         # 本函数只把它透传给 rag.search_with_quality,并把生效 scope 原样带回响应(P4c 白名单边界)。
         if conversation_id:
@@ -623,19 +695,49 @@ class AgentService:
                 followup_note = HISTORY_GATE_NOTE.format(reason=reason)
             else:
                 ctx_info["history_gate"] = "miss"
+        # P4e M-B/M-C:联网是「本地拒答后的**补充通道**」——本地有据就**不出网**
+        # (既省一次外网调用,也更合规:库内内容、会话历史一律不离开本机)。
+        # 超时/失败/零来源 → 维持 do_refuse,并在拒答模板后追加明确提示,**不静默兜底**。
+        web_on = _web_enabled(user_id, web_search)
+        web_sources: list[dict] = []
+        ctx_info["web_enabled"] = web_on
+        if web_on and do_refuse:
+            res = await websearch.search(question, model=eff["model"],
+                                         base_url=eff["base_url"], api_key=eff["api_key"])
+            web_sources = websearch.build_web_sources(res["urls"])
+            ctx_info["web_called"] = True
+            ctx_info["web_ms"] = res["ms"]
+            ctx_info["web_n_sources"] = len(web_sources)
+            ctx_info["web_error"] = res["error"]
+            if web_sources:
+                do_refuse = False
+                ctx_info["web_fallback"] = True
+            else:
+                ctx_info["web_unavailable"] = True
+        else:
+            ctx_info["web_called"] = False
+            ctx_info["web_ms"] = 0
+            ctx_info["web_n_sources"] = 0
+            ctx_info["web_error"] = ""
         user_msg_id = db.add_message(user_id, "user", question, conversation_id)
         assistant_saved = False
         try:
             if do_refuse:
                 answer = refusal.build_refusal(question, reason)
+                if web_on and ctx_info.get("web_unavailable"):
+                    answer += WEB_UNAVAILABLE_NOTE
                 db.add_message(user_id, "assistant", answer, conversation_id)
                 assistant_saved = True
                 return {"answer": answer, "sources": [], "tool_trace": [],
-                        "conversation_id": conversation_id, "context": ctx_info}
+                        "conversation_id": conversation_id, "context": ctx_info,
+                        "web_sources": []}
             stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
             context = "\n\n".join(
                 f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
             ) or "(本角色可见范围内未检索到相关资料)"
+            if web_sources:   # P4e M-A:联网资料**另起一区**,与本地 [1..n] 不混编号
+                context += WEB_CONTEXT_BLOCK.format(
+                    urls="\n".join(f"- {w['url']}" for w in web_sources))
             if followup_note:
                 context = f"{followup_note}\n\n{context}"
             if stage_note:
@@ -663,6 +765,11 @@ class AgentService:
                     )
             else:
                 answer = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
+            # P4e M-A:先剥逐句绑定的 [W<n>](联网模式),再走 P4a C2 的越界 [n] 剥离
+            if web_sources:
+                answer, _nw = strip_web_citations(answer)
+                if _nw:
+                    ctx_info["web_citations_stripped"] = _nw
             # P4a C2 引用硬校验:越界 [n] 代码剥离并记 fabricated_ref badcase
             answer, stripped = refusal.strip_invalid_refs(answer, len(sources))
             if stripped:
@@ -691,10 +798,13 @@ class AgentService:
                     logger.warning("grounding gate still failed after regen; keeping answer")
                     ctx_info["grounding_gate"]["flag"] = "ungrounded_after_regen"
                     record_ungrounded(question, answer, len(sources), "after_regen")
+            if web_sources:   # P4e M-A:整段级声明由**代码注入**,不靠模型自觉
+                answer = (answer or "").rstrip() + "\n\n" + WEB_DECLARE
             db.add_message(user_id, "assistant", answer, conversation_id, sources=sources)
             assistant_saved = True
             return {"answer": answer, "sources": sources, "tool_trace": tool_trace,
-                    "conversation_id": conversation_id, "context": ctx_info}
+                    "conversation_id": conversation_id, "context": ctx_info,
+                    "web_sources": web_sources}
         except (asyncio.CancelledError, GeneratorExit):
             # P4b-fix ⑤: 客户端断开/任务取消 → 回滚本轮 user 消息,维持"中止=该轮未发生"口径。
             # assistant 已落库则视为完整轮次不回滚;db 调用为同步 sqlite,取消点内安全。
@@ -707,7 +817,8 @@ class AgentService:
 
     async def chat_stream_for(self, user_id: int, username: str, role: str, question: str,
                               conversation_id: int | None = None,
-                              scope: dict | None = None):
+                              scope: dict | None = None,
+                              web_search: bool | None = None):
         """T8: 流式对话路径——工具循环(非流式判定工具调用)后流式输出最终答案。
         异步生成器逐段 yield 事件:
           {"type": "sources", "sources": [...]}          检索来源(一次性,最先)
@@ -771,25 +882,55 @@ class AgentService:
                 followup_note = HISTORY_GATE_NOTE.format(reason=reason)
             else:
                 ctx_info["history_gate"] = "miss"
+        # P4e M-B/M-C:联网是「本地拒答后的**补充通道**」——本地有据就**不出网**
+        # (既省一次外网调用,也更合规:库内内容、会话历史一律不离开本机)。
+        # 超时/失败/零来源 → 维持 do_refuse,并在拒答模板后追加明确提示,**不静默兜底**。
+        web_on = _web_enabled(user_id, web_search)
+        web_sources: list[dict] = []
+        ctx_info["web_enabled"] = web_on
+        if web_on and do_refuse:
+            res = await websearch.search(question, model=eff["model"],
+                                         base_url=eff["base_url"], api_key=eff["api_key"])
+            web_sources = websearch.build_web_sources(res["urls"])
+            ctx_info["web_called"] = True
+            ctx_info["web_ms"] = res["ms"]
+            ctx_info["web_n_sources"] = len(web_sources)
+            ctx_info["web_error"] = res["error"]
+            if web_sources:
+                do_refuse = False
+                ctx_info["web_fallback"] = True
+            else:
+                ctx_info["web_unavailable"] = True
+        else:
+            ctx_info["web_called"] = False
+            ctx_info["web_ms"] = 0
+            ctx_info["web_n_sources"] = 0
+            ctx_info["web_error"] = ""
         user_msg_id = db.add_message(user_id, "user", question, conversation_id)
         assistant_saved = False
         try:
             if do_refuse:  # P4a C1: 确定性拒答模板直接作为流式输出
                 text = refusal.build_refusal(question, reason)
+                if web_on and ctx_info.get("web_unavailable"):
+                    text += WEB_UNAVAILABLE_NOTE
                 db.add_message(user_id, "assistant", text, conversation_id)
                 assistant_saved = True
-                yield {"type": "sources", "sources": []}
+                yield {"type": "sources", "sources": [], "web_sources": []}
                 yield {"type": "context", **ctx_info}
                 yield {"type": "delta", "content": text}
                 yield {"type": "done", "answer": text, "sources": [], "tool_trace": [],
-                       "conversation_id": conversation_id, "context": ctx_info}
+                       "conversation_id": conversation_id, "context": ctx_info,
+                       "web_sources": []}
                 return
-            yield {"type": "sources", "sources": sources}
+            yield {"type": "sources", "sources": sources, "web_sources": web_sources}
             yield {"type": "context", **ctx_info}
             stage_note = refusal.learn_stage_note(question, sources)  # P4a C8 学段声明注入
             context = "\n\n".join(
                 f"[{s['ref']}] 《{s['title']}》({s['role_min']}可读)\n{s['content']}" for s in sources
             ) or "(本角色可见范围内未检索到相关资料)"
+            if web_sources:   # P4e M-A:联网资料**另起一区**,与本地 [1..n] 不混编号
+                context += WEB_CONTEXT_BLOCK.format(
+                    urls="\n".join(f"- {w['url']}" for w in web_sources))
             if followup_note:
                 context = f"{followup_note}\n\n{context}"
             if stage_note:
@@ -803,7 +944,7 @@ class AgentService:
             # 只在早窗内(未出现可核查事实且累计不足 N 字)暂缓。整段生成完仍零事实才重生一次。
             # 对比 M4 的全量缓冲:首字不再等整段生成完,但闸门判据一条都没放宽。
             gate = _StreamGate(len(sources))
-            ref_filter = _StreamRefFilter(len(sources))  # P4a C2 流式引用越界过滤
+            ref_filter = _StreamRefFilter(len(sources), drop_web=bool(web_sources))  # P4a C2 越界过滤 + P4e M-A 逐句 [W<n>] 剥离
             for _ in range(4):  # 工具轮 + 最终流式轮
                 round_text: list[str] = []
                 calls: dict[int, dict] = {}
@@ -858,6 +999,8 @@ class AgentService:
                         yield {"type": "delta", "content": seg}
             if ref_filter.stripped:  # P4a C2: 流中剥离的越界引用记 badcase
                 refusal.record_fabricated_ref(question, ref_filter.stripped, len(sources))
+            if ref_filter.web_stripped:   # P4e M-A: 流中剥掉多少处逐句 [W<n>],写进 trace(可观测)
+                ctx_info["web_citations_stripped"] = ref_filter.web_stripped
             # P4e M4 / S1-①:整段生成完**仍零可核查事实** → 重生**一次**(判据与 chat_for 同一纯函数)
             if gate.need_regen():
                 logger.info("grounding gate hit (stream, len=%d, sources=%d, released=%d), "
@@ -902,11 +1045,16 @@ class AgentService:
             for seg in gate.flush():
                 if seg:
                     yield {"type": "delta", "content": seg}
+            if web_sources:   # P4e M-A:整段级声明由**代码注入**;同时作为 delta 下发
+                decl = "\n\n" + WEB_DECLARE
+                answer_parts.append(decl)
+                yield {"type": "delta", "content": decl}
             db.add_message(user_id, "assistant", "".join(answer_parts), conversation_id,
                            sources=sources)  # P4b: 答案落库;P4b-fix ①: 带来源快照
             assistant_saved = True
             yield {"type": "done", "answer": "".join(answer_parts), "sources": sources,
-                   "tool_trace": tool_trace, "conversation_id": conversation_id, "context": ctx_info}
+                   "tool_trace": tool_trace, "conversation_id": conversation_id,
+                   "context": ctx_info, "web_sources": web_sources}
         except (asyncio.CancelledError, GeneratorExit):
             # P4b-fix ⑤: 真 token 流阶段中止也维持"该轮未发生"——回滚本轮 user 消息。
             # (此前口径只覆盖构建/压缩先于落库的一半;实测中止于流中会残留 1 条无回复 user 消息。)
