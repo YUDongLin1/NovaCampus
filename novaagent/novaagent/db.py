@@ -207,6 +207,46 @@ def _migrate() -> None:
         _conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_audience ON documents(audience)")
         _conn.commit()
 
+    # ---------- P4f C1: 辅导员 persona(AI 辅导员人设) ----------
+    # 迁移纪律(同 P4c C1): 只 CREATE IF NOT EXISTS / 幂等加列,**不 UPDATE 任何既有行**。
+    # `conversations.persona_id` 列在 P4b 建表时已预留,本单只加外键索引(不加 FK 约束:
+    # 既有库的 conversations 已有数据,加 FK 需重建表,违反"不删数据"纪律;
+    # persona 删除后的处理见 `delete_persona` —— 置 `deleted_at` 软删除并**保留行**,
+    # 于是 persona_id 永不断链,历史会话天然保留)。
+    _conn.execute(
+        """CREATE TABLE IF NOT EXISTS personas (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+               name TEXT NOT NULL,
+               college TEXT NOT NULL DEFAULT '',
+               -- 人设提示词:只影响**语气/身份/侧重点**,不得覆盖防幻觉规则段(见 agent.build_system_prompt)
+               persona_prompt TEXT NOT NULL DEFAULT '',
+               -- 回复风格:简短/详细/…(结构化枚举比自由文本更可控,前端下拉直接用)
+               style TEXT NOT NULL DEFAULT 'balanced'
+                   CHECK(style IN ('concise','balanced','detailed','warm','formal')),
+               -- 绑定的检索范围(JSON 数组文本)。**不构成提权**:最终检索范围 =
+               -- persona 绑定范围 ∩ 调用者 RBAC 可见范围(见 agent._resolve_persona_scope)。
+               bound_folder_ids TEXT NOT NULL DEFAULT '[]',
+               bound_categories TEXT NOT NULL DEFAULT '[]',
+               -- private=仅建者;student=该角色及以上可见;admin=仅管理员
+               visibility TEXT NOT NULL DEFAULT 'private'
+                   CHECK(visibility IN ('private','student','admin')),
+               is_default INTEGER NOT NULL DEFAULT 0,
+               deleted_at TEXT,          -- 软删除:历史会话保留并标记「人设已删除」
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL
+           )"""
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_personas_owner ON personas(owner_id, deleted_at)")
+    # 同一用户最多一个 is_default=1(用**部分唯一索引**在库层兜住,避免应用层竞态
+    # 产生两个默认人设导致前端选择器行为不确定)
+    _conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_personas_one_default "
+        "ON personas(owner_id) WHERE is_default=1 AND deleted_at IS NULL"
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_persona ON conversations(persona_id)")
+    _conn.commit()
+
     _migrate_messages_to_conversations()
 
 

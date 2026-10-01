@@ -126,6 +126,97 @@ def answer_is_grounded(answer: str, sources: list) -> bool:
     return bool(_FACTUAL_RE.search(answer or ""))
 
 
+# ---------- P4f C0-③: 轮次类型判定(闸门作用域) ----------
+# 背景:闸门判据「有来源 却 零 [n] 零数字」不问**这一轮是否期待事实回答**,
+# 于是被套到「往会话里塞背景资料」的种植轮上——P4e S2 实测命中 12~16 次、
+# 重生失败 11~14 次**全在种植轮**,`final` 轮一次未命中(坑 64)。
+#
+# 【为什么判据必须是语义级,不能用「长度 < 30 字」】
+#   长度既不是轮次类型的证据,也会随问句改写漂移:一句「好的」是 3 字但**期待事实**
+#   (「好的,那学费是多少?」的后续),而 42 轮的种植文本每轮都 >300 字却是**纯陈述**。
+#   换句话说长度与「是否期待事实回答」**不单调**,按它分档必然错一批(坑 63 的同族)。
+#   正确做法是问「**用户这一轮在要什么**」,那是句子的语义属性,不是长度属性。
+#
+# 【判据:两类信号,任一命中即视为「本轮不期待事实回答」】
+#   A. 抑制型元指令(suppressive meta-instruction)——用户**明确要求不要展开作答**:
+#      「已阅/知悉/仅供知悉/无需回复/简短回复/不必回答/请勿调用工具/不要记录」等。
+#      判据是**出现了要求抑制作答的祈使语**,不是「答案短」。
+#   B. 纯陈述轮(non-interrogative)——整句**没有任何疑问/请求标记**:
+#      疑问词(吗/呢/什么/哪些/怎么/如何/为什么/多少/几/是否/能否/可否)、
+#      请求动词(查/找/问/列/说/解释/介绍/告诉/算/填/写/改/查一下…)+ 问号/冒号请求式。
+#      纯背景陈述(「本条为背景资料:…」)落在这一类。
+#
+# 【为什么要 A 与 B 分开而不是合成一条】
+#   A 是**用户显式收回提问权**(他说了"只需回已阅"),优先级高于任何疑问句——
+#   哪怕句尾带问号,只要同句出现抑制语,本轮也不该被要求给事实。
+#   B 是**句式本身没有请求**。分开写的好处:两类的可观测后果不同
+#   (A 会有"简短回复"字样,B 完全没有请求词),复核方能按类核对,不会混成一句口径。
+#
+# ⚠ 边界(必须诚实标出,不要假装判据完美):
+#   · 判据是**词法级**的,不是语义理解。极端构造的句子仍可能判错
+#     (例:「请勿回答,顺便告诉我学费多少」——A 命中 → 判为非事实轮)。
+#     本单**接受**这个边界:宁可漏判一轮(闸门少拦一次,答案原样返回、评测照常判红),
+#     不可错判(闸门逼模型在纯陈述轮上编造引用,那才是真的伤害)。
+#     方向性不对称是刻意的,与 P4a「宁多拒答不可无据作答」一致。
+#   · 不改 `refusal.py`、不引入新模型调用(判据是纯字符串函数,零额度)。
+_SUPPRESSIVE_MARKERS = (
+    "已阅", "知悉", "仅供知悉", "仅供参考", "无需回复", "不用回复", "不必回复", "无需回答",
+    "不用回答", "不必回答", "简短回复", "简要回复", "简短回答", "回复即可", "回答即可",
+    "不用展开", "无需展开", "不必展开", "请勿调用", "不要调用", "无需调用", "不用调用",
+    "不要记录", "无需记录", "不必记录", "不要生成", "无需生成", "仅作存档", "存档即可",
+    "不用作答", "无需作答", "不作答", "不要作答", "别回答", "不用回答",
+    # 「请勿回答」类:祈使 + 否定动词,单列是因为它是评测/教学场景最常见的抑制措辞,
+    # 而「不用回答/无需回答」是同义变体,三者都要拦住(漏一个就等于闸门可被绕过)。
+    "请勿回答", "请勿作答", "请勿展开", "无需再答", "不用再答", "不必再答",
+)
+_QUESTION_MARKERS = (
+    "吗", "呢", "什么", "哪些", "哪个", "怎么", "怎样", "如何", "为什么", "为何", "多少",
+    "几", "是否", "能否", "可否", "能不能", "可不可以", "多久", "何时", "什么时候", "在哪",
+    "是谁", "哪些个", "几岁", "要不要", "行不行", "好不好", "可以吗",
+)
+_REQUEST_VERBS = (
+    "查", "找", "问", "列", "说出", "解释", "介绍", "告诉", "算", "填写", "写", "改",
+    "看一下", "查一下", "看一下", "确认", "核实", "对比", "比较", "申请", "办理", "报名",
+)
+
+
+def turn_expects_factual_answer(question: str) -> tuple[bool, str]:
+    """本轮是否**期待事实回答**。返回 (bool, 判定依据标签)。纯函数,可单测。
+
+    标签取值(供 `ctx_info["grounding_gate"]["scope"]` 落进评测报告,让"这轮为什么
+    没被闸门管"在报告里**可自证**,而不是靠事后猜——坑 64 的教训是评测侧不留痕
+    就只能靠"最可疑是 cc-01"这种猜测):
+      · ``suppressed``  A 类命中:用户显式要求抑制作答(种植轮)
+      · ``non_interrogative`` B 类命中:句式无任何疑问/请求标记(纯陈述轮)
+      · ``factual``     两者都没命中 → 本轮期待事实回答 → 闸门应当生效
+    """
+    q = (question or "").strip()
+    if not q:
+        # 空问题:无内容可答,判为非事实轮(闸门不该逼模型为一个空问句编引用)
+        return False, "non_interrogative"
+    for m in _SUPPRESSIVE_MARKERS:
+        if m in q:
+            return False, "suppressed"
+    has_q = any(m in q for m in _QUESTION_MARKERS) or "?" in q or "？" in q
+    has_req = any(m in q for m in _REQUEST_VERBS)
+    if not has_q and not has_req:
+        return False, "non_interrogative"
+    return True, "factual"
+
+
+def grounding_gate_applies(question: str) -> tuple[bool, str]:
+    """闸门是否作用于本轮 = 闸门开关开 且 本轮期待事实回答。
+
+    `GROUNDING_GATE_SCOPE_MODE`:
+      · ``factual_turns``(本单默认)→ 只对期待事实回答的轮次生效
+      · ``all_turns``               → 退回 P4e 行为(全轮次都管),仅供 A/B 对照
+    """
+    if config.GROUNDING_GATE_SCOPE_MODE == "all_turns":
+        return True, "all_turns"
+    ok, label = turn_expects_factual_answer(question)
+    return ok, label
+
+
 def regen_messages(messages: list[dict], bad_answer: str) -> list[dict]:
     """构造重生的 messages:保留原上下文,追加上一版答案 + 强制要求(**只带问题,不外泄库内文本**)。"""
     return messages + [
@@ -196,9 +287,15 @@ class _StreamGate:
     而不是把已展示内容偷偷删掉再当没发生过。
     """
 
-    def __init__(self, n_sources: int):
+    def __init__(self, n_sources: int, gate_on: bool = True, scope: str = "factual"):
         self.n_sources = n_sources
         self.enabled = config.GROUNDING_GATE_ENABLED
+        # P4f C0-③: 本轮闸门是否生效(轮次类型判定结果,由调用方传入)。
+        #   gate_on=False → **既不重生、也不缓冲**:delta 立刻原样下发。
+        #   早窗机制是为"要在出现首个事实前暂缓一下"设计的,当本轮压根不期待事实时
+        #   继续憋字既没意义(不会重生)、又白白让用户多等一个窗口(坑 60 的延迟代价)。
+        self.gate_on = gate_on
+        self.scope = scope
         self.window_chars = config.GROUNDING_EARLY_WINDOW_CHARS
         self.force = config.GROUNDING_STREAM_FORCE_UNGROUNDED
         self.pending: list = []
@@ -209,7 +306,7 @@ class _StreamGate:
     def feed(self, chunk: str) -> list:
         """喂入一段 delta,返回**本次应当下发**的片段列表(可能为空=暂缓)。"""
         self.text += chunk or ""
-        if not self.enabled or self.window_closed:
+        if not self.enabled or not self.gate_on or self.window_closed:
             self.released_chars += len(chunk or "")
             return [chunk] if chunk else []
         self.pending.append(chunk)
@@ -240,6 +337,13 @@ class _StreamGate:
     @property
     def grounded(self) -> bool:
         """整段是否已「有据」(与 chat_for 的 `answer_is_grounded` 同一判据)。"""
+        # ⚠ 顺序要紧:`gate_on` 必须**先于** `force` 判。
+        #   否则测试钩子(force 首版判无据)会作用到不期待事实回答的轮次上,
+        #   让「作用域收窄」在带钩子的 canonical 档里被旁路——那正是 C0-③ 要修的
+        #   同一类错(P4e 上一轮就因为报告不记 env 标志,把依赖钩子的 55/55
+        #   当成可复现结果,坑 63)。scope 收窄对钩子档同样生效。
+        if not self.gate_on:
+            return True      # 本轮不期待事实回答 → 判据不适用,视为通过(C0-③)
         if self.force:      # 测试钩子:强制首版走重生通道
             return False
         if not self.n_sources:
@@ -247,7 +351,7 @@ class _StreamGate:
         return bool(_FACTUAL_RE.search(self.text))
 
     def need_regen(self) -> bool:
-        return self.enabled and not self.grounded
+        return self.enabled and self.gate_on and not self.grounded
 
 
 def model_ctx(model: str) -> int:
@@ -776,7 +880,14 @@ class AgentService:
                 refusal.record_fabricated_ref(question, stripped, len(sources))
             # P4e M4 生成出口确定性闸门:有来源却零 [n] 零数字 → 判无效,重生**一次**。
             # 重生仍不合格 → 保留答案 + 写 trace flag + 记 badcase,**不静默兜底**(坑 46/47)。
-            if not answer_is_grounded(answer, sources):
+            # P4f C0-③: 闸门前先判**轮次类型**——只对本轮**确实期待事实回答**的轮次生效。
+            # 纯陈述/抑制轮(种植轮塞背景、用户说"简短回复已阅即可")本就不该给引用,
+            # 之前被套上闸门导致每轮白烧 11~14 次重生且零救回(坑 64)。
+            _gate_on, _gate_scope = grounding_gate_applies(question)
+            ctx_info["grounding_gate_scope"] = _gate_scope
+            if not _gate_on:
+                logger.info("grounding gate skipped: 本轮不期待事实回答(scope=%s)", _gate_scope)
+            elif not answer_is_grounded(answer, sources):
                 logger.info("grounding gate hit (len=%d, sources=%d), regenerating once",
                             len(answer), len(sources))
                 regen = await llm.chat(regen_messages(messages, answer), tools=None,
@@ -791,7 +902,7 @@ class AgentService:
                 ok2 = answer_is_grounded(answer, sources)
                 ctx_info["grounding_gate"] = {
                     "hit": True, "regenerated": True, "ok_after_regen": ok2,
-                    "n_sources": len(sources),
+                    "n_sources": len(sources), "scope": _gate_scope,
                 }
                 if not ok2:
                     # 不静默:留 flag 让评测/排障看得见,答案照旧返回(评测会照常判红)
@@ -943,7 +1054,11 @@ class AgentService:
             # P4e S1-①:早窗提交——delta 默认直接放行(gate.feed 返回本次应下发的片段),
             # 只在早窗内(未出现可核查事实且累计不足 N 字)暂缓。整段生成完仍零事实才重生一次。
             # 对比 M4 的全量缓冲:首字不再等整段生成完,但闸门判据一条都没放宽。
-            gate = _StreamGate(len(sources))
+            # P4f C0-③: 先判轮次类型——不期待事实回答的轮次 gate_on=False,
+            # 既不重生也不缓冲(delta 立即原样下发),并把判定标签写进 trace 供评测自证。
+            _gate_on, _gate_scope = grounding_gate_applies(question)
+            ctx_info["grounding_gate_scope"] = _gate_scope
+            gate = _StreamGate(len(sources), gate_on=_gate_on, scope=_gate_scope)
             ref_filter = _StreamRefFilter(len(sources), drop_web=bool(web_sources))  # P4a C2 越界过滤 + P4e M-A 逐句 [W<n>] 剥离
             for _ in range(4):  # 工具轮 + 最终流式轮
                 round_text: list[str] = []
@@ -1034,6 +1149,7 @@ class AgentService:
                     "n_sources": len(sources), "stream": True,
                     "early_window_chars": gate.window_chars,
                     "released_chars": gate.released_chars,
+                    "scope": gate.scope,
                 }
                 if not ok2:
                     # 不静默:留 flag 让评测/排障看得见,答案照旧返回(评测会照常判红)

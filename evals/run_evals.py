@@ -50,6 +50,86 @@ SEED_ROLES = {
 }
 REFUSAL_MARKS = ("暂无", "没有找到", "未检索", "知识库中未", "无法回答", "不在知识库", "没有相关")
 
+# ---------- P4f C0-①: env_flags.client_env 改**显式白名单**(🔴 密钥入库的形状) ----------
+# 【原缺陷】原实现是 `{k: v for k, v in os.environ.items() if k.startswith("NOVA")}`,
+#   而**评测报告是要提交进 git 的**。今天客户端恰好只有 NOVAAGENT_EVAL_TEMPERATURE(无害),
+#   但只要有人 `export NOVAAGENT_LLM_API_KEY=...`,密钥就随报告入库并**永久留在 git 历史里**
+#   ——事后删文件也删不掉历史(与坑 56 同源:入库文件的敏感值不可撤回)。
+#   形状错了就是错了,不能靠"现在恰好没有密钥"来防。
+# 【为什么是显式白名单而不是黑名单正则】
+#   黑名单(`*_API_KEY` / `*_TOKEN` / `*_SECRET` …)是**默认放行、例外拦下**,
+#   下次有人加一个 `NOVAAGENT_SESSION_COOKIE` 就又漏出去了,而报告是自动入库的。
+#   白名单是**默认拦下、逐个放行**,新增变量要显式加一行代码才能进报告——
+#   这正是我们要的:多一次人工判断,少一次永久泄漏。
+# 【白名单项的入选标准】只收「影响评测结果的可观测行为开关」,且**值本身不是敏感信息**。
+#   凡是可能等于/包含凭据的键名(API_KEY / TOKEN / SECRET / PASSWORD / COOKIE / CREDENTIAL)
+#   一律不进白名单,且下面另有一道**反向断言**单测守着(见 docs/p4f/ 与 novaagent/tests/)。
+CLIENT_ENV_ALLOWLIST: tuple[str, ...] = (
+    # 评测温度开关(报告要能自证「这次跑的是哪档温度」,P4e 起在用)
+    "NOVAAGENT_EVAL_TEMPERATURE",
+    # 流式 grounding 闸门相关(坑 63:上一轮 55/55 依赖默认关闭的钩子,报告必须自证配置)
+    "NOVA_GROUNDING_GATE",
+    "NOVA_GROUNDING_EARLY_WINDOW_CHARS",
+    "NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED",
+    # P4f C0-③ 闸门轮次作用域(新增:不同档位结果不可混读,必须能自证跑的是哪档)
+    "NOVA_GROUNDING_GATE_SCOPE",
+    # 联网检索(P4e M7)
+    "NOVA_WEB_SEARCH_ENABLED",
+    "NOVA_WEB_SEARCH_IDLE_TIMEOUT_S",
+    "NOVA_WEB_SEARCH_TOTAL_TIMEOUT_S",
+    "NOVA_WEB_SEARCH_MAX_SOURCES",
+    # 检索编排 / 改写(P4d)
+    "NOVA_GRAPH_ENABLED",
+    "NOVA_MAX_REWRITE",
+    "NOVA_REWRITE_FLOOR",
+    "NOVA_INTENT_TIMEOUT_S",
+    "NOVA_REWRITE_TIMEOUT_S",
+    "NOVA_KEYWORD_STOPWORDS",
+    # 数据目录(只影响读哪个库;DB 路径本身不是凭据)
+    "NOVA_DATA_DIR",
+)
+# ⚠ 白名单的**自我保护**:下面这些子串一旦出现在白名单里就是事故
+#   (有人"顺手把 key 也加进来让报告能自证配置"是极可能发生的误操作)。
+# ⚠ 判据用**下划线分词后的整段相等**,不是裸子串 —— 否则 `NOVA_KEYWORD_STOPWORDS`
+#   会因为 "KEY" 是 "KEYWORD" 的前缀而被误判(实测踩到:首版用 `s in key.upper()`
+#   把一个完全无害的停用词开关判成了泄漏,假红)。同理 NOVA_AUTH_MODE 里的
+#   "AUTH" 是整段,仍会被拦下。
+SENSITIVE_SUBSTRINGS: tuple[str, ...] = (
+    "API_KEY", "APIKEY", "KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "COOKIE",
+    "CREDENTIAL", "CREDENTIALS", "AUTH", "AUTHORIZATION", "SESSION", "PRIVATE",
+)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """键名是否含敏感段(下划线分词后整段相等,避免 KEYWORD 之类误判)。"""
+    parts = [p for p in key.upper().replace("-", "_").split("_") if p]
+    return any(p in SENSITIVE_SUBSTRINGS for p in parts) or \
+        any(s in key.upper() for s in ("APIKEY", "CREDENTIAL", "AUTHORIZATION"))
+
+
+def collect_client_env_flags(environ: dict | None = None) -> dict[str, str]:
+    """按**显式白名单**收集客户端 env 标志(值本身必须是可公开的开关值)。
+
+    ⚠ 这是 C0-① 的核心:原实现收所有 `NOVA*` 变量,密钥会随入库报告永久进 git。
+    本函数**只认白名单**,不在白名单的键一律不进报告——包括 `NOVAAGENT_LLM_API_KEY`
+    这类今天还不存在的键(形状要对,不能等它出现才防)。
+
+    `environ` 参数只为**可测性**(单测注入畸形输入,见 `novaagent/tests/test_p4f_c0.py`):
+    判据函数必须是纯函数,复核方才能不烧额度离线复算(坑 65)。
+    """
+    env = os.environ if environ is None else environ
+    out: dict[str, str] = {}
+    for key in CLIENT_ENV_ALLOWLIST:
+        # ⚠ 双保险:即使白名单被误改,含敏感段的键也**不输出值**——
+        #   输出一个 "REDACTED" 标记,让误改在报告里当场可见,而不是静默泄漏。
+        if _is_sensitive_key(key):
+            out[key] = "<REDACTED: 白名单误含敏感键名,值不输出>"
+            continue
+        v = env.get(key)
+        if v is not None and v != "":
+            out[key] = v
+    return out
+
 # ---------- P4e S1-②:流式端点(/api/chat/stream)评测 ----------
 # 【为什么必须加这个类型】坑 60:M4 闸门把流式改成「delta 全量缓冲、判完再下发」,
 # 而既有 48 条用例与冒烟**全部只打 /api/chat**,对该端点 0 覆盖 → 全绿无证明力。
@@ -1021,7 +1101,7 @@ def run() -> int:
             print(f"[warn] 取服务端 flags 失败({type(e).__name__}),env_flags 只含客户端 env")
         env_flags = {
             "server": server_flags,
-            "client_env": {k: v for k, v in os.environ.items() if k.startswith("NOVA")},
+            "client_env": collect_client_env_flags(),
         }
         print(f"[env_flags] server={server_flags}")
         n = seed_corpus_if_needed(c, counselor)

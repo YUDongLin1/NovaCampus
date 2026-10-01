@@ -25,6 +25,37 @@ def env(key: str, default: str = "") -> str:
     return os.environ.get(key) or _ENV.get(key) or default
 
 
+# ---------- P4f C0-⑥: 额度来源可核验化(硬约束第 7 条的代码化) ----------
+# 背景(用户 2026-10-01 指令):`novaagent/.env` 里的 key 是**用户本人付费的额度**,
+# 实现者/复核方的任何测试与验证都不得落在它上面(见 HANDOFF 硬约束第 7 条、坑 65)。
+# 上一轮的问题不是"用错了 key",而是**"我保证用对了"只是一句口头承诺**——上一轮
+# 差点把一份 55/55 当成可复现结果,实际它依赖一个默认关闭的 env 钩子,报告里查不出来。
+# 所以额度纪律必须做成**机器可读**:key_source 只回答"这个键来自哪一层",永不回答"值是什么"。
+#
+# ⚠ 硬性约束:本函数**只允许返回三个字面量之一**,不返回、不拼接、不记录 key 值本身。
+#   报告是要提交进 git 的(坑 56 同源风险:入库文件里的敏感值永久留在历史里)。
+#   任何调用方都不许把 key 值写进报告/日志/回执,只写 `llm_key_source=session_env` 这类来源标签。
+SOURCE_SESSION = "session_env"   # 来自 os.environ(会话注入,合规:测试者自带额度)
+SOURCE_REPO = "repo_dotenv"     # 来自仓库 novaagent/.env(用户本人额度;整轮结果一律不认)
+SOURCE_UNSET = "unset"           # 两层都没有
+
+
+def key_source(key: str) -> str:
+    """返回某配置键的**来源标签**,绝不返回其值。
+
+    判据:该键是否出现在 ``os.environ`` 里——因为 `env()` 的优先级是 os.environ > 仓库 .env,
+    os.environ 命中即代表覆盖了 .env。注意判据只回答"来源",不回答"值",
+    因此本函数对任何 key 都可安全写进入库的评测报告。
+
+    另:本函数按**入参键名**判定,不做大小写折叠(配置键一律大写)。
+    """
+    if os.environ.get(key):
+        return SOURCE_SESSION
+    if _ENV.get(key):
+        return SOURCE_REPO
+    return SOURCE_UNSET
+
+
 LLM_BASE_URL = env("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 LLM_MODEL = env("LLM_MODEL", "qwen-flash")
 LLM_API_KEY = env("LLM_API_KEY")
@@ -117,12 +148,43 @@ GROUNDING_GATE_ENABLED = env("NOVA_GROUNDING_GATE", "1") not in ("0", "false", "
 #   **必然**被执行(否则该通道只有约 20% 概率自然命中,断言会空跑——坑 39/45)。
 #   只作用于 /api/chat/stream 的首版判定,不影响 /api/chat,重生仍走真实 LLM。
 GROUNDING_STREAM_FORCE_UNGROUNDED = env("NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED", "0") == "1"
+# ---------- P4f C0-③: 闸门的**轮次作用域**(修「被套在不需要事实回答的轮次上」) ----------
+# 【缺陷】P4e M4 的闸门判据是「有来源 却 零 [n] 零数字 → 无效 → 重生一次」,
+#   它**不问这一轮是否期待事实回答**。P4e S2 复核实测:默认档命中 12 次/重生失败 11 次、
+#   canonical 档命中 16/失败 14,**全部来自 `cc-01` 的种植轮,`final` 轮一次都没命中**。
+#   「重生一次都没救回来过」本身就是判据用错地方的证据(坑 64):
+#   种植轮是**往会话里塞背景资料**,用户在同一句里明确要求「简短回复『已阅』即可」,
+#   模型回「已阅 / 已阅,本条背景资料已收到」才是**正确行为**,那里本就没有需要引用的事实。
+#   代价是每轮评测白烧 11~14 次 LLM 调用,并把 badcase 档案灌满噪声。
+# 【本单做法】闸门前先判**轮次类型**,只对「期待事实回答」的轮次生效。
+#   判据是**语义级**的(抑制型元指令 / 纯陈述),**明确不用「长度 < N 字」**——
+#   长度既不是轮次类型的证据,也会随问句改写漂移(坑 51 的同族教训:看着能用的
+#   廉价判据往往是错的)。判据实现与逐条依据见 `agent.turn_expects_factual_answer`。
+#   留 `all_turns` 档可退回 P4e 行为,供 A/B 对照(不删原行为,便于复现)。
+GROUNDING_GATE_SCOPE_MODE = env("NOVA_GROUNDING_GATE_SCOPE", "factual_turns")
 
 # ---------- P4e M7: 联网搜索(默认关闭) ----------
 WEB_SEARCH_ENABLED = env("NOVA_WEB_SEARCH_ENABLED", "0") not in ("0", "false", "False")
-# 默认 60s:实测强制 tool_choice 的联网检索方差极大(同一问句 12.3s / 79.4s)，
-# 20s 会把可用性打成"随缘"。超时一律走可见降级(web_error),不静默。
-WEB_SEARCH_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_TIMEOUT_S", "60"))
+# ---------- P4f C0-④: 双层超时(修「名实不符」) ----------
+# 【原缺陷】`WEB_SEARCH_TIMEOUT_S=60` 被文档与 UI 写成「超时 60s」,但 httpx 的
+#   `timeout=60` 是**空闲/读超时(inactivity)**,**不是总时限**——只要上游持续吐数据,
+#   连接可以一直挂着。P4e 实测同一问句 12.3s / **79.4s**,60 根本没截断,用户侧表现为
+#   「转圈很久也不给结果」,而日志里看不到任何超时痕迹(名实不符 = 排障时找不到线索)。
+# 【本单做法】显式分两层,并各自可注入:
+#   · IDLE  —— 空闲/读超时。两次数据之间的最大间隔;上游卡住即断。
+#   · TOTAL —— **总时限**,由 websearch.search() 用 asyncio.wait_for 兜住整个请求,
+#     无论上游是否持续吐数据,到点必断。TOTAL > IDLE(留一次重试/解析的余量)。
+# 【为什么默认 45 而不是 60】实测慢档 79.4s 说明上游方差极大;总时限的意义是
+#   **给用户一个可预期的等待上限**(UI 也有对应提示),不是"尽量等"——
+#   45s 足以覆盖已观测的 12.3s 快档与多数中档,又不会让用户等到以为页面死了。
+#   阈值口径:本单未跑 ≥5 次分布(P4e 只留下 2 个数据点,且**烧的是额度**,本单不再重测),
+#   故取"快档 12.3s 的约 3.5 倍 / 慢档 79.4s 的约 0.57 倍"的中位偏保守值。
+#   复核方若要定更精确的阈值,应先按坑 63 跑 ≥5 次分布再改,别直接调这个数。
+WEB_SEARCH_IDLE_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_IDLE_TIMEOUT_S", "20"))
+WEB_SEARCH_TOTAL_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_TOTAL_TIMEOUT_S", "45"))
+# ⚠ 兼容别名:保留旧名以免既有引用 ImportError,但**它现在只代表空闲超时**,不再是总时限。
+#   新代码请用 WEB_SEARCH_IDLE_TIMEOUT_S / WEB_SEARCH_TOTAL_TIMEOUT_S。
+WEB_SEARCH_TIMEOUT_S = WEB_SEARCH_IDLE_TIMEOUT_S
 WEB_SEARCH_MAX_SOURCES = int(env("NOVA_WEB_SEARCH_MAX_SOURCES", "8"))
 
 

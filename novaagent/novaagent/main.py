@@ -1048,12 +1048,28 @@ async def health():
             "grounding_gate_enabled": config.GROUNDING_GATE_ENABLED,
             "grounding_early_window_chars": config.GROUNDING_EARLY_WINDOW_CHARS,
             "grounding_stream_force_ungrounded": config.GROUNDING_STREAM_FORCE_UNGROUNDED,
+            # P4f C0-③: 闸门轮次作用域判定(见 config.GROUNDING_GATE_SCOPE_MODE)。
+            # 暴露出来是为了让"某轮为什么没被闸门管"在报告里可自证,而不是靠猜。
+            "grounding_gate_scope_mode": config.GROUNDING_GATE_SCOPE_MODE,
             "web_search_enabled_default": config.WEB_SEARCH_ENABLED,
-            "web_search_timeout_s": config.WEB_SEARCH_TIMEOUT_S,
+            # P4f C0-④: 双层超时,两个字段都暴露,避免再出现"一个数字两种语义"。
+            # 旧的 web_search_timeout_s 保留为 idle 的别名,让历史报告仍可读。
+            "web_search_idle_timeout_s": config.WEB_SEARCH_IDLE_TIMEOUT_S,
+            "web_search_total_timeout_s": config.WEB_SEARCH_TOTAL_TIMEOUT_S,
+            "web_search_timeout_s": config.WEB_SEARCH_IDLE_TIMEOUT_S,
             "web_search_max_sources": config.WEB_SEARCH_MAX_SOURCES,
             "graph_enabled": config.GRAPH_ENABLED,
             "max_rewrite": config.MAX_REWRITE,
             "llm_model": config.LLM_MODEL,
+            # ---------- P4f C0-⑥: 额度来源(硬约束第 7 条的机器可读形式) ----------
+            # ⚠ 这两个字段**只回答"key 来自哪一层"**,绝不回答 key 是什么。
+            #   session_env  = 会话注入(测试者自带额度,合规)
+            #   repo_dotenv  = 仓库 novaagent/.env(用户本人额度;按硬约束第 7 条,
+            #                  读数为它的整轮评测结果**一律不认**)
+            #   unset        = 两层都没有
+            # 有了它,"我没用用户那把 key"就不再是一句口头承诺,而是每份报告自带字段。
+            "llm_key_source": config.key_source("LLM_API_KEY"),
+            "embedding_key_source": config.key_source("EMBEDDING_API_KEY"),
             "eval_temperature": os.environ.get("NOVAAGENT_EVAL_TEMPERATURE", ""),
         }
     except Exception as e:  # noqa: BLE001  — 自检字段不该让 health 挂掉
