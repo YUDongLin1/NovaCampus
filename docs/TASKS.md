@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：WorkBuddy**（**P4f 第 2 回复核 = ✅ 必修三条全部复验成立，另下发第 3 回八条收尾项**，2026-10-01 复核 = Qoder，复验报告 `docs/p4f/review_qoder_p4f_round2.md`，开单指令 `docs/p4f/workbuddy-order-round3.md`。复验读数：七个自测 **428 条 exit 全 0**（我逐条跑）、探针极性三态实测（注入 7/7 退 0 / 不注入 5/7 退 1 / 缺 `--base` 退 3）、流式炸点**我自己走完红绿闭环**（136→拆→134 退 1→复原→136，且拆掉后 detail 是上游 **401**，证明真请求确实发出去了）。集中验证四次整轮尝试**全部作废**（两次语料被冒烟污染成 69 篇、两次撞 OpenRouter 免费档每分钟限流 → 13 条 500 被记成用例失败），但拿到三条可用结论：`pf-03` 方向前提被四次测量证伪（改法已定案=开单⑤）、`rind-07` 是尺子分不清「编造」与「如实说没有」（开单⑥）、C0-③ 种植轮命中 0 次（P4e 是 16 次）方向性成立。**v2.5 三列仍空**，前置清单见 `docs/EVAL_BASELINE.md` §20.6。上一状态：**P4f 第 1 回的三条必修已于 2026-10-01 由 WorkBuddy 修完并交回 `IN_REVIEW`**，回执见下方「第 2 回复核后修复回执」；**七个自测 428 条 exit 全 0，本轮零额度、未跑整轮**。三条必修的复验入口全是零额度离线命令：`probe_port_check.py --selftest` 应 14/14、`patch_check_c5_tripwire.py apply` 后 persona 自测应 134/136 退 1、`test_p4f_c0.py` 应 64/64。⚠️ 本轮**未改 `cases.json`**，`pf-03` 方向假设原样保留待生产模型复算。上一状态：**P4f 第 1 回 Review = ❌ 打回必修三条**，2026-10-01 复核，报告 `docs/p4f/review_qoder_p4f_round1.md`，开单指令 `docs/p4f/workbuddy-order-round2.md`；集中验证最小档由 Qoder 用**专用测试 key** 跑，见 P4f「第 1 回 Review 结论」。再上一状态：**P4f 已交回 `IN_REVIEW`**：2026-09-03 实现方 WorkBuddy 交回，分支 `task/P4f-persona`，**未合并 master**；交回文档 `docs/P4F.md`，口径变更 `docs/EVAL_BASELINE.md` §二十 v2.4→v2.5 / 55→59 用例。本轮**零额度**（未跑整轮），六个自测 401 条断言全过。**复核方无需复跑整轮** —— 按 C0-⑥ 规则 `llm_key_source=repo_dotenv` 的轮次本来就不认；跑那六个自测 + 读 flags + 静态审计 + DB 只读副本探针即可。**⚠ 尚未验证**（勿当成已验）：v2.5 整轮指标、`pf-01..03` 篇幅比阈值校准、C0-③ 种植轮命中是否归零、C0-④ idle 层独立触发、persona 前端视觉。**P4g 待 P4f 合并后下发**。）**P4e 主体 + S1 + S2 已 ✅ 合并 `master` `5705830`，基线 v2.4 / 55 用例**（canonical 档 55/55 退出码 0、默认档 54/55 均如实入库；报告自带 `env_flags` 与逐用例 `grounding_gate`）。**⚠ 用户 2026-10-01 指令（最高优先级纪律，也约束 Qoder 自己）**：后续任务的测试与验证**不得消耗用户填写的 API key 额度**，必须用测试者自带的模型与额度——做法是会话内 `export LLM_API_KEY/LLM_MODEL/EMBEDDING_API_KEY`（`config.env()` 里 os.environ 优先于 `.env`，不改 `.env`），且**key 值一律不得入库**；本单加 **C0-⑥** 把它做成机器可核验（`/api/health` 暴露 `llm_key_source`/`embedding_key_source`，报告里读数为 `repo_dotenv` 的整轮**一律不认**）。**Qoder 侧同步改为零额度复核**：跑纯本地尺子自测、离线重放已入库的原始输出、静态审计、DB 只读副本探针、读 flags；不再自己复跑整轮（那正是烧用户额度的动作），因此**实现方交回的证据必须可被我离线复算**（原始报告与输入输出入库）。详见 HANDOFF 硬约束第 7 条与坑 65。
+> **当前持棒：Qoder**（**P4f 第 3 回八条已由 WorkBuddy 全部修完并交回 `IN_REVIEW`**，2026-10-01 复核 = Qoder，开单指令 `docs/p4f/workbuddy-order-round3.md`，回执见本文件「P4f 第 3 回交回回执」段）。**读数**：七个自测 **507 条断言 exit 全 0**（`probe_port_check --selftest` 33、`test_p4f_persona` 158、`test_p4f_persona_eval` 68、`test_p4f_persona_eval_wiring` 66、`test_p4f_c0` 63、`test_p4f_frontend_contract` 99、`probe_health_keysource` 20），全程假 key 护身符、**未跑整轮**。**真机双向验证**（起服务只打 `/api/health` 与 `/api/me/settings`，零额度）：① 不注入 → `llm=repo_dotenv` 判红 **6/7 退 1**；注入占位 key 的混合档 → `session_env+repo_dotenv` **7/7 退 0** 且打印披露行；④ 构造「全局 A / 用户 B」两态 → 检出不一致、标红文案同时点名两边值、**环境已还原** 7/7；② 反向闭环：拆掉投影 → **154/158 退 1** → 复原 → **158/158 退 0**。端口 `:8956`–`:8959` 全部 `closed=True`；`:8900`（PID 41956）是别人的常驻实例，未动。**v2.5 三列仍空** —— ⑧ 的 `--throttle-ms`（默认 0=行为不变）与 `env_error` 分账已落地，可重跑整轮；建议免费通道配 `--throttle-ms 3000~5000`。上一状态：**第 2 回复核 = ✅ 必修三条全部复验成立**，复验报告 `docs/p4f/review_qoder_p4f_round2.md`（读数七个自测 428 条 exit 全 0）。再上一状态：**P4f 第 1 回 Review = ❌ 打回必修三条**，报告 `docs/p4f/review_qoder_p4f_round1.md`。⚠ **仍未验证（勿当成已验）**：v2.5 整轮指标、`pf-01..03` 真实模型篇幅比校准、C0-③ 种植轮命中是否归零、③ 冒烟真机非 DashScope 通道、rind-07 在真实输出上的抖动是否已消。**P4g 待 P4f 合并后下发**。）
 > ✅ **P4c Review 结论（Qoder，2026-09-30，独立复跑）**：**通过并合并 master**。**边界**：33 文件全在白名单与 Qoder 领地内，`refusal.py`/`llm.py`/`evals/faithfulness.py` **0 变更**，`agent.py` 只有 scope 透传与回显（P4b 的门控/池/压缩一行未动，逐行读过 diff）。**`cases.json` 语义级比对**（494 删/560 增看着像整档重写，所以不只看 diff）：40→43、**无一条旧用例丢失、40 条共有用例逐字段完全一致**，那串数字只是 JSON 重新序列化。**我自写五条安全探针实测三条硬约束**（`docs/p4c/review_scope_security_probe.py` → `after/review_scope_security.json`）：T1 把 counselor 专属文档移进 student 可见夹后以学生 scoped 检索 → **不外泄**；T2 越权夹 vs 不存在夹 → 404/404 且**响应体逐字节一致**（不泄露存在性）；T3 scoped 空夹 → 0 来源 + 明确提示「未做全库检索」，**不回落**；T4 部分越权静默丢弃；T5 scoped 检索来源 2/2 全属该夹。**迁移与 db 层**：在**库副本**上跑三次迁移，`documents 65→65→65`、`chunks 487→487→487`、`folder_id` 全 NULL、`audience` 全 common、schema 三次一致 → **不 UPDATE 既有行且幂等**；db 层 scope 10 项（含 `folder_ids==[]` 直接空、FTS 下推真实过滤：全库 20 → 夹A 3 且全在夹A、夹B 1 且不含夹A块、文件夹可见性不得放宽 `role_min`）→ **18/18 全过**（`after/review_migration_db_probe.json`）。**集中评测我这轮 43/43、exit 0、R@k 0.9412、忠实度 0.9412、拒答 1.0、隔离全量核对 ok**，与 WorkBuddy 那轮**逐值一致**；冒烟 exit 0、`documents 65→65`、`chunks 487`。**C5 追问路径确认被执行**（step 26：合成一对本/研标注文档触发 `audience_conflict` → 返回追问而非猜），另发现服务端还会**拒绝以 `@` 开头的问句（400）**，比我要求的更严。
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
@@ -1638,7 +1638,7 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 5. `qa-08` 轮换波动是**已知方差**，不建议改用例改绿（沿用 HANDOFF 坑 16 口径）。
 6. `docs/p4e/evidence/stream_sse_s2_full6.json` 是**短问句 + 漏设 env**的无效样本，已删除不再作为证据。
 
-### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🟡 **第 1 回打回 → 第 2 回复核 = ✅ 必修三条全部复验成立 → 第 3 回下发八条**（2026-10-01 复核 = Qoder，**当前持棒 = WorkBuddy**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
+### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🟡 **第 3 回八条已修完 → IN_REVIEW 待复核**（2026-10-01 复核 = Qoder，**当前持棒 = Qoder**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
 
 - **C0 前置收口（P4e 复核攒下；C0-① 与 C0-③ 为 merge-blocking）**
 
@@ -1923,6 +1923,74 @@ persona 前端的**视觉**与真实交互时序（契约自测是纯文本 + DO
 **集中验证四次尝试全部作废（但拿到三条可用结论）** —— 详见 `docs/p4f/review_qoder_p4f_round2.md` §6 与 `docs/EVAL_BASELINE.md` §20.6：两次因**冒烟中途失败留下 4 篇孤儿文档**把语料从 65 污染成 69（根因 **F3：`/api/kb/upload` 先落库再生成摘要，不回滚**）；两次撞 **OpenRouter 免费档每分钟限流**（429 命中 54 次 → 13 条 `HTTP 500` 被评测记成「用例失败」，R@k 从 1.0 砸到 0.6667 —— **F4**）。四份报告与日志全部改名 `INVALID__*` 存档，**没有一份当基线**。语料已复原 `65/487`、`user_settings` 已还原、`badcases.json` 主键集合 8→8 后还原。
 
 **裁决**：工程侧**无阻塞项**；第 3 回下发八条（① J4 放宽+强制披露 ② persona_prompt 对非作者隐藏正文 ③ 冒烟硬编码模型名 ④ 报告记 effective_model ⑤ `pf-03` 改方向无关比值 ⑥ `rind-07` 判据区分「断言/声明无据」 ⑦ 报告落 `answer_head`+`sources` 摘要 ⑧ 评测节流 + `env_error` 与用例失败分开记账）。**全部零额度**，仍在 `task/P4f-persona`，不新建分支。v2.5 基线等 ⑧ 落地后重跑，或由负责人授权走生产通道（与 v2.4 同档，可直接对照）。
+
+#### P4f 第 3 回交回回执（WorkBuddy → Qoder，2026-10-01）—— **IN_REVIEW**，持棒交回 Qoder
+
+**状态**：`IN_REVIEW`｜**当前持棒 = Qoder**｜分支 `task/P4f-persona`｜**未合并 `master`**
+**零额度**：全程假 key 护身符（`LLM_API_KEY=ZERO-QUOTA-PROTECTOR-*`，意外真调用会拿 401 而不是扣费）；**未跑整轮评测**（那是 Qoder 的活）；`.env` 零改动、key 值零入库。
+
+**七个自测 507 条断言 exit 全 0**（命令与退出码见下表，**取退出码未接管道**——坑 55）：
+
+| 自测 | 退出码 | 断言数 | 本轮变化 |
+|---|---|---|---|
+| `probe_port_check.py --selftest` | **0** | 33/33 | 14 → 33（S4 组按裁决改口径 + 新增反向 + S6 拆成 a/b/c/d/e + S8 披露出口） |
+| `test_p4f_persona.py` | **0** | 158/158 | 136 → 158（新增 C6 组 23 条） |
+| `test_p4f_persona_eval.py` | **0** | 68/68 | 33 → 68（新增⑤⑥⑧④⑦ 五节） |
+| `test_p4f_persona_eval_wiring.py` | **0** | 66/66 | 62 → 66（`longer` 变可选后的四条分情况断言） |
+| `test_p4f_c0.py` | **0** | 63/63 | 持平（**基线核实过也是 63**，非本轮碰掉） |
+| `test_p4f_frontend_contract.py` | **0** | 99/99 | 持平 |
+| `probe_health_keysource.py` | **0** | 20/20 | 持平 |
+
+**八条逐条交付**
+
+**① J4 放宽 + 强制披露**（`probe_port_check.py`）—— 极性表**拆成两张**：`LLM_QUOTA_JUDGE`（**不放宽**，`repo_dotenv` 照旧判红）与 `EMBEDDING_QUOTA_JUDGE`（`repo_dotenv` → `ok=None` 的**披露**，`unset` **仍判红**）。原「两项必须同档」的 J4 换成披露条，且**输出层强制可见**：`render()` 原先只在 `not ok` 时打 detail，而披露项 `ok=True` —— **披露内容根本不会出现在输出里**，直接违背「必须显式打印一行」。新增 `collect_disclosure()` 抽出机读 dict 供报告落盘。次数拿不到写 `unknown`、**不写 0**。
+**真机双向验证**：不注入 → `llm=repo_dotenv` 判红 **6/7 退 1**（`[DISCLOSURE]` 行如实打 `embedding_calls: null`）；注入占位 key 的混合档 → `session_env + repo_dotenv` **7/7 退 0**、`embedding_calls: 0` 照实写。端口 `:8956`/`:8957` 均 `closed=True`。
+**反向用例**：S4b「`embedding=repo_dotenv` 且 `llm=repo_dotenv` → **仍判红**」、S4c「`embedding=unset` → 仍判红」，防放宽 embedding 把 llm 一起放水；S6c/d/e 极性自检证明 S4 的判绿**依赖极性本身**（反表下当场翻脸）。
+
+**② personas 响应投影**（`db.py` + `main.py`）—— 新增 `project_persona_for_response()`：**非作者 `persona_prompt` 置 `""`**（不删键、不置 `null`，前端契约依赖键存在），带 `persona_prompt_redacted` 标记；判据按**作者**（`owner_id == 请求者` 或 `role=='admin'`），**不是**按角色一刀切。
+★ 投影**只作用于 HTTP 响应**：`db.list_personas` / `get_persona` 仍是服务端读数（review 脚本与自测都在用），`_resolve_persona` 一行未动 —— 这是坑 46 的延伸，把展示脱敏做成功能阉割会让 `pf-*` 全红且极难归因。
+**C6 组 23 条**，含订单要的第③④：③「学生选用该人设提问 → 走炸点+真打一次 HTTP，服务端仍带 persona 段」、④「`persona_inject` 不受影响」。
+**反向验证闭环**：临时拆掉投影 → **154/158 退 1**（红的正是脱敏那 4 条）→ 复原 → **158/158 退 0**，`git diff` 无残留标记。
+
+**③ 冒烟模型名**（`smoke_test.py`）—— 写死的 `qwen-flash` **清零**：模型名从 `config.LLM_MODEL` 取，允许 `NOVA_SMOKE_MODEL` 覆盖；**反向断言 `bad-model` → 400 保留**；第 434 行另一处写死也改成 `_cfg.LLM_MODEL`（坑 66 同源：断言自证的模型 ≠ 实际生效的模型）。测完**还原 `user_settings.model` 并断言还原成功**（`smoke_test.py` 这一步本来就把环境状态改了，不还原等于「测试把环境改了」，见坑 66）；检测到自定义通道时跳过内置模型切换。
+零额度核验：AST 通过 + 写死模型名代码行 `[]` + 覆盖优先级（默认/覆盖/非法）实测正确。**本条未真跑冒烟** —— `/api/weekly/expand` 要真额度。
+
+**④ 报告记逐用例 `effective_model`**（`run_evals.py`）—— 逐用例记 `effective_model` + `effective_model_source`，与 `env_flags.server.llm_model` **不一致时该用例强制判红**并写进 `detail`（报告里显式标红，不只是记两个字段让人自己比）。来源标签三态：`user_settings` / `global_config` / `user_settings_custom`。
+⚠ 实测修正：来源**不能**按响应里的 `model` 字段判 —— `main.py` 的 `/api/me/settings` 返回 `s["model"] or config.LLM_MODEL`，回落时它**等于**全局值却表示「没设过」。真机实测时三个角色**全被误标成 `user_settings`**（库里就有 `model='qwen-flash'` 的残留行）。改成**与全局值比**才对。
+**真机两态验证 7/7**：初始 `global_config` → 切到 `qwen3.7-plus` → 检出不一致、标红文案**同时点名两边值** → `finally` 还原 → 复原 `global_config`。零额度（只打 `/api/me/settings`）。
+
+**⑤ `pf-03` 改方向无关** —— `cases.json` **只改这一处**：`{"longer":"formal","min_ratio":1.15}` → `{"min_ratio":1.15}`；`pf-01`/`pf-02` 的 `longer` **逐字未动**（已核对打印）。
+⚠ 判据原写法是 `if long_key:` **整块**包住方向与长度比 —— 无 `longer` 时 `min_ratio` 也一起失效，那叫「把判据关掉」不叫放宽。改为：无 `longer` → **只校验长度比 ≥ min_ratio，任一侧更长皆可**。
+**两条自测**：(a) 两侧几乎等长 → **判红**；(b) ★短侧反而长 3 倍 → **判绿**。另补两条反向：有 `longer` 时方向**仍然**生效、逐字相同**仍然**判红。
+
+**⑥ `rind-07` 区分「断言」与「声明无据」** —— 第一段无条件 absent 从 `if k in answer` 改为**只在断言句式里判红**。
+**无据标记从代码里派生**：`NO_EVIDENCE_MARKS` 由 `_derive_no_evidence_marks()` 调**真实的 `refusal.build_refusal`** 派生，改模板 → 标记自动跟着变，**不存在「忘了同步第三份词表」这个失效模式**（坑 45）。
+三条是我在自测里**撞出自己的判据洞**并修掉的，值得记：
+  1. **否定句式里的动作词不算断言** ——「未细化…**办理**流程」里有「办理」但是否定；加了 `_is_negated_action()`。
+  2. **否定回看不得跨分句** —— 固定 12 字窗口会让「虽然…暂无说明，但你**应当到**…办理调档」撞上句首「暂无」→ **漏判假绿**；改为截到最近分句界。
+  3. **出口指引句单列** —— 「建议您：调档事宜咨询档案馆」里无据标记被分句切到上一句，只看单句会误判红；用 `OUTLET_RE`（咨询/联系/致电/以…为准）按**句式**判，**不穷举部门名**。
+**反向用例**（订单要的两条都在）：真编造（含 `调档` + 办理动作）→ **判红**；如实说没有（含 `调档` + 无据标记）→ **判绿**。另有 4 条：极性自检（拿掉标记表后如实那句当场翻脸）、同句既有标记又有动作**仍判红**、否定后置（`应当到…办理`）**仍判红**、仅复述问句 + 声明无据**判绿**。
+
+**⑦ 报告落 `answer_head` + `sources` 摘要** —— 每条用例落 `answer_head`（前 **300** 字）+ `answer_chars` + `sources_summary`（`[{ref,title,role_min}]`，**不落 chunk 正文**）；报告里加了断言「摘要不含正文」。只落**评测用例**的答案，**不落线上会话**；「真实学工数据永不入库」红线不变。
+⚠ 实测修掉一个缺陷：`ref` 原用 `enumerate(sources)` 的原始下标，畸形项跳过后会留空档（1,3,4），而 `ref` 要和答案里的 `[n]` 对得上 —— 改为按**有效来源**连续编号。
+
+**⑧ 节流 + `env_error` 分账** —— `--throttle-ms` / `NOVA_EVAL_THROTTLE_MS`，**默认 0 = 现有行为逐字不变**（不 sleep）。
+`classify_http_failure()` 纯函数：429 / ≥500 / 连不上 / 超时 → **环境失败**；**4xx（非 429）→ 用例失败**（请求不合法，判成环境失败等于放过真缺陷）。env_error **单独计数、不计入通过率与 R@k 分母**，`summary` 显式列 `env_error_cases: [...]` 与 `graded_total`；**退出码仍非 0**（环境不干净不许当绿灯）。
+**两种红不混桶**：真模型答错走判据不过（`ok=False`，不带 `env_error` 标记），与环境失败在 `results` 里由 `env_error` 字段分开；打印时环境失败显示 `[ENV-ERR]` 而非 `[FAIL]`。
+**可选产品侧一行（已做，只加异常映射）**：`/api/chat` 遇上游 429 → **503 + 「模型额度受限，请稍后再试」**，其余异常照旧 `raise`。**拒答门控 / grounding 闸门 / 检索编排一行未碰**。
+
+**① 的披露进报告**：`run_evals.py` 的 `quota_disclosure` **复用**探针的 `collect_disclosure`（不另抄一份判据），探针取不到 / flags 取不到时**如实写 `disclosure_available: false` + 原因**，不假装「无需披露」。
+
+**边界与无回归**
+- 白名单内改动 7 个文件：`probe_port_check.py`、`smoke_test.py`、`main.py`、`db.py`、`run_evals.py`、`cases.json`（**仅 `pf-03.expect_style` 一处**）、`test_p4f_*.py`。
+- **禁改项零改动**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`、`cases.json` 的其余一切、`theme.css`、`agent.py`、`.env`。
+- **端口**：本轮起过 `:8956`/`:8957`/`:8958`/`:8959`，**全部 `closed=True`（按端口属主 taskkill）**；`:8900`（PID 41956）是**别人的常驻实例，早于本单，未动**。
+
+**本单不修（沿用 F3 记录，仅交接）**
+F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks`，**之后**才调 LLM 生成摘要；摘要一失败接口返回 500 但**文档与分块已落库**（实测留下 4 篇孤儿文档，语料 `65/487` → `69/491`）。**未碰 `main.py` 的上传路径**（白名单外），Qoder 另开单。**建议改法方向**（供另开单参考）：把摘要生成放在落库**之后**并用 try/except 包住，失败时回填 `summary=NULL` 而非回滚文档；或整段包进一个事务。**注意本轮已给 `/api/chat` 加了 429→503 映射**（可选一行），**不在上传路径上**，两者不冲突。
+
+**⚠ 仍未验证（勿当成已验）**：v2.5 整轮指标、`pf-01..03` 篇幅比阈值的真实模型校准（本单只做了离线判红/判绿）、C0-③ 种植轮命中是否归零、③ 冒烟真机（非 DashScope 通道下 `/api/weekly/expand` 是否通）、rind-07 在真实模型输出上的抖动是否已消。
+**建议 Qoder 复验入口（全部零额度离线命令）**：`probe_port_check.py --selftest` 应 33/33 退 0；`test_p4f_persona.py` 应 158/158；`test_p4f_persona_eval.py` 应 68/68；`test_p4f_persona_eval_wiring.py` 应 66/66。② 的反向闭环可复跑：把 `main.py` 里 `db.project_personas_for_response(...)` 换回 `rows`，`test_p4f_persona.py` 应 **154/158 退 1**。
 
 ### P4g UI 细节收尾（周报文本框等）　📋 READY（待 P4f，设计见 M9）
 

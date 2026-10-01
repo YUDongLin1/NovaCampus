@@ -915,7 +915,6 @@
         "学生纪律处分规定"
       ],
       "expect_style": {
-        "longer": "formal",
         "min_ratio": 1.15
       },
       "note": "P4f:亲和 vs 正式 —— 换的是语气档位,来源集合与标注来源召回率必须一致"

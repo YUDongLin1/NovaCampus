@@ -935,6 +935,15 @@ async def chat(body: dict, user=Depends(current_user)):
                                  persona=persona)
     except LookupError as e:
         raise HTTPException(404, str(e))
+    except httpx.HTTPStatusError as e:
+        # P4f 第3 回⑧(可选一条):上游 429 限流 → **503 + 明确文案**,
+        #   而不是让 `raise_for_status()` 冒成 500 白屏。
+        #   归因要可读:复核方看到 500 时分不清「模型答错」与「额度受限/被限流」——
+        #   而它们的处置完全不同(后者加节流即可)。
+        #   ⚠ **只加异常映射**:不碰任何拒答门控/grounding 闸门/检索编排。
+        if e.response.status_code == 429:
+            raise HTTPException(503, "模型额度受限，请稍后再试（上游 429 限流）")
+        raise
     return d
 
 
@@ -998,7 +1007,20 @@ async def chat_stream(body: dict, user=Depends(current_user)):
 
 @app.get("/api/personas")
 async def personas_list(user=Depends(current_user)):
-    return {"personas": db.list_personas(user["id"], user["role"])}
+    """列出可见人设。
+
+    ⚠ P4f 第3回②:**对外投影** —— 非作者拿到的 `persona_prompt` 是空串。
+      public 人设的正文是辅导员的内部表述,学生能读到就能反推 system prompt 的
+      组装方式(提示词面泄露),而public 人设的**使用**根本不依赖这段正文
+      (它只在服务端组装时被读)。判据按**作者**:`owner_id == 请求者` 或
+      `role=='admin'` 给全文,其余置 `""`(不删键 —— 前端契约依赖键存在)。
+
+    ★ 投影**只作用于本响应**:`_resolve_persona` 走 `db.get_persona` 拿的是
+      内部完整读数,不受影响 —— 学生**选用**该人设提问时,服务端照样带上
+      persona 段(坑 46:别把展示脱敏做成功能阉割)。
+    """
+    rows = db.list_personas(user["id"], user["role"])
+    return {"personas": db.project_personas_for_response(rows, user["id"], user["role"])}
 
 
 @app.post("/api/personas")
@@ -1025,7 +1047,10 @@ async def personas_create(body: dict, user=Depends(require_role("counselor"))):
                             body.get("persona_prompt") or "", style, fids,
                             list(body.get("bound_categories") or []), visibility,
                             bool(body.get("is_default")))
-    return {"persona": db.get_persona(pid, user["id"], user["role"])}
+    # 出口统一过投影(与 GET /api/personas 同一个出口函数,坑 45:同一件事一处实现)。
+    # 自建人设按作者判据 → 全文照returned,行为与改前一致。
+    p = db.get_persona(pid, user["id"], user["role"])
+    return {"persona": db.project_persona_for_response(p, user["id"], user["role"])}
 
 
 @app.patch("/api/personas/{persona_id}")
@@ -1033,7 +1058,8 @@ async def personas_patch(persona_id: int, body: dict, user=Depends(require_role(
     p = db.update_persona(persona_id, user["id"], user["role"], body)
     if not p:
         raise HTTPException(404, _PERSONA_MISSING_TEXT)
-    return {"persona": p}
+    # 同 POST:出口统一过投影(admin 改别人的时候也不该顺手把正文带出去)
+    return {"persona": db.project_persona_for_response(p, user["id"], user["role"])}
 
 
 @app.delete("/api/personas/{persona_id}")

@@ -286,6 +286,256 @@ def section_inject():
 
 # ---------- ⑦ 导入无副作用 / 无网络 ----------
 
+# ---------- ⑤ 第3 回:方向无关的长度比(pf-03) ----------
+#
+# 【为什么改】负责人用两个模型三次独立测量,方向三次全反(见 run_evals 的注释):
+#   ① stealth/space-bunny-alpha formal 1599 / warm 2095 / 0.76 → 红
+#   ② qwen/qwen-plus             canonical 851 / 1280 / 0.67 → 红
+#   ③ 默认档                       821 / 1441 / 0.57          → 红
+#   主判据(来源集合一致)三次都过 → **用例前提错了**,不是判据错了:
+#   「亲和」人设要求「先共情学生处境再给要点」,本身比「书面语逐条列依据」更长。
+#   原 `longer: "formal"` 强行规定哪侧该更长,而这个方向**不由用例控制**。
+CASE_DIRLESS = {
+    "id": "pf-03-dirless",
+    "expect_keywords": [["学生纪律处分规定"]],
+    "expect_sources": [DOC_B],
+    "expect_style": {"min_ratio": 1.15},          # 无 longer → 方向无关
+}
+
+
+def section_directionless():
+    section("⑤ 方向无关长度比 —— 放宽的是**方向**,不是把判据关掉")
+
+    # (a) 两侧几乎等长 → 仍判红(证明放宽没有把 min_ratio 一起放掉)
+    same_len_a = "依据《学生纪律处分规定》[1]，违纪情节较轻者予以提醒教育。" + "甲" * 40
+    same_len_b = "依据《学生纪律处分规定》[1]，违纪情节较轻者予以提醒教育。" + "乙" * 40
+    ok, detail = R.judge_persona_pair(CASE_DIRLESS, [
+        {"key": "formal", "answer": same_len_a, "sources": src(DOC_B)},
+        {"key": "warm", "answer": same_len_b, "sources": src(DOC_B)},
+    ])
+    chk(ok is False and "风格差异不足" in detail,
+        "⑤a 两侧几乎等长(方向无关)→ 必须 FAIL(证明 min_ratio 仍在生效)", detail)
+    chk(len(same_len_a) / len(same_len_b) < 1.15,
+        f"⑤a 自证素材:两侧长度比 {len(same_len_a) / len(same_len_b):.3f} < 1.15")
+
+    # (b) ★反向:「concise 侧反而长 3 倍」→ 判绿。
+    #     这条是**方向真的不参与判定**的唯一证据 —— 若代码里还残留方向校验,
+    #     它会判红;它判绿才证明放宽到位(订单原话:「证明方向真的不再参与判定」)。
+    #     ⚠ 素材必须**同时满足另外两条判据**(来源一致 + 两侧命中 expect_keywords),
+    #       否则 PASS/FAIL 会来自 B 判据而非方向判据 —— 结论不成立。
+    #       末尾那句「长文补充」纯粹是为把长度拉到 3 倍,判据不关心它写了什么。
+    _HEAD = "《学生纪律处分规定》[1] 载明："
+    long_warm = (_HEAD + ANSWER_DETAILED) * 3       # 长侧,含关键词
+    short_formal = _HEAD + ANSWER_CONCISE          # 短侧,含关键词 → 长 3 倍+
+    chk(len(long_warm) / len(short_formal) > 3.0,
+        f"⑤b 自证素材:长侧/短侧 = {len(long_warm) / len(short_formal):.1f} 倍(> 3)")
+    chk(DOC_B in long_warm and DOC_B in short_formal,
+        "⑤b 自证素材:两侧均命中 expect_keywords(否则红的是 B 判据不是方向)")
+    ok, detail = R.judge_persona_pair(CASE_DIRLESS, [
+        {"key": "formal", "answer": short_formal, "sources": src(DOC_B)},
+        {"key": "warm", "answer": long_warm, "sources": src(DOC_B)},
+    ])
+    chk(ok is True,
+        "⑤b ★ 短侧反而长 3 倍 → 必须 PASS"
+        "(方向无关;若仍判红说明方向还在参与判定)", detail)
+
+    # 反向:方向**仍然存在**的用例(pf-01/pf-02 口径)必须照旧校验方向 ——
+    #   放宽只针对「无 longer」的情形,不能把有 longer 的也一起放过。
+    case_dir = {**CASE_DIRLESS, "expect_style": {"longer": "detailed", "min_ratio": 1.2}}
+    ok, detail = R.judge_persona_pair(case_dir, [
+        {"key": "detailed", "answer": ANSWER_CONCISE, "sources": src(DOC_B)},
+        {"key": "concise", "answer": ANSWER_DETAILED, "sources": src(DOC_B)},
+    ])
+    chk(ok is False and "风格差异不足" in detail,
+        "⑤ 反向:有 longer 时方向**仍然**生效(短侧被声明为长侧 → 判红)", detail)
+
+    # 顺带:逐字相同在任何口径下都判红(风格判据彻底没生效)
+    ok, detail = R.judge_persona_pair(CASE_DIRLESS, [
+        {"key": "formal", "answer": ANSWER_DETAILED, "sources": src(DOC_B)},
+        {"key": "warm", "answer": ANSWER_DETAILED, "sources": src(DOC_B)},
+    ])
+    chk(ok is False,
+        "⑤ 反向:两侧答案逐字相同 → 必须 FAIL(与方向无关口径无关)", detail)
+
+
+# ---------- ⑥ 第3 回:absent 判据区分「断言」与「声明无据」 ----------
+#
+# 现场:rind-07 整轮里一次红一次绿(canonical 红 / 默认绿)。红的那次模型答的是
+#   「知识库中暂无关于…的具体内容」「未细化离校手续清单」「建议您:宿舍钥匙咨询楼管员…」
+# —— 这**正是最想要的正确行为**,却因为复述了用户问句里的 饭卡/调档/档案转递/图书馆
+# 而被判「夹带无据断言」。宽词出现在诚实拒答里是**必然**的(坑 54 第三形态)。
+# ⚠ 素材必须严格按 Qoder 从 DB 捞出的那次**如实拒答**原文来写:每一句都要
+#   带**无据标记**且**不带办理动作**。「请联系相应中心」这种是**断言句式**
+#   (它在给指示),第一版我这么写结果判红 —— 那是对的,判红说明了区别所在,
+#   不是判据坏了。区别只在**这一句**上,所以两个素材只差这一处,最能说明问题。
+FABRICATED = (
+    "退学手续需办理以下步骤：首先须到档案馆办理调档，"
+    "其次提交档案转递材料，最后由学院审核。饭卡与图书馆门禁须一并注销。"
+)
+HONEST_NO_EVIDENCE = (
+    "知识库中暂无关于退学调档的具体内容，未细化调档与档案转递的办理流程。"
+    "建议您：调档事宜咨询档案馆；饭卡事宜咨询校园卡中心；图书馆门禁咨询图书馆办公室。"
+)
+
+
+def section_absent_polarity():
+    section("⑥ absent 判据 —— 只有出现在**断言句式**里才判红")
+
+    case_absent = {
+        "id": "rind-07-selftest",
+        "expect_absent_keywords": ["调档", "饭卡", "档案转递", "图书馆"],
+    }
+
+    # (1) ★反向:真编造(含 调档 + 办理动作)→ 必须判红
+    bad = R._check_absent_keywords(case_absent, FABRICATED)
+    chk(len(bad) > 0,
+        "⑥① 真编造流程(须到档案馆办理调档)→ 必须判红", f"bad={bad}")
+    chk(any("调档" in b for b in bad),
+        "⑥① 红项点名「调档」(红在正确这个词上,不是别的判据误报)", f"bad={bad}")
+
+    # (2) ★反向:如实说没有(含 调档 + 无据标记)→ 必须判绿
+    ok_words = R._check_absent_keywords(case_absent, HONEST_NO_EVIDENCE)
+    chk(ok_words == [],
+        "⑥② 如实说没有(库内暂无调档规定,建议咨询)→ 必须判绿", f"bad={ok_words}")
+
+    # (3) 判据集的**极性自检**:把「声明无据」标记表清空 → 如实那句必须翻脸变红。
+    #     没有这一条,⑥② 的 PASS 可能只是因为断言写得太宽松(坑 52/70 同源)。
+    saved = R.NO_EVIDENCE_MARKS
+    try:
+        R.NO_EVIDENCE_MARKS = ()
+        flipped = R._check_absent_keywords(case_absent, HONEST_NO_EVIDENCE)
+        chk(len(flipped) > 0,
+            "⑥③ 极性自检:拿掉无据标记后,如实那句也判红"
+            " → 证明 ⑥② 的绿确实靠「识别声明无据」而非断言宽松", f"bad={flipped}")
+    finally:
+        R.NO_EVIDENCE_MARKS = saved
+
+    # (4) 无据标记必须**从代码里派生**,不是判据里抄的一份(坑 45)
+    try:
+        from novaagent import refusal as _rf
+        sys.path.insert(0, str(ROOT / "novaagent"))
+        tpl = _rf.build_refusal("退学调档怎么办", "empty_sources")
+        chk(any(m in tpl for m in R.NO_EVIDENCE_MARKS),
+            "⑥④ 无据标记与 refusal.build_refusal 的真实模板同源"
+            "(改模板 → 标记自动跟着变,不存在忘了同步的失效模式)")
+        chk(R._derive_no_evidence_marks() == R.NO_EVIDENCE_MARKS,
+            "⑥④ 派生函数是确定性的(同输入两次同结果,可离线复算)")
+    except Exception as e:  # noqa: BLE001
+        chk(False, "⑥④ 无据标记同源校验失败", f"{type(e).__name__}: {e}")
+
+    # (5) 反向:无据标记 + 动作词**同句**时仍判红 —— 承认没依据却把流程说得很具体,
+#     那还是编造。不能因为句里有「暂无」就放过。
+    mixed = "知识库中暂无相关说明，但按惯例你须到档案馆办理调档并提交档案转递材料。"
+    bad2 = R._check_absent_keywords(case_absent, mixed)
+    chk(len(bad2) > 0,
+        "⑥⑤ 反向:同一句里既有无据标记又有办理动作 → 仍判红(不能被标记护住)",
+        f"bad={bad2}")
+
+    # (5b) ★否定句式里的动作词**不算断言** —— 第一版的洞,实测素材:
+    #     「知识库中暂无关于退学调档的具体内容,未细化调档与档案转递的**办理**流程。」
+    #     这里「办理」在句中,但被「未细化」否定修饰 → 是在声明没有依据,不是编流程。
+    negated = ("知识库中暂无关于退学调档的具体内容，未细化调档与档案转递的办理流程。"
+               "建议咨询档案馆。")
+    chk(R._check_absent_keywords(case_absent, negated) == [],
+        "⑥⑤b 否定句式里的动作词不算断言(「未细化…的办理流程」→ 判绿)",
+        f"bad={R._check_absent_keywords(case_absent, negated)}")
+    # 反向:否定只在动作词**之前**才算 —— 「去办理」这种真断言不能被误判成否定
+    after_neg = "虽然知识库中暂无说明，但你应当到档案馆办理调档。"
+    chk(len(R._check_absent_keywords(case_absent, after_neg)) > 0,
+        "⑥⑤c 反向:否定在动作词之前才生效;「应当到…办理」仍判红")
+
+    # (6) 反向:问句里的词被复述但**不在断言句**里(纯复述+无据声明)→ 判绿
+    restate = "关于调档：知识库中未检索到相关内容，无法给出有依据的答复。"
+    chk(R._check_absent_keywords(case_absent, restate) == [],
+        "⑥⑥ 反向:仅复述问句 + 明确声明无据 → 判绿(这正是 rind-07 想要的)", "")
+
+
+def section_env_error_split():
+    section("⑧ 环境失败与用例失败**分账**(两种红不许混成一个桶)")
+
+    # (1) 假 429 → 必须判 env_error
+    is_env, why = R.classify_http_failure(429)
+    chk(is_env and "429" in why, "⑧① 上游 429 → env_error(不是模型答错)", why)
+    # (2) 5xx(限流冒泡)→ 必须判 env_error
+    is_env, why = R.classify_http_failure(500)
+    chk(is_env and "500" in why, "⑧② 上游/服务端 500 → env_error", why)
+    # (3) 连不上/超时 → 必须判 env_error
+    is_env, why = R.classify_http_failure(None, TimeoutError("timed out"))
+    chk(is_env, "⑧③ 连不上/超时(无 status)→ env_error", why)
+    # (4) ★反向:4xx(非 429)是**请求不合法** → 属用例侧,绝不能判 env_error,
+    #     否则真缺陷会被「环境不干净」吃掉
+    is_env, why = R.classify_http_failure(400)
+    chk(not is_env, "⑧④ 反向:HTTP 400 → 用例失败,不得判 env_error(否则真缺陷被放过)", why)
+    # (5) ★反向:「真模型答错」走的是判据不过,压根不经 classify_http_failure ——
+    #     这里验证判据不通过时 ok=False 且**不带** env_error 标记
+    case_bad = {"id": "x", "type": "qa", "question": "q",
+                "expect_keywords": [["不可能出现的词组xyz"]]}
+    ok, _ = R.judge_qa(case_bad, "回答正文[1]", src(DOC_A))
+    chk(ok is False,
+        "⑧⑤ 反向:模型答错(判据不过)→ 普通红,不是 env_error(两种红不混桶)")
+    chk(not _r_has_env_marker(R, ok),
+        "⑧⑤ 判据不过的结论里不含 env_error 标记")
+
+    # (6) 节流默认 0 = 现有行为完全不变
+    chk(R.THROTTLE_MS == 0, "⑧⑥ 默认节流 0ms(现有行为逐字不变)")
+    import os as _os
+    _os.environ.pop("NOVA_EVAL_THROTTLE_MS", None)
+    chk(int(_os.environ.get("NOVA_EVAL_THROTTLE_MS", "0") or 0) == 0,
+        "⑧⑥ 环境变量未设时节流为 0")
+
+
+def _r_has_env_marker(R, ok) -> bool:
+    """判据不过 ≠ 环境失败:确认返回值不带 env_error 语义。"""
+    return str(ok) == "env_error"
+
+
+def section_report_selfproof():
+    section("④⑦ 报告自证 —— effective_model / answer_head / sources 摘要")
+
+    # ④ 模型来源判定(纯逻辑:不联网)
+    chk(R.ANSWER_HEAD_CHARS == 300,
+        f"④⑦ answer_head 截断长度 = {R.ANSWER_HEAD_CHARS}(订单要求前 300 字)")
+
+    # ⑦ 来源摘要**不含 chunk 正文**
+    s = R._sources_summary([{"title": "规定A", "content": "机密正文XYZ",
+                             "role_min": "student", "ref": 1}])
+    chk(s and set(s[0]) == {"ref", "title", "role_min"},
+        f"④⑦ sources 摘要字段恰为 {{ref,title,role_min}}", f"got={s}")
+    chk("机密正文XYZ" not in str(s),
+        "④⑦ ★ 来源摘要不含 chunk 正文(避免把库内内容复制进要提交的 JSON)")
+    chk(s[0]["ref"] == 1 and s[0]["title"] == "规定A" and s[0]["role_min"] == "student",
+        f"④⑦ 来源摘要内容正确", f"got={s}")
+
+    # ⑦ 畸形来源不能打崩(非 dict 元素跳过),缺字段填 None 而不是崩
+    got_mal = R._sources_summary([None, "不是dict", {"title": "T"}])
+    chk(got_mal == [{"ref": 1, "title": "T", "role_min": None}],
+        "④⑦ 畸形来源被跳过而非抛异常(非 dict 跳过,缺字段填 None)", f"got={got_mal}")
+    chk(R._sources_summary([]) == [] and R._sources_summary(None) == [],
+        "④⑦ 空/None 来源列表返回空列表(不留 null,便于下游直接遍历)")
+
+    # ④ 不一致必须标红:构造「全局 A / 用户 B」两态
+    rec = {"effective_model": "B-model", "effective_model_source": "user_settings",
+           "pass": True, "detail": "原判据绿"}
+    server_model = "A-model"
+    mismatch = (server_model and rec["effective_model"] != server_model
+                and rec["effective_model_source"] != "global_config")
+    chk(bool(mismatch), "④ 全局 A / 用户 B 两态 → 必须检出不一致")
+    if mismatch:
+        msg = (f"⚠ 本用例实际用 {rec['effective_model']!r}"
+               f"(来源 {rec['effective_model_source']}),"
+               f"而 env_flags.server.llm_model={server_model!r}")
+        rec["pass"] = False
+        rec["detail"] += "; " + msg
+        chk(rec["pass"] is False, "④ 不一致 → 该用例强制判红(报告不得显示绿)")
+        chk("A-model" in msg and "B-model" in msg,
+            "④ ★ 标红文案同时点名两边的模型值(能一眼看出差异)")
+    # 反向:来源是 global_config 且值相同 → 不得标红
+    same = {"effective_model": "A-model", "effective_model_source": "global_config"}
+    chk(not (same["effective_model"] != server_model
+             or same["effective_model_source"] != "global_config"),
+        "④ 反向:来源 global_config 且值相同 → 不标红(不制造假红)")
+
+
 def section_no_side_effect():
     section("⑦ 零额度与无副作用")
 
@@ -304,7 +554,9 @@ def section_no_side_effect():
 
 
 def main() -> int:
-    for fn in (section_pair, section_inject, section_no_side_effect):
+    for fn in (section_pair, section_inject, section_directionless,
+               section_absent_polarity, section_env_error_split,
+               section_report_selfproof, section_no_side_effect):
         try:
             fn()
         except Exception:  # noqa: BLE001

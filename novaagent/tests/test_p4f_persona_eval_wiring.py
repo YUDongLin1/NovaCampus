@@ -173,8 +173,24 @@ def section_cases():
         chk(len(personas) == 2, f"{c['id']}: 两个 persona spec")
         chk(len(keys) == 2,
             f"{c['id']}: 两个 key 互异(judge 按 key 建 dict,重复会静默覆盖一侧)")
-        chk(c["expect_style"]["longer"] in keys,
-            f"{c['id']}: expect_style.longer 指向真实存在的侧(否则风格判据直接判红)")
+        # ⚠ 第3 回⑤:`longer` **变成可选** —— 无该键时判据走**方向无关**的
+        #   长度比(任一侧更长皆可)。故这里分两种情况断言,不能无条件 `["longer"]`
+        #   (那会在合法的方向无关用例上 KeyError,自测直接崩,而不是给出结论)。
+        _st = c.get("expect_style") or {}
+        if "longer" in _st:
+            chk(_st["longer"] in keys,
+                f"{c['id']}: expect_style.longer 指向真实存在的侧(否则风格判据直接判红)")
+            chk(float(_st.get("min_ratio") or 0) >= 1.0,
+                f"{c['id']}: min_ratio ≥ 1.0(小于 1 等于没有长度要求)")
+        else:
+            chk(float(_st.get("min_ratio") or 0) > 1.0,
+                f"{c['id']}: 无 longer 的方向无关用例**仍必须声明 min_ratio > 1**"
+                f"(否则风格判据完全失效,pf-03 就成了'不校验')")
+            chk(c["id"] == "pf-03",
+                f"{c['id']}: 只有 pf-03 是方向无关用例(负责人三次实测定案,"
+                f"其余用例应保留 longer)")
+            chk(_st.get("min_ratio") == 1.15,
+                f"{c['id']}: pf-03 的 min_ratio 仍是 1.15(放宽方向不改阈值)")
         chk(bool(c.get("expect_sources")),
             f"{c['id']}: 声明了 expect_sources(主判据要有标注来源)")
         chk(bool(c.get("expect_keywords")),

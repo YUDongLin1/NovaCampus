@@ -11,6 +11,7 @@ P4a 增补:导入质量门纯函数单测(口令三样式/登录页/敏感/名�
 import argparse
 import http.server
 import io
+import os
 import sys
 import threading
 from pathlib import Path
@@ -311,15 +312,55 @@ def main() -> int:
         print("[12] 知识库分类 OK(上传+筛选)")
 
         # 个人设置:模型列表 + 切换 + 对话使用设置模型(仅验证接口层)
+        #
+        # P4f 第3 回③:模型名**不得写死**。原实现硬编码 `qwen-flash`,而下一步的
+        # `/api/weekly/expand` 会真的用这个模型名去生成 —— 于是「换通道」与「冒烟」
+        # 互斥:走 OpenRouter 等非 DashScope 通道时上游 400,冒烟 exit 1
+        # (Qoder 实测两次:清掉 user_settings 后崩在 /api/weekly/expand)。
+        # 现在从**配置**取,并允许 NOVA_SMOKE_MODEL 覆盖;反向断言(bad-model → 400)保留。
+        from novaagent import config as _cfg
+        _cands = [m["id"] for m in _cfg.MODEL_CANDIDATES]
+        assert _cands, "C13 前置:MODEL_CANDIDATES 非空(否则下一步无从选模型)"
+        # 覆盖优先级:环境变量 > 配置首个候选(= 默认档)
+        smoke_model = os.environ.get("NOVA_SMOKE_MODEL") or _cfg.LLM_MODEL or _cands[0]
+        # 通道自定义(custom)时全局候选**不一定可用**,故 model 走 custom 分支设置,
+        # 不去碰 candidates 校验 —— 见下方 custom 判定。
+        _settings0 = c.get(f"{BASE}/api/me/settings", headers=auth(counselor["token"]))
+        _settings0.raise_for_status()
+        _sj = _settings0.json()
+        _using_custom = bool((_sj.get("custom") or {}).get("enabled"))
+        if not _using_custom:
+            assert smoke_model in _cands, (
+                f"NOVA_SMOKE_MODEL={smoke_model!r} 不在候选 {_cands} 内 —— "
+                f"换模型请改它或清掉 NOVA_SMOKE_MODEL")
+            r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]),
+                      json={"model": smoke_model})
+            r.raise_for_status()
+        else:
+            print(f"[13] 检测到自定义通道,跳过内置模型切换(custom.model="
+                  f"{(_sj.get('custom') or {}).get('model')!r})")
         r = c.get(f"{BASE}/api/me/settings", headers=auth(counselor["token"]))
         r.raise_for_status()
         models = [m["id"] for m in r.json()["candidates"]]
-        assert "qwen-flash" in models
-        r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]), json={"model": "qwen-flash"})
-        r.raise_for_status()
-        r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]), json={"model": "bad-model"})
-        assert r.status_code == 400, "非法模型应 400"
-        print("[13] 模型设置 OK(合法切换/非法拒绝)")
+        assert models, "C13 前置:candidates 列表非空(防空集假通过)"
+        # 反向断言必须保留:传一个不存在的模型名要被拒(非法模型不得静默落库)
+        r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]),
+                  json={"model": "bad-model"})
+        assert r.status_code == 400, f"非法模型应 400,得到 {r.status_code}"
+        # 坑 66:这一步会把 user_settings.model 写下去,**必须还原** ——
+        #   留着就等于「测试把环境状态改了」,下一次跑评测会带着上一次的模型,
+        #   报告里 env_flags.server.llm_model 与实际请求模型不一致(坑 66)。
+        if not _using_custom:
+            _orig = _sj.get("model")
+            _restore = {"model": _orig} if _orig else {"model": ""}
+            r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]),
+                      json=_restore)
+            r.raise_for_status()
+            _now = c.get(f"{BASE}/api/me/settings", headers=auth(counselor["token"])).json()
+            assert _now.get("model") == _orig, (
+                f"user_settings.model 未还原:期望 {_orig!r},实得 {_now.get('model')!r}")
+            print(f"[13] 模型设置 OK(合法切换/非法拒绝;已还原 model={_orig!r},"
+                  f"本轮切换用 {smoke_model!r})")
 
         # AI 扩充:LLM 生成草稿(容忍波动,只验非空与接口链路)
         r = c.post(f"{BASE}/api/weekly/expand", headers=auth(counselor["token"]),
@@ -390,7 +431,12 @@ def main() -> int:
         r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]),
                   json={"custom": {"model": "", "base_url": "", "api_key": ""}})
         r.raise_for_status()
-        assert r.json()["effective_model"] == "qwen-flash"
+        # 关闭自定义后必须回落到**全局配置档**,不能写死 qwen-flash ——
+        # 换通道(config.LLM_MODEL 被环境变量改成别的)时这行会假红(坑 66 同源:
+        # 报告/断言自证的模型 ≠ 实际生效的模型)。
+        assert r.json()["effective_model"] == _cfg.LLM_MODEL, (
+            f"关闭自定义后 effective_model 应回落全局配置 {_cfg.LLM_MODEL!r},"
+            f"实得 {r.json()['effective_model']!r}")
         r = c.put(f"{BASE}/api/me/settings", headers=auth(counselor["token"]),
                   json={"custom": {"model": "m", "base_url": "https://x/v1", "api_key": ""}})
         assert r.status_code == 400, "缺 Key 的自定义配置应 400"

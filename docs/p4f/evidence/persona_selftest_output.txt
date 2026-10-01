@@ -135,5 +135,27 @@
 [PASS] C5 C 反向对照:流式端点确实会调用 chat_stream_for(证明 C 组不是靠'端点没调它'假绿)
 [PASS] C5 C 反向对照:替身的事件确实透传给了客户端(A/B 组测的是同一条路径)
 [PASS] C5 D:复位函数把 chat_stream_for 还原了(装一次不能污染全进程)
+[PASS] C6 前置:建 public 人设成功
+[PASS] C6 前置:拿到 persona id(防空集假通过)
+[PASS] C6 学生列人设 200
+[PASS] C6 前置:学生在列表里看得见这个 public 人设
+[PASS] C6① 学生仍拿到展示字段 name/style(选择器要显示它们)
+[PASS] C6① persona_prompt **键存在**(前端契约依赖)
+[PASS] C6① 学生拿到的 persona_prompt 是空串(不是 null、不是全文)
+[PASS] C6① ★ 整个响应体里搜不到辅导员内部表述(防止换个字段又漏出去)
+[PASS] C6① 带 persona_prompt_redacted 标记(能区分「脱敏」与「本来就没写」)
+[PASS] C6② 作者列表里能看到自己建的人设
+[PASS] C6② 作者本人拿到的 persona_prompt 是全文(投影不能连作者一起脱)
+[PASS] C6③ 前置:学生建会话并绑定该人设
+[PASS] C6③ 前置:拿到 conversation_id
+[PASS] C6③★ 学生选用该人设提问时走到了 LLM 调用点(未被短路)
+[PASS] C6③★ 服务端读数(db.get_persona)不受投影影响 —— persona 段仍能组装
+[PASS] C6③ 服务端读数里**没有**脱敏标记(投影只发生在 HTTP 出口)
+[PASS] C6③★ 组装出的 system prompt 里确实含该 persona 段(功能没被阉割)
+[PASS] C6④ 前置:建注入人设
+[PASS] C6④ 注入人设对学生同样脱敏(否则这是条现成的提示词泄露通道)
+[PASS] C6④ 注入文本仍进服务端 prompt 且被标注为不可信(行为不变)
+[PASS] C6⑤ admin 列人设拿到全文(判据含 role=='admin')
+[PASS] C6⑥ 前置:学生不能建人设(require_role 拦截)
 ==============================================================================
-[RESULT] 136/136 passed
+[RESULT] 158/158 passed

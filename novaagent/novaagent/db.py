@@ -905,7 +905,11 @@ def _persona_visible_where(role: str, user_id: int) -> tuple[str, list]:
 
 
 def list_personas(user_id: int, role: str) -> list[dict]:
-    """按角色可见性列出 persona(**不含已软删除的**)。纯查询,不提权。"""
+    """按角色可见性列出 persona(**不含已软删除的**)。纯查询,不提权。
+
+    ⚠ 返回的是**内部完整读数**,`persona_prompt` 全文明文在列。给 HTTP 响应
+       用之前必须过 `project_persona_for_response` —— 见该函数的坑 46 说明。
+    """
     connect()   # 确保 _conn 就绪
     w, args = _persona_visible_where(role, user_id)
     rows = _conn.execute(
@@ -913,6 +917,47 @@ def list_personas(user_id: int, role: str) -> list[dict]:
         "ORDER BY is_default DESC, id ASC", args
     ).fetchall()
     return [_persona_row_to_dict(r) for r in rows]
+
+
+# ---------- P4f 第3回②:对外投影(作者看全文,非作者看展示字段) ----------
+#
+#【为什么要投影 —— 负责人2026-10-01 裁决】
+#   `visibility='public'` 的人设此前会把 `persona_prompt` **全文**回传给每一个
+#   学生。学生据此能读到辅导员的内部表述,并从「怎么写的」反推 `build_system_prompt`
+#   的组装方式 —— 这是提示词面的信息泄露,且public 人设的使用体验完全不依赖这段正文
+#   (它只在**服务端**组装 system prompt 时被读)。
+#
+# 【投影只作用于响应,不作用于服务端解析 —— 坑 46 的延伸】
+#   ★ 关键红线:`_resolve_persona` → `db.get_persona` 必须继续拿**内部完整读数**。
+#     绝不能改成读列表接口回传的那份,否则:
+#       学生的 persona 段会变成空 → 人设静默失效,评测 pf-*全红且极难归因;
+#       且等于把「展示脱敏」变成了「功能阉割」。
+#     所以这里是**纯函数 + 只在 HTTP 出口调用**,不碰 get_persona / list_personas
+#     本身(它们是服务端读数,review 脚本与自测都在用)。
+#
+# 【判据按「作者」而不是「角色」】
+#   owner_id == 请求者  或  role == 'admin'  → 全文;其他人 → 展示字段。
+#   注意**不**按 counselor 角色一刀切:学生也可能建自己的 private 人设,
+#   对自己的东西当然要给全文。
+def project_persona_for_response(p: dict, viewer_id: int, viewer_role: str) -> dict:
+    """把一条 persona 投影成「给 viewer 看的那一份」。纯函数,不改入参。
+
+    - 非作者:`persona_prompt` 置为`""`(**不删键、不置 None** ——
+      前端 `esc(p ? p.persona_prompt : '')` 与契约测试都依赖键存在)。
+    - 展示字段(name/college/style/visibility/bound_*) 原样保留,选择器要显示它们。
+    """
+    if int(p.get("owner_id") or 0) == int(viewer_id) or viewer_role == "admin":
+        return dict(p)
+    out = dict(p)
+    out["persona_prompt"] = ""
+    # 供前端/复核方判别:这一份是投影后的(不是「本来就没写提示词」)
+    out["persona_prompt_redacted"] = True
+    return out
+
+
+def project_personas_for_response(rows: list[dict], viewer_id: int,
+                                   viewer_role: str) -> list[dict]:
+    return [project_persona_for_response(p, viewer_id, viewer_role) for p in rows]
 
 
 def get_persona(persona_id: int, user_id: int, role: str) -> dict | None:

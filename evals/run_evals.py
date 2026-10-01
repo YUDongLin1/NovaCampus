@@ -69,6 +69,121 @@ SEED_ROLES = {
 }
 REFUSAL_MARKS = ("暂无", "没有找到", "未检索", "知识库中未", "无法回答", "不在知识库", "没有相关")
 
+
+# ---------- P4f 第3 回⑥:无据声明标记(**从代码里派生,不是抄一份**) ----------
+#
+# 【为什么要有】
+#   `expect_absent_keywords` 只看「词出没出现」,分不清
+#     「须到档案馆办理调档」                ← 编造,判红
+#     「库内暂无调档规定,建议咨询档案馆」    ← 如实说没有,**判绿**
+#   rind-07 在同一轮里一次红一次绿(canonical 红 / 默认绿)就是这么来的 —— 抖动本身是缺陷。
+#   宽词(饭卡/调档/档案转递/图书馆)出现在诚实拒答里是**必然**的:用户问句里有,
+#   模型复述一遍就命中了(坑 54 第三形态)。
+#
+# 【为什么必须从 refusal 派生,不许抄第三份】
+#   无据措辞的**权威定义在 `novaagent/novaagent/refusal.py` 的拒答模板里**
+#   (`build_refusal`)。若在判据里再抄一份词表:改了模板不改编据 → 判据与实现漂移;
+#   而漂移出来的判据会**静默失效**(坑 45 的第三形态:两份权威实现互相冒充)。
+#   故这里**调用真实的 build_refusal 生成模板,再从模板里取标记** ——
+#   改模板 → 标记自动跟着变,不存在"忘了同步"这个失效模式。
+def _derive_no_evidence_marks() -> tuple[str, ...]:
+    """从 `refusal.build_refusal` 的**真实输出**派生无据声明标记。
+
+    取模板里的**固定措辞片段**(不随 reason/contacts 变的那几段),按标点切成短语。
+    这样得到的是「系统自己承认没有依据时会说的词」,而不是我们凭印象列的词。
+    """
+    try:
+        from novaagent import refusal as _rf
+    except Exception:  # noqa: BLE001 —— 导入失败不静默:退回抛出让调用方看见
+        raise
+    marks: set[str] = set()
+    # reason 取全部已知分支:不同 reason 的 reason_zh 不同,派生要覆盖它们都产出的措辞
+    for reason in ("empty_sources", "low_top_score", "insufficient_evidence", ""):
+        try:
+            txt = _rf.build_refusal("退学手续怎么办", reason)
+        except Exception:  # noqa: BLE001
+            continue
+        for sent in re.split(r"[。；;\n（）()]", txt):
+            t = sent.strip().lstrip("：:—-·• ")
+            # 只取**短语级**片段(>=3 字):整句当标记会把「建议咨询出口（来自学校官网…）」
+            # 这种非声明性句子也拖进来,判据就退化成"必须复现整句"。
+            for frag in re.split(r"[，,、：:]", t):
+                frag = frag.strip()
+                if len(frag) >= 3:
+                    marks.add(frag)
+    # 已知会出现在模板里的声明性标记保底(这些是 build_refusal 的**字面量**,
+    # 上面从模板派生时若因改文案没覆盖到,这里兜住;它们是「代码里的原话」,
+    # 不是我们另拟的词表 —— 断言里会验证它们确实还在模板里)。
+    for lit in ("暂无", "未检索到", "未采用模型自由发挥", "为避免误导",
+                "无法就该问题给出有依据", "缺口说明", "建议咨询出口"):
+        marks.add(lit)
+    return tuple(sorted(marks))
+
+
+NO_EVIDENCE_MARKS: tuple[str, ...] = _derive_no_evidence_marks()
+
+# 断言句式(**编造**的形态):absent 词与这些动作词同句共现 → 这是「在替用户认定流程」。
+# 语义极性:**同句 = 判红**。取自 Qoder 实测到的真编造样本
+#   「须到档案馆办理调档」(调档 + 办理) 与如实样本
+#   「库内暂无调档规定,建议咨询档案馆」(调档 + 无据标记)的对立面。
+ASSERTION_ACTION_MARKS: tuple[str, ...] = (
+    "须到", "须由", "需到", "需由", "应当到", "应到", "办理", "须带", "需带",
+    "携带", "提交", "前往", "流程为", "步骤为", "第一步", "第二步",
+)
+
+# ⚠ 但「同句有动作词」还不够 —— **否定句式里的动作词不算断言**。
+#   实测自测素材:「知识库中暂无关于退学调档的具体内容，未细化调档与档案转递的**办理**流程。」
+#   这句里有「办理」,但它说的是「**没有**细化…办理流程」—— 是在声明没有依据,
+#   不是在编流程。第一版只判「有标记且无动作」→ 这句被误判红,判据有洞。
+#
+# ⚠⚠ **回看不得跨越分句**。第二版按固定 12 字窗口回看,结果:
+#   「虽然知识库中暂无说明，但你应当到档案馆办理调档。」
+#   「应当到」回看 12 字撞上了句首的「暂无」→ 被误判成「被否定」→ 漏判(假绿)。
+#   否定一定紧贴动词(中文「不/未 + 动词」语序),所以窗口应当**止于最近的标点**:
+#   跨了分句的否定修饰的是另一件事,与本动词无关。
+_NEGATION_MARKS: tuple[str, ...] = (
+    "暂无", "未细化", "未检索到", "未找到", "没有相关", "无", "未", "不",
+    "非", "尚未", "并未", "不曾", "无法", "未能",
+)
+# 分句界(否定回看不得越过这些)
+_CLAUSE_SPLIT = re.compile(r"[，,。；;！!？?\n]")
+_NEGATION_LOOKBACK = 12
+
+# 出口指引(第3 回⑥):**把用户推去问人**,不是在陈述库内事实。
+#   它本身「不陈述」→ 视为无据声明的一种形态,须单列。
+#   为什么必须单列:实测形态「建议您：调档事宜咨询档案馆」这一句里 absent 词(调档)在,
+#   但无据标记**不在**(「暂无」被分句切到了上一句),动作词也不在 ——
+#   只看单句会判成「无标记无动作 → 判红」,而它显然不是编造。
+#   素材来自 Qoder 从 DB 捞出的 rind-07 现场答案:
+#   「知识库中暂无关于…的具体内容」「未细化离校手续清单」「建议您:宿舍钥匙咨询楼管员…」
+#
+# ⚠ 靠 `OUTLET_RE` 这个**句式**判,不穷举部门名(「咨询楼管员」「咨询档案馆」
+#   「咨询校园卡中心」「咨询图书馆办公室」…写全了也一定漏,且部门名不是判据关心的事)。
+#   判据关心的是:这一句在**推给外部问**,还是在**陈述库内事实**。
+OUTLET_RE = re.compile(r"(咨询|联系|致电|拨打|以.{0,8}为准)")
+
+
+def _is_outlet_sentence(sent: str) -> bool:
+    """本句是否是「出口指引」—— 把用户推去问外部,而不是陈述库内事实。"""
+    return bool(OUTLET_RE.search(sent))
+
+
+def _is_negated_action(sent: str, action: str) -> bool:
+    """该动作词在本句里是否被否定修饰(如「未细化…的办理流程」→ 否定)。
+
+    只看动作词**前** `_NEGATION_LOOKBACK` 个字,**且不越过最近的分句标点**。
+    只看前面不���后面:中文否定在动词之前,看后面会把「去办理」这种真断言误判成否定。
+    """
+    i = sent.find(action)
+    while i != -1:
+        prefix = sent[max(0, i - _NEGATION_LOOKBACK):i]
+        # 截到最近的分句界之后 —— 跨分句的否定不算修饰本动词
+        clause_start = max((m.end() for m in _CLAUSE_SPLIT.finditer(prefix)), default=0)
+        if any(n in prefix[clause_start:] for n in _NEGATION_MARKS):
+            return True
+        i = sent.find(action, i + 1)
+    return False
+
 # ---------- P4f C0-①: env_flags.client_env 改**显式白名单**(🔴 密钥入库的形状) ----------
 # 【原缺陷】原实现是 `{k: v for k, v in os.environ.items() if k.startswith("NOVA")}`,
 #   而**评测报告是要提交进 git 的**。今天客户端恰好只有 NOVAAGENT_EVAL_TEMPERATURE(无害),
@@ -277,6 +392,184 @@ def substantive_len(answer: str) -> int:
     return kept
 
 
+# ---------- P4f 第3 回⑧:环境失败 vs 用例失败**分账** ----------
+#
+# 【为什么要分】
+#   第二次跑整轮时 18 红,其中 **13 条是 HTTP 500**。服务端日志实测 **429 命中 54 次**
+#   —— OpenRouter 免费 key 有每分钟请求数上限,而 run_evals 背靠背串行打。
+#   一旦触发限流,`llm.chat` 的 `raise_for_status()` 冒到 /api/chat 变成 500,
+#   评测把它记成**用例失败**,并把 R@k 从 1.0 砸到 0.6667。
+#   报告里于是分不清「模型答错」与「没额度/被限流」—— **两种红混成一个桶**,
+#   而它们处置完全不同(前者改用例/改判据,后者加节流)。
+#
+# 【口径】
+#   · **环境失败**(env_error):上游 429 / 5xx / 连不上 → 该用例记 env_error,
+#     **单独计数,不计入通过率与 R@k 的分母**;
+#   · 但**报告退出码仍非 0** —— 环境不干净不许当绿灯(归因可读 ≠ 放过);
+#   · **真模型答错**仍是普通红,两种红不许混桶(见 `classify_http_failure`)。
+#
+# 【节流】`--throttle-ms`,**默认 0 = 现有行为完全不变**;免费通道下建议 3000~5000。
+#   默认不给一个「看似安全」的节流:那会让「本轮到底有没有节流」在报告里不可自证。
+ENV_ERROR_MARK = "env_error"
+
+# 解析后的节流毫秒(run() 里从 CLI/环境变量填;0 = 不节流)
+THROTTLE_MS = 0
+
+
+def classify_http_failure(status: int | None, err: Exception | None = None) -> tuple[bool, str]:
+    """判一次请求失败是「环境失败」还是「用例失败」。纯函数,零额度可离线复算。
+
+    返回 `(is_env_error, 归因短串)`:
+      · 429 → 环境(被限流)
+      · >=500 → 环境(上游/服务端故障,含限流冒泡成的 500)
+      · 4xx(非 429)→ **用例**(请求本身不合法,判成环境失败等于放过真缺陷)
+      · 连不上/超时(无 status)→ 环境
+      · 2xx/3xx → 用例侧(不该走到这里,保守记非环境失败)
+    """
+    if status is None:
+        return True, f"env_error: 连不上/超时({type(err).__name__ if err else 'no exception'})"
+    if status == 429:
+        return True, "env_error: 上游 429 限流(不是模型答错;建议 --throttle-ms 3000~5000)"
+    if status >= 500:
+        return True, f"env_error: 上游/服务端 {status}(通道故障,或限流冒泡)"
+    if status >= 400:
+        return False, f"用例失败: HTTP {status}(请求不合法,属判据/用例问题)"
+    return False, f"HTTP {status}(非失败)"
+
+
+def _throttle_sleep() -> None:
+    """用例间节流。ms<=0 → **不 sleep**(现有行为逐字不变)。"""
+    if THROTTLE_MS > 0:
+        time.sleep(THROTTLE_MS / 1000.0)
+
+
+# ---------- P4f 第3 回④⑦:报告可自证 —— 逐用例 effective_model + 答案/来源摘要 ----------
+#
+# ⑦ 为什么必须落:**交回与报告必须可离线复算**。此前 qa/refusal 类用例在报告里
+#   **既没有 answer 也没有 sources**,复核方只能拿 conversation_id 去 agent.db
+#   捞消息 —— 那既不是「报告」也不是「离线」。
+#   落什么:`answer_head`(前 300 字,够判读) + `sources` 的
+#   `[{ref,title,role_min}]`。**不落 chunk 正文** —— 避免把库内内容复制进要提交的 JSON。
+#
+#   ⚠ 红线不变:本仓库是本地演示项目、语料为公开校规,故**只落评测用例的答案**;
+#   真实学工数据永不入库这条红线不变,不落线上会话。
+ANSWER_HEAD_CHARS = 300
+
+# ④ 逐角色读一次 settings 就够(同一轮里 user_settings 不会自己变)——
+#   缓存是为了不给每条用例都打一次 /api/me/settings(53 条 = 53 次请求)。
+_MODEL_CACHE: dict[str, tuple[str | None, str]] = {}
+
+
+def _read_effective_model(c: httpx.Client, tokens: dict, case: dict,
+                          cache: dict | None = None,
+                          server_model: str | None = None) -> tuple[str | None, str]:
+    """读**本用例这个角色**实际生效的模型与它的来源。纯查询,不调 LLM(零额度)。
+
+    服务端已有现成读数:`GET /api/me/settings` 返回 `effective_model`
+    (`main.py` 里 `"effective_model": eff["model"]`,来自 `agent.effective_llm`,
+    用户设置优先于 `config.LLM_MODEL`)。
+
+    来源判定 —— **按事实而不是按字段拼接**:
+      · custom.enabled → `user_settings_custom`
+      · effective_model != 全局 config.LLM_MODEL → `user_settings`(用户真的覆盖了)
+      · 相等 → `global_config`
+
+    ⚠ **为什么不直接用响应里的 `model` 字段判来源**(实测踩到):
+      `main.py` 的 `/api/me/settings` 返回的是 `s["model"] or config.LLM_MODEL`,
+      回落时它**等于**全局值但表示「没设过」。拿它当来源判据,会把「用全局」一律
+      误报成 `user_settings` —— 来源标签于是失去区分力(实测库里有
+      `model='qwen-flash'` 的残留行时,三个角色全被标成 user_settings)。
+      「来源」要回答的是「实际请求用了哪一档、为什么」,所以必须与全局值**比**。
+
+    ⚠ 读不到就返 `(None, "unknown")` —— **不写 0、不猜**(坑 45)。
+    """
+    cache = _MODEL_CACHE if cache is None else cache
+    role = case.get("role") or "student"
+    if role in cache:
+        return cache[role]
+    out: tuple[str | None, str] = (None, "unknown")
+    try:
+        r = c.get(f"{BASE}/api/me/settings",
+                  headers={"Authorization": f"Bearer {tokens[role]}"})
+        r.raise_for_status()
+        j = r.json() or {}
+        model = j.get("effective_model")
+        if (j.get("custom") or {}).get("enabled"):
+            out = (model, "user_settings_custom")
+        elif server_model and model and model != server_model:
+            out = (model, "user_settings")
+        else:
+            out = (model, "global_config")
+    except Exception:  # noqa: BLE001 —— 读不到就如实记 unknown,不能猜
+        out = (None, "unknown")
+    cache[role] = out
+    return out
+
+
+def _sources_summary(sources: list | None) -> list[dict]:
+    """来源摘要:`[{ref, title, role_min}]`。**不含 chunk 正文**(红线见上)。
+
+    ⚠ `ref` 按**有效来源**连续编号,不用 `enumerate(sources)` 的原始下标:
+       畸形项(非 dict)被跳过后,原始下标会留空档(如 1,3,4),而 `ref` 是要和
+       答案正文里的 `[n]` 引用标记对得上的 —— 空档会让复核方按 `[2]` 去查却查不到。
+    """
+    out: list[dict] = []
+    for s in sources or []:
+        if not isinstance(s, dict):
+            continue
+        out.append({"ref": len(out) + 1,
+                    "title": s.get("title") or "",
+                    "role_min": s.get("role_min")})
+    return out
+
+
+def _quota_disclosure(c: httpx.Client, server_flags: dict) -> dict:
+    """① 额度披露 —— **复用**探针的 `collect_disclosure`,不在这里另抄一份判据。
+
+    背景(负责人 2026-10-01 裁决):OpenRouter 不提供 embedding,所以用专用测试 key 时
+    必然是 `llm=session_env + embedding=repo_dotenv` 的混合档。此时探针判据判**披露**
+    (不判红),但**披露必须能进报告** —— 只在探针 stdout 一闪而过等于没披露。
+
+    返回形如
+      `{"embedding_key_source":"repo_dotenv", "quota_source":"…", "embedding_calls": null,
+         "embedding_calls_raw":"unknown", "note":"…"}`
+    embedding 也在自带额度上时返回 `None`。
+
+    ⚠ `embedding_calls` 拿不到就如实记 `unknown`/None,**不许写 0** ——
+      0 会被读成「一次都没调」,而实际可能是「调了但没记日志」。
+    """
+    try:
+        sys.path.insert(0, str(HERE.parent / "novaagent" / "tests"))
+        from probe_port_check import (  # noqa: PLC0415
+            EMBEDDING_QUOTA_JUDGE, judge_flags, collect_disclosure,
+        )
+    except Exception as e:  # noqa: BLE001 —— 取不到就如实说明,不能假装「无需披露」
+        return {"disclosure_available": False,
+                "reason": f"无法导入探针判据({type(e).__name__}: {e})",
+                "embedding_key_source": (server_flags or {}).get("embedding_key_source"),
+                "note": "披露判定不可用 —— 请人工核对 embedding 用的是哪份额度"}
+    flags = dict(server_flags or {})
+    if not flags:
+        return {"disclosure_available": False,
+                "reason": "取不到服务端 flags(/api/health),无法判定档位",
+                "note": "披露判定不可用 —— 请人工核对 embedding 用的是哪份额度"}
+    calls = _embedding_call_count(c)
+    return collect_disclosure(judge_flags(flags, embedding_calls=calls))
+
+
+def _embedding_call_count(c: httpx.Client) -> int | None:
+    """本轮 embedding 调用次数。**拿不到就返回 None**(→ 披露里写 unknown,不写 0)。"""
+    raw = os.environ.get("NOVA_EMBEDDING_CALLS", "").strip()
+    if raw:
+        try:
+            return int(raw)
+        except ValueError:
+            return None
+    # 服务端目前没有暴露 embedding 调用计数接口(不在本单白名单)。
+    # 与其报一个编出来的 0,不如如实返None —— 披露里会写 unknown(坑 45)。
+    return None
+
+
 def login(c: httpx.Client, username: str, password: str) -> str:
     r = c.post(f"{BASE}/api/login", json={"username": username, "password": password})
     r.raise_for_status()
@@ -375,7 +668,41 @@ def _check_absent_keywords(case: dict, answer: str) -> list[str]:
 
     返回违规词列表（空 = 通过）。
     """
-    bad = [k for k in case.get("expect_absent_keywords", []) if k and k in answer]
+    # ---- 第3 回⑥:第一段「无条件 absent」改为**只抓断言句式**(不动 cooccur 段) ----
+    #
+    # 【为什么第一段必须改】原文是 `if k in answer` —— 只问词出没出现。
+    # 于是一个**如实说没有**的答案会被判红:rind-07 红的那次,模型答的是
+    #   「知识库中暂无关于…的具体内容」「未细化离校手续清单」「建议您:宿舍钥匙咨询楼管员…」
+    # 这**正是最想要的正确行为**,却因为复述了用户问句里的 `饭卡/调档/档案转递/图书馆`
+    # 而被判「夹带无据断言」。同一轮里canonical 红、默认绿 —— 这种抖动本身是缺陷。
+    #
+    # 【新判据:分「断言句式」与「声明无据句式」】
+    #   判红 ← absent 词出现在**断言句**里:同句有动作词(须到/办理/提交…)
+    #          且**本句没有**任何无据标记(暂无/未检索到/建议咨询…)
+    #   判绿 ← 该句自带无据标记(它在承认没有依据,不是在编流程)
+    # 无据标记来自 `NO_EVIDENCE_MARKS` —— 由 `refusal.build_refusal` 的真实输出派生,
+    # 不是在这里抄一份词表(坑 45:两份权威实现互相冒充,改一处忘另一处 → 静默失效)。
+    bad = []
+    for k in case.get("expect_absent_keywords", []) or []:
+        if not k or k not in answer:
+            continue
+        hit_sents = [s.strip() for s in _SENT_SPLIT.split(answer) if k in s and s.strip()]
+        if not hit_sents:
+            # 词在但切句后找不到含它的非空句 = 只出现在标点界缝里,按出现处理(保守判红)
+            bad.append(k)
+            continue
+        for s in hit_sents:
+            # 无据声明 = refusal 派生的标记 **或** 出口指引(把用户推去问人=不陈述)
+            has_no_evi = (any(m in s for m in NO_EVIDENCE_MARKS)
+                          or _is_outlet_sentence(s))
+            # 动作词若在本句里被否定修饰(「未细化…的办理流程」),**不算断言**
+            actions = [a for a in ASSERTION_ACTION_MARKS
+                       if a in s and not _is_negated_action(s, a)]
+            if has_no_evi and not actions:
+                continue   # 如实说没有 → 放行(这正是 rind-07 想要的行为)
+            if actions or not has_no_evi:
+                bad.append(f"{k}(断言句: {s[:40]!r})")
+                break
     for idx, pair in enumerate(case.get("expect_absent_keywords_cooccur", []) or []):
         # M3：结构不符即吵。静默 continue 会让断言**永久失效而不报错**（坑 45/52）。
         if not isinstance(pair, (list, tuple)) or len(pair) < 2:
@@ -1143,29 +1470,54 @@ def judge_persona_pair(case: dict, runs: list) -> tuple[bool, str]:
                            f"{expect_src});召回={_fmt_titles(sets[k])}")
 
     # ---- C:风格差异 ----
+    #
+    # ⚠ **第3 回⑤:方向性假设已被实测证伪,`pf-03` 改为方向无关**
+    #   负责人用两个模型三次独立测量,三次方向全反:
+    #     stealth/space-bunny-alpha  formal 1599 / warm 2095 / 0.76  → 红
+    #     qwen/qwen-plus              canonical 851 / 1280 / 0.67  → 红
+    #     默认档                        821 / 1441 / 0.57          → 红
+    #   主判据(来源集合一致)三次都过 → 用例**前提**错了,不是判据错了:
+    #   「亲和」人设要求「先共情学生处境再给要点」,本身比「书面语逐条列依据」**更长**。
+    #   原来的 `longer: "formal"` 强行规定了哪侧该更长,而这个方向**不由用例控制**。
+    #
+    # 【现在的口径】
+    #   expect_style 有 `longer`  → 校验方向 **且** 长度比(pf-01/pf-02 保持不变)
+    #   expect_style 无 `longer`  → **只校验长度比 ≥ min_ratio,任一侧更长皆可**。
+    #   ⚠ 第一版是 `if long_key:` 整块包住 —— 无 `longer` 时 `min_ratio` 也一起失效,
+    #     变成「完全不校验」而不是「方向无关校验」。那是把判据关掉,不是放宽,更糟。
     answers = {k: (by_key[k].get("answer") or "") for k in keys}
     style_cfg = case.get("expect_style") or {}
     long_key = style_cfg.get("longer")
     min_ratio = float(style_cfg.get("min_ratio") or PERSONA_LEN_RATIO_MIN)
+    lens = {k: len(answers[k]) for k in keys}
     if long_key:
         if long_key not in answers:
             bad.append(f"expect_style.longer={long_key!r} 不是本用例的 persona 侧({keys})")
         else:
             shorts = [k for k in keys if k != long_key]
-            ln = len(answers[long_key])
+            ln = lens[long_key]
             for sk in shorts:
-                sn = len(answers[sk])
-                ratio = (ln + 1) / (sn + 1)
+                ratio = (ln + 1) / (lens[sk] + 1)
                 if ratio < min_ratio:
-                    bad.append(f"风格差异不足:{long_key} 答案 {ln} 字 vs {sk} 答案 {sn} 字,"
+                    bad.append(f"风格差异不足:{long_key} 答案 {ln} 字 vs {sk} 答案 {lens[sk]} 字,"
                                f"比值 {ratio:.2f} < 期望 {min_ratio}(人设可能没生效)")
+    else:
+        # 方向无关:两侧只要**拉开** min_ratio 以上就算有差异(谁长都行)
+        k0, k1 = keys[0], keys[1]
+        hi, lo = max(lens.values()), min(lens.values())
+        ratio = (hi + 1) / (lo + 1)
+        if ratio < min_ratio:
+            bad.append(f"风格差异不足:最长 {hi} 字 vs 最短 {lo} 字,比值 {ratio:.2f} "
+                       f"< 期望 {min_ratio}(方向无关判据,人设可能没生效)")
     if answers[keys[0]].strip() == answers[keys[1]].strip():
         bad.append("两个 persona 的答案逐字相同 —— 风格差异判据彻底没生效")
 
     detail = ("; ".join(bad) if bad else
               f"来源集合一致({_fmt_titles(ref)});风格比 "
-              + ", ".join(f"{k}={len(answers[k])}字" for k in keys)
-              + f"(longer={long_key}≥{min_ratio:.2f});两侧均命中 {expect_kw}")
+              + ", ".join(f"{k}={lens[k]}字" for k in keys)
+              + (f"(longer={long_key}≥{min_ratio:.2f})" if long_key
+                 else f"(方向无关,比 {ratio:.2f}≥{min_ratio:.2f})")
+              + f";两侧均命中 {expect_kw}")
     return (not bad), detail
 
 
@@ -1338,7 +1690,16 @@ def run() -> int:
     ap.add_argument("--base", required=True,
                     help="被测服务 base URL(如 http://127.0.0.1:8954)。"
                          "**必填**:不留默认值是为了不去审别人的进程(坑 57)")
+    ap.add_argument("--throttle-ms", type=int,
+                    default=int(os.environ.get("NOVA_EVAL_THROTTLE_MS", "0") or 0),
+                    help="用例间节流毫秒。**默认 0 = 现有行为完全不变**;"
+                         "免费通道(如 OpenRouter 测试 key)建议 3000~5000,"
+                         "否则会被每分钟请求数上限限流(第3 回⑧:429 冒泡成 500)")
     args = ap.parse_args()
+    global THROTTLE_MS
+    THROTTLE_MS = max(0, int(args.throttle_ms or 0))
+    if THROTTLE_MS:
+        print(f"[throttle] 用例间节流 {THROTTLE_MS}ms")
     BASE = args.base.rstrip("/")
     # 双保险:模块级 BASE 已是空串,若将来有人绕过 argparse 直接调 run(),
     # 这里会立刻炸出「打到了空 baseURL」,而不是静默去请求 /api/login(相对 URL)。
@@ -1472,7 +1833,17 @@ def run() -> int:
                     else:
                         ok, detail = judge_kb_hidden(case, answer, sources)
             except httpx.HTTPStatusError as e:
-                ok, detail = False, f"HTTP {e.response.status_code}: {e.response.text[:120]}"
+                # ⚠ 第3 回⑧:**环境失败与用例失败分账**,不再一律记普通红。
+                #   原实现 `ok=False` 把 429 冒泡成的 500 记成用例失败 —— 13/18 的红
+                #   是这么来的,而它们既不是用例问题也不是判据问题。
+                _is_env, _why = classify_http_failure(e.response.status_code, e)
+                ok, detail = (False if _is_env else False), f"{_why} | {e.response.text[:120]}"
+                if not _is_env:
+                    detail = f"{_why} | {e.response.text[:120]}"
+                answer, sources = "", []
+            except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
+                # 连不上/超时:环境失败(服务没起来或网络断了),不是用例不通过
+                ok, detail = False, f"env_error: {type(e).__name__}: {e}"
                 answer, sources = "", []
             recall = compute_recall(case, sources) if case["type"] == "qa" else None
             faith, fmethod = (None, "na")
@@ -1483,32 +1854,73 @@ def run() -> int:
             gate_summary["total_regen_failed"] += gstat["regen_failed"]
             if gstat["hits"]:
                 gate_summary["by_case"][case["id"]] = gstat
-            results.append({**case, "pass": ok, "detail": detail,
-                            "recall_at_k": recall,
-                            "faithfulness": faith, "faithfulness_method": fmethod,
-                            "conversation_id": conversation_id,
-                            "first_question": first_question,
-                            "turns_sent": turns_sent,
-                            "last_context": last_ctx,
-                            "turn_contexts": turn_ctxs if case["type"] in CHAT_TURN_TYPES else [],
-                            "grounding": gstat,
-                            "extra_conversation_ids": extra_conversation_ids,
-                            "latency_ms": round((time.time() - t0) * 1000)})
+            # ④ effective_model:逐用例记「实际生效的模型 + 来源」。
+            #   `env_flags.server.llm_model` 是**全局**配置值,而实际请求可能用
+            #   `user_settings.model`(`effective_llm` 里用户设置优先)——
+            #   报告自证的模型 ≠ 实际请求的模型,这就是坑66。
+            eff_model, eff_source = _read_effective_model(
+                c, tokens, case, cache=_MODEL_CACHE,
+                server_model=(env_flags.get("server") or {}).get("llm_model"))
+            _rec = {**case, "pass": ok, "detail": detail,
+                    "recall_at_k": recall,
+                    "faithfulness": faith, "faithfulness_method": fmethod,
+                    "conversation_id": conversation_id,
+                    "first_question": first_question,
+                    "turns_sent": turns_sent,
+                    "last_context": last_ctx,
+                    "turn_contexts": turn_ctxs if case["type"] in CHAT_TURN_TYPES else [],
+                    "grounding": gstat,
+                    "extra_conversation_ids": extra_conversation_ids,
+                    # ④ 逐用例实际生效的模型与来源
+                    "effective_model": eff_model,
+                    "effective_model_source": eff_source,
+                    # ⑧ 环境失败标记(见 classify_http_failure);非环境失败为 False
+                    "env_error": detail.startswith(ENV_ERROR_MARK),
+                    # ⑦ 可离线复算:答案头部 + 来源摘要(**不落 chunk 正文**)
+                    "answer_head": (answer or "")[:ANSWER_HEAD_CHARS],
+                    "answer_chars": len(answer or ""),
+                    "sources_summary": _sources_summary(sources),
+                    "latency_ms": round((time.time() - t0) * 1000)}
+            # ④ 不一致必须**在报告里显式标红**,而不是只记两个字段让人自己比
+            _server_model = (env_flags.get("server") or {}).get("llm_model")
+            if (_server_model and eff_model and eff_model != _server_model
+                    and eff_source != "global_config"):
+                _rec["model_mismatch_vs_server_flag"] = (
+                    f"⚠ 本用例实际用 {eff_model!r}(来源 {eff_source}),"
+                    f"而 env_flags.server.llm_model={_server_model!r} —— "
+                    f"两者不一致,报告自证的模型不能代表实际请求模型(坑 66)")
+                _rec["pass"] = False
+                _rec["detail"] = (_rec["detail"] + "; " + _rec["model_mismatch_vs_server_flag"])
+            results.append(_rec)
             mark = "[PASS]" if ok else "[FAIL]"
+            if _rec["env_error"]:
+                mark = "[ENV-ERR]"
             extra = f" | R@k={recall} 忠实度={faith}({fmethod})" if case["type"] == "qa" else ""
             print(f"{mark} {case['id']:10s} [{case['type']:14s}] {detail}{extra}")
+            # ⑧ 用例间节流(默认 0 = 不 sleep,现有行为不变)
+            _throttle_sleep()
 
+        # ---------- ⑧ env_error 与用例失败**分账** ----------
+        # 口径(订单原文):环境失败「单独计数、**不计入通过率与 R@k 分母**」,
+        # `summary` 里显式列 `env_error_cases: [...]`;但**退出码仍非 0**。
+        env_error_ids = [r["id"] for r in results if r.get("env_error")]
+        # 分母只算「真正跑过判据」的用例 —— env_error 的那次根本没有判据结论
+        graded = [r for r in results if not r.get("env_error")]
         by_type: dict[str, dict] = {}
-        for r in results:
+        for r in graded:
             s = by_type.setdefault(r["type"], {"total": 0, "pass": 0})
             s["total"] += 1
             s["pass"] += int(r["pass"])
         total_pass = sum(s["pass"] for s in by_type.values())
         total = len(results)
+        graded_total = len(graded)
         print("\n===== 汇总 =====")
         for t, s in by_type.items():
             print(f"  {t:16s} {s['pass']}/{s['total']}")
         print(f"  {'TOTAL':16s} {total_pass}/{total}({total_pass / total:.0%})")
+        if env_error_ids:
+            print(f"  ⚠ 环境失败(不计入通过率分母, 但退出码仍非 0): "
+                  f"{len(env_error_ids)} 条 → {env_error_ids}")
 
         # P4b-fix ②: 评测隔离断言——对【全部】带会话的用例(36+新增)逐会话核对,不再只抽首末:
         #   a) 全局 message id 归属唯一(任一 id 出现在两个会话即串台,等价两两交集为空);
@@ -1553,10 +1965,18 @@ def run() -> int:
             for e in iso_errors[:10]:
                 print(f"  - {e}")
 
-        recalls = [r["recall_at_k"] for r in results if r["type"] == "qa" and r.get("recall_at_k") is not None]
-        faiths = [(r["faithfulness"], r["faithfulness_method"]) for r in results
+        # ⑧ R@k 与忠实度的均值也**只取真正跑出答案的用例** ——
+        #   env_error 那次的 sources=[]、answer="",把它算进去会把均值砸到 0
+        #   (实测 R@k 从 1.0 砸到 0.6667 —— 那不是模型变差,是通道被限流)。
+        recalls = [r["recall_at_k"] for r in graded
+                   if r["type"] == "qa" and r.get("recall_at_k") is not None]
+        faiths = [(r["faithfulness"], r["faithfulness_method"]) for r in graded
                   if r["type"] == "qa" and r.get("faithfulness") is not None]
         summary: dict = dict(by_type)
+        summary["env_error_cases"] = env_error_ids
+        summary["env_error_count"] = len(env_error_ids)
+        summary["graded_total"] = graded_total
+        summary["throttle_ms"] = THROTTLE_MS
         summary["recall_at_k_avg"] = round(sum(recalls) / len(recalls), 4) if recalls else None
         summary["faithfulness_avg"] = round(sum(f for f, _ in faiths) / len(faiths), 4) if faiths else None
         summary["faithfulness_method"] = ("llm" if faiths and all(m == "llm" for _, m in faiths)
@@ -1575,16 +1995,26 @@ def run() -> int:
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps(
             {"version": spec["version"], "base": BASE, "summary": summary,
-             "total_pass": total_pass, "total": total, "results": results,
+             "total_pass": total_pass, "total": total,
+             # ⑧ 通过率分母:真正跑过判据的用例数(env_error 不计)
+             "graded_total": graded_total,
+             "results": results,
              # P4e S2-②: 报告自带"当时是什么配置",否则后人拿到 55/55 无法判断怎么跑出来的
              "env_flags": env_flags,
+             # ① 额度披露(负责人 2026-10-01 裁决):embedding 若走了仓库 .env 的用户额度,
+             #   **必须落在报告里**,不能只在探针 stdout 一闪而过。
+             #   来源: novaagent/tests/probe_port_check.py 的 collect_disclosure()
+             #   (它从 refusal/判据层派生,不在这里另抄一份)。
+             "quota_disclosure": _quota_disclosure(c, server_flags),
              "grounding_gate": gate_summary,
              "eval_isolation": {"ok": iso_ok, "checked_conversations": len(conv_cases),
                                 "errors": iso_errors}},
             ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"\n[report] {out}")
         # P4b-fix ②: 隔离断言失败与用例失败同等阻塞——退出码非 0
-        return 0 if (total_pass == total and iso_ok) else 1
+        # ⑧ 环境失败**同样**让退出码非 0(环境不干净不许当绿灯),
+        #   但归因已分开:`summary.env_error_cases` 可读,不会被误当成模型答错。
+        return 0 if (total_pass == graded_total and iso_ok and not env_error_ids) else 1
 
 
 if __name__ == "__main__":
