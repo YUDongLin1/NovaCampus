@@ -1,0 +1,80 @@
+[server] ready on 8997 (pid=10848), running: tests/smoke_test.py --base http://127.0.0.1:8997
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/upload "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/upload "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/upload "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/chat "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/weekly/fragments "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/weekly/report "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/weekly/report "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents/338/chunks "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents/337/chunks "HTTP/1.1 404 Not Found"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/weekly/fragments?category=%E8%B0%88%E5%BF%83%E8%B0%88%E8%AF%9D "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/weekly/fragments "HTTP/1.1 403 Forbidden"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/weekly/reports "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/weekly/reports/5 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: DELETE http://127.0.0.1:8997/api/weekly/fragments/81 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/upload "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents?category=%E8%BF%90%E7%BB%B4%E6%89%8B%E5%86%8C "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/me/settings "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/weekly/expand "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/upload "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents/340/chunks "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/import_url "HTTP/1.1 400 Bad Request"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/import_url "HTTP/1.1 400 Bad Request"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/import_url "HTTP/1.1 400 Bad Request"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8997/api/kb/import_url "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: DELETE http://127.0.0.1:8997/api/kb/documents/340 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: PUT http://127.0.0.1:8997/api/me/settings "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/me/settings "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: PUT http://127.0.0.1:8997/api/me/settings "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: PUT http://127.0.0.1:8997/api/me/settings "HTTP/1.1 400 Bad Request"
+INFO:httpx:HTTP Request: DELETE http://127.0.0.1:8997/api/kb/documents/337 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: DELETE http://127.0.0.1:8997/api/kb/documents/338 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: DELETE http://127.0.0.1:8997/api/kb/documents/339 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: DELETE http://127.0.0.1:8997/api/kb/documents/341 "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8997/api/kb/documents "HTTP/1.1 200 OK"
+[U1] 引用剥离 OK(越界[3]/[12]剥除,[1]与〔2025〕/[2026]不误伤)
+[U2] 口令检测 OK(v0.3 密码均为/v0.5 字面量/用户名口令斜杠式 全命中,正常正文不误伤)
+[U3] 敏感扫描 OK(手机号 personal_info/名单 name_list/登录标题 login_title/正常页放行)
+[U4] 拒答门控判定 OK(空来源/单达标低分拒,单来源高置信与双达标答,降级路径答,短正文拒)
+[U5] 出口匹配 OK(F2→保卫处(学平险/意外伤害保险归口);F1短问→校医院 医保办(医保咨询))
+[U6] 禁抓回归 OK(cwc 首页/自家前端 均命中 DENY_URLS)
+[U7] 导航/索引页判据 OK(真实样本 short=60%/long=11% 被拒;正文页放行)
+[1] 三角色登录 OK: admin/counselor/student
+[KB 守恒] 起始 documents=65
+[2] 学生上传被拒(403)OK
+[3] 辅导员上传 OK(切分 1 块,辅导员级可见)
+[4] 文档可见性 OK(学生不可见,辅导员可见)
+[5] 学生 RAG 问答 OK(引用 4 条,含 [n] 标注)
+    答案节选: 根据《EVAL-研究生学籍管理规定》[1]，研究生申请休学需满足以下材料要求和审批步骤：
+
+**一、所需材料：**  
+- 本人书面申请；  
+- 二级甲等以上...
+[6] 周报记录+生成 OK(经 MCP)
+[7] 学生访问周报被拒(403)OK
+[8] 分块查看 OK(学生可看学生级;辅导员级 404 不可见)
+[9] 记录筛选 OK({'事务办理': 4, '活动组织': 1, '谈心谈话': 33}),学生访问记录 403 OK
+[10] 归档周报列表/详情 OK(5 篇)
+[11] 记录删除 OK
+[12] 知识库分类 OK(上传+筛选)
+[13][skip] 内置模型切换不适用于自定义通道(base_url=https://openrouter.ai/api/v1) —— 内置模型切换断言不适用,整步跳过
+[14] AI 扩充 OK(草稿 196 字)
+[15] 文档摘要 OK: 这是一份测试用请假管理办法，适用于在校学生。规定了3天内由辅导员审批、3至7天由...
+[16a] 导入质量门回归 OK(cwc 首页/自家前端 → deny_url;infpub 导航索引页 → index_page)
+[16b] 网页导入 OK(本地夹具):《校园便民服务指南(测试夹具)》1 块
+[17] 自定义 API 设置 OK(启用/关闭/校验)
+[18] 自清理(finally)删除 4 篇冒烟文档: [337, 338, 339, 341]; KB 计数 65 → 65
+[18] KB 计数守恒: 65 → 65
+SMOKE TEST PASSED
+[server] done rc=0, shutting down 8997
+[server] taskkill //PID 41364 //F (绔彛 8997 涓婄殑 Windows PID)
+[server] taskkill issued
+[port-check] :8997 closed=True
