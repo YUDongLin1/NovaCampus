@@ -896,10 +896,50 @@ NOVA_GROUNDING_STREAM_FORCE_UNGROUNDED=1 \
 cd E:/AILearn/NovaCampus/novaagent
 .venv/Scripts/python.exe tests/test_p4f_persona_eval.py           # 33/33 判据判红
 .venv/Scripts/python.exe tests/test_p4f_persona_eval_wiring.py   # 62/62 主循环接线
-.venv/Scripts/python.exe tests/test_p4f_c0.py                    # 63/63 C0 六条
-.venv/Scripts/python.exe tests/test_p4f_persona.py               # 124/124 persona 数据层/权限
+.venv/Scripts/python.exe tests/test_p4f_c0.py                    # 64/64 C0 六条
+.venv/Scripts/python.exe tests/test_p4f_persona.py               # 136/136 persona 数据层/权限/炸点元测试
 .venv/Scripts/python.exe tests/test_p4f_frontend_contract.py     # 99/99 前端契约
 .venv/Scripts/python.exe tests/probe_health_keysource.py         # 20/20 key_source 两态
+.venv/Scripts/python.exe tests/probe_port_check.py --selftest    # 14/14 额度极性判据(含 S6 极性自检)
+# 合计 428 条(2026-10-01 第 2 回复核实测;上一版写 401 条是证据没跟着代码重跑)
 ```
 
 **⚠ 取退出码不要接管道**（坑 55）：`cmd > log 2>&1; echo "[EXIT=$?]"`。
+
+### 20.6 v2.5 集中验证实测记录（复核方 Qoder，2026-10-01 晚）—— **三列仍为「待实测」，原因如下**
+
+**结论先说**：四次整轮尝试**全部作废**，`v2.5` 行的 R@k / 忠实度两列**仍然空着**，
+但过程中拿到三条可用结论。作废报告与日志全部以 `INVALID__*` 存档在
+`docs/p4f/evidence/review/`（不删，便于回答「为什么还空着」）。
+
+| # | 档位 | 语料 | 结果 | 作废原因 |
+|---|---|---|---|---|
+| 1 | canonical | **69 篇 / 491 块** | 55/59、R@k 1.0 | 语料被冒烟中途失败留下的 4 篇孤儿文档污染（**F3：上传非原子**） |
+| 2 | 默认 | 69 / 491 | 55/59、R@k 1.0 | 同上 |
+| 3 | 默认 | 65 / 487 ✅ | 41/59、R@k **0.6667** | **上游 429 限流 54 次** → 13 条 `HTTP 500` 被记成用例失败（**F4**） |
+| 4 | canonical | 65 / 487 ✅ | 51/59、R@k 0.7778 | 同上（429 命中 17 次） |
+
+**已拿到的三条可用结论**（详见 `docs/p4f/review_qoder_p4f_round2.md` §6）：
+
+1. **`pf-03` 的 `expect_style.longer="formal"` 前提被四次独立测量证伪**（比值 0.76 / 0.67 / 0.62 / 0.57，
+   方向全反，而主判据每次都过）→ 改为**方向无关**的比值判据（开单 ⑤）。
+2. **`rind-07` 是尺子缺陷**：红的那次答案实为「逐条说明库里没有 + 给咨询方向」的**正确诚实拒答**，
+   却因复述用户问句里的 `饭卡/调档/图书馆` 被判「夹带无据断言」，且一次红一次绿 →
+   判据需区分「断言」与「声明无据」，无据标记清单从 `refusal.py` 同源读（开单 ⑥，坑 54 第三形态）。
+3. **C0-③ 种植轮归零的方向性证据成立**：`grounding_gate` 命中 3 次全在 `final` 阶段，
+   **`cc-01` 命中 0 次**（P4e 时代同用例种植轮命中 16 次、重生失败 14 次）。
+
+**下一次跑 v2.5 基线的前置清单**（缺一条就别怪报告不可信）：
+
+- [ ] 语料核对 `kb_doctor` → **`documents=65 chunks=487 danger=0`**（跑前跑后各查一次）；
+- [ ] **每个评测账号的 `effective_model` 必须为空覆盖**：`user_settings.model` 若存着 `qwen-flash`，
+      它会**盖过会话环境变量**（`agent.effective_llm()` 用户级优先）→ 上游 400、整轮假红（坑 66）；
+      跑完**还原原值**并核对；
+- [ ] 冒烟**不要在整轮之前跑**（`smoke_test.py:318` 会把 `qwen-flash` 写回 `user_settings`，开单 ③）；
+      且冒烟中途失败会留孤儿文档（F3），跑完必须 `kb_doctor` 复查；
+- [ ] 通道限流：免费 key 有**每分钟请求上限**，59 用例背靠背必炸 → 需要 ⑧ 的
+      `NOVA_EVAL_THROTTLE_MS` + `env_error` 分类；在那之前**只能走生产通道**（与 v2.4 同档，可直接对照）；
+- [ ] 额度披露：`llm_key_source` 必须 `session_env`；`embedding_key_source` 允许 `repo_dotenv`
+      但**必须在报告里披露调用次数**（实测一轮 embedding ≈ 58 次、rerank ≈ 57 次）—— 见开单 ①；
+- [ ] `evals/badcases.json` 按主键集合比对后 `git checkout --` 还原（坑 56；实测四轮均 8→8 无新增）。
+
