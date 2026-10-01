@@ -1,4 +1,6 @@
-/* P4b-0 拆分:本文件内容由 index.html 原样迁移(零修改),行为零变化。 */
+/* P4b-0 拆分:本文件由 index.html 原样迁移,拆分本身零行为变化。
+   ⚠ P4f 起本文件**有**改动(`buildChatPayload` 带 persona_id),「原样迁移」这句
+      已不再成立 —— 留着它会让后来人以为可以放心乱改(这正是当初那句被写下来的原因)。 */
 /* P4b: send 携带 conversation_id + AbortController 可中止 + context 事件驱动占用条;
    loadHistory 改为加载会话列表(旧扁平消息流已迁往 /api/conversations/{id}/messages)。 */
 
@@ -131,6 +133,10 @@ window._scope = { folder_ids: [], categories: [] };
 function buildChatPayload(q) {
   const p = Object.assign({ question: q }, window._convId ? { conversation_id: window._convId } : {});
   p.web_search = !!window._webSearch;   // P4e M-B: 单次请求显式覆盖(开/关都显式传)
+  /* P4f: 每轮**显式**带 persona_id。只靠会话绑定的话「首问前先选人设」落不了地
+     —— 那时会话还不存在,persona 会静默丢失,且用户看不出为什么这次回答没换语气。
+     后端 `_resolve_persona` 的优先级是「请求体 > 会话绑定」,两条路径口径一致。 */
+  if (window._personaId) p.persona_id = window._personaId;
   const scope = {};
   if (window._scope.folder_ids.length) scope.folder_ids = window._scope.folder_ids.slice();
   if (window._scope.categories.length) scope.categories = window._scope.categories.slice();
@@ -232,6 +238,9 @@ function renderMeta(bot, srcs, trace, wsrcs) {
 async function loadHistory() {
   /* P4b: 登录后加载会话列表(不再拉扁平消息流——旧 /api/conversations 语义已变更,
      分页消息走 /api/conversations/{id}/messages,由 switchConversation 按需加载)。 */
+  /* P4f: 人设列表与选择器。⚠ 顺序有讲究:persona 依赖 ME(=api.js 里的登录态),
+     两者都由 enter() 先行准备好,这里只管把数据拉下来。 */
+  if (window.loadPersonas) await loadPersonas();
   if (window.loadConversations) await loadConversations();
   await initWebToggle();   // P4e M-B: 登录后把用户级默认同步到开关 UI
 }

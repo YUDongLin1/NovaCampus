@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/theme.css">
+<link rel="stylesheet" href="/css/persona.css">
 </head>
 <body>
 
@@ -38,8 +39,18 @@
 <main>
   <aside id="conv-sidebar">
     <div class="row"><button class="btn ghost" id="conv-new" onclick="newConversation()">＋ 新会话</button></div>
+    <div id="persona-bar"></div>
+    <div id="persona-hint"></div>
     <ul id="conv-list"><li class="empty">—</li></ul>
     <label class="conv-arch"><input type="checkbox" id="conv-show-archived" onchange="loadConversations()"> 显示归档</label>
+    <div id="acct-entry">
+      <div class="avatar" id="acct-avatar">?</div>
+      <div class="acct-info">
+        <div class="name" id="acct-name">未登录</div>
+        <div class="role" id="acct-role">—</div>
+      </div>
+      <button class="gear" title="设置" onclick="openSettings()">⚙</button>
+    </div>
   </aside>
 
   <div id="chat-pane">
@@ -175,15 +186,6 @@
   </div>
 </main>
 
-<div id="account-card">
-  <div class="avatar" id="acct-avatar">?</div>
-  <div class="acct-info">
-    <div class="name" id="acct-name">未登录</div>
-    <div class="role" id="acct-role">—</div>
-  </div>
-  <button class="gear" title="设置" onclick="openSettings()">⚙</button>
-</div>
-
 <div id="modal">
   <div id="modal-box">
     <div id="modal-head">
@@ -198,6 +200,7 @@
 <script src="/js/api.js"></script>
 <script src="/js/ui.js"></script>
 <script src="/js/conversations.js"></script>
+<script src="/js/persona.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/kb.js"></script>
 <script src="/js/weekly.js"></script>
