@@ -217,6 +217,53 @@ def test_field_contracts() -> None:
           "F 后端可见性档位是 private/public(规格原文)", "")
 
 
+# ==================== ⑤·五 P5 第 2 回③:JS 引用的 id 必须**有人声明** ====================
+def test_dom_id_invariant() -> None:
+    """JS 里每个 `$(...)` / `getElementById(...)` 的字面量 id,都必须**有人声明**。
+
+    【为什么需要这条】P5 第 1 回的阻塞缺陷就是这个形状:P5 删掉了 `#tab-records` /
+    `#tab-weekly`(随右侧 tab 抽屉一起下线),但 `ui.js::enter()` 还在操作它们 →
+    `$()` 返回 null → `enter()` 抛错 → 登录后整个左栏半瘫,而**当时 109 条自测全绿**
+    (坑 71 的另一面:接线断了,所有断言一声不吭)。
+
+    【为什么判据是「有人声明」而不是「在 index.html 里」】
+    很多 id 是 JS 自己渲染出来的(弹窗模板里的 `pf-*`、`mv-folder`…),它们**本来就不在**
+    index.html 里。若只查 index.html,这条会恒红 → 恒红的尺子会被当噪音忽略。
+    所以声明源有两处:**index.html 的 `id="…"`** 与 **JS 里的 `id="…"` / `.id = '…'`**;
+    两处都没有 = 真的引用了一个不存在的元素 → 判红。
+
+    【反向用例】见 `docs/p5/evidence/p5_reverse_dangling_id.txt`:
+    在 JS 里引用一个谁都没声明的 id → 本条当场红。
+    """
+    ids = html_ids()
+    # JS 自己声明的 id:模板字符串里的 id="..." 与赋值的 el.id = '...'
+    declared_by_js = set(re.findall(r'id="([A-Za-z0-9_-]+)"', ALL_JS))
+    declared_by_js |= set(re.findall(r"\.id\s*=\s*'([A-Za-z0-9_-]+)'", ALL_JS))
+    refs: set[str] = set()
+    for name, src in JS_FILES.items():
+        refs |= set(re.findall(r"\$\('([A-Za-z0-9_-]+)'\)", src))
+        refs |= set(re.findall(r"getElementById\('([A-Za-z0-9_-]+)'\)", src))
+        refs |= set(re.findall(r'getElementById\?\.\("?\'?"?', src))  # 占位,保持扫描口径显式
+    refs.discard("")
+    check(len(refs) >= 40, "F 前置:确实扫到了足量 id 引用(防空集假通过)", f"n={len(refs)}")
+    check(len(declared_by_js) >= 5,
+          "F 前置:确实扫到 JS 自己声明的 id(否则这条会恒红)", f"n={len(declared_by_js)}")
+    dangling = sorted(r for r in refs if r not in ids and r not in declared_by_js)
+    check(not dangling,
+          "F JS 引用的每个 id 都有人声明(引用已删除的元素 = 登录后静默半瘫)",
+          f"dangling={dangling}")
+    # 逐条报出,便于定位(集合断言红的时候看不出是哪一条)
+    for r in dangling:
+        owners = [n for n, s in JS_FILES.items()
+                  if re.search(r"(\$\(|getElementById\()'" + re.escape(r) + r"'", s)]
+        check(False, f"F 悬空 id `{r}` 的引用方", f"files={owners}")
+    # 反向:tab 抽屉下线后,JS 里不许再出现这两个 id 的**引用**
+    for dead in ("tab-records", "tab-weekly"):
+        used = [n for n, s in JS_FILES.items()
+                if re.search(r"(\$\(|getElementById\()'" + dead + r"'", s)]
+        check(not used, f"F 已下线的 #{dead} 不再被 JS 引用", f"files={used}")
+
+
 # ==================== ⑥ 注入文案不得在前端被当成指令 ====================
 def test_injection_surface() -> None:
     """人设文本是**用户输入**,前端必须走 esc(),否则 personae 名/提示词本身就是 XSS 面。
@@ -237,6 +284,7 @@ def test_injection_surface() -> None:
 def main() -> int:
     for fn in (test_asset_routes, test_p4b0_invariants, test_persona_wiring,
                test_persona_ids_and_endpoints, test_field_contracts,
+               test_dom_id_invariant,           # P5 第 2 回③:悬空 id 闸门
                test_injection_surface):
         try:
             fn()

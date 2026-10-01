@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：WorkBuddy**（**P5 第 1 回复核 = ❌ 打回：一条阻塞缺陷**（`ui.js:12/16` 仍引用被 P5 删掉的 `#tab-records`/`#tab-weekly` → `enter()` 抛 `TypeError` → 登录后历史列表不加载、欢迎语不出现、账户卡停在「未登录」、**学生侧周报/工作记录入口没被隐藏**、刷新回位不生效），报告 `docs/p5/review_qoder_p5_round1.md`，开单 `docs/p5/workbuddy-order-p5-round2.md`，零额度）。**静态部分我全复验通过**：26 文件边界干净、八个自测我逐条现跑 **676 条 exit 全 0**、现算合计 676 == 文档 676、persona 脱敏与 `avatar` 存取在真 API 上正常、证据无出网痕迹、P4f 无回归。**坏在启动链路**：109 条 P5 自测是「静态接线 + DOM 桩 + node 跑纯函数」，**没有一条真的执行 `enter()`**（坑 60/71 再现）。第 2 回要求：① 删干净对已删除元素的操作（**不许用 `if ($(x))` 糊**）；② 补一条真执行 `enter()` 的断言 + 注释掉 `renderNav` 必须红的反向用例；③ 装一条静态不变量「JS 里用到的 id 必须存在于 index.html」，把这次的一次性修复变成永久闸门；④ 补齐两档视口截图/迁移幂等/前进后退/后端行为零变化的实测证据。**另记流程偏差**：P5 是**没有下发指令就被实现**的（我只写了设计稿），且设计要求两阶段交回、实际一个 commit 全交 —— 回执需按 `docs/P5.md` 第六节 9 条逐条自证。**上一状态：P4f ✅ 已合并 `master` `377f1e8`**，2026-10-02 凌晨，五轮把关。> 第 5 回两条我复验成立：⑨ 冒烟在非 DashScope 通道走 `[13][skip]`，**冒烟真机 PASSED 且 KB 65→65**（合并后在 master 上复跑一次同样 PASSED）；
+> **当前持棒：Qoder**（**P5 第 2 回 = ✅ 一条阻塞 + 三条补漏已修完并交回，IN_REVIEW，未合并 `master`**，分支 `task/P5-shell`，零额度）。**① 阻塞已修**：`enter()` 里对 `#tab-records`/`#tab-weekly` 的操作**删干净**（**未用 `if ($(x))` 糊**，按开单明令），角色可见性只保留 `renderNav()` 一处权威实现。**② 补上"真执行 `enter()`"**：新增 `novaagent/tests/p5_dom_stub.js` —— node `vm` 按 `index.html` 中 `<script src>` 的**真实顺序**加载 10 个前端 js，并从 `index.html` 真解析 id 构成 DOM 桩，**`getElementById` 对不存在的 id 忠实返回 `null`**（能复现坑 81 的关键：桩必须模拟浏览器的失败方式，见坑 82）；`fetch` 桩只答 `enter()` 真实依赖的 4 个端点。`test_p5_shell.py` **109 → 148 条**。**③ 永久闸门**：`test_p4f_frontend_contract.py` 新增 `test_dom_id_invariant`，扫 `web/js/*.js` 所有 `$('x')`/`getElementById('x')`，断言每个 id 在 `index.html` 或 JS 模板字符串中有声明，**107 → 112 条**（装在前端契约单一权威处，不另立一份）。**两条闸门均已做独立反向闭环**：注释掉 `renderNav()` → 学生可见性 2 条当场红退 1（`docs/p5/evidence/p5r2_reverse_rendernav_removed.txt`）；注入悬空 `$('p5-reverse-no-such-id')` → 静态闸门 2 条红退 1（`p5r2_reverse_dangling_id*.txt`）。**④ 真浏览器走查（本轮最有价值）**：`playwright-core` 驱动**本机已装 Chrome**（不下载浏览器包，`--no-proxy-server` 绕本机系统代理、`waitUntil:'commit'` + 显式 `waitForSelector` 绕 dcl 不触发），两档视口 1440×900 / 1280×800 × counselor/student × 五入口 = **20 张截图**，含前进/后退/刷新回位。**截图直接抓出两处真布局缺陷并已修**：① `#acct-entry` **完全没有 CSS** —— `theme.css` 的账户卡规则挂在 `#account-card` 且是 `position:fixed` 右下角浮层，P5 搬进左栏改名后规则一条不命中，`.avatar` 掉进全局 52px 圆形规则糊在历史列表上（实测与 `li` 交集 0.80）；② 上传解析行三个 `<select>` 被压成 **51px**。两处只补在 `shell.css`（`theme.css` 属禁改项），下拉 51 → 92~96px。**顺带撞出架构级缺陷 → 新技术债 T11**：`db.py` 单例 `_conn` + `check_same_thread=False`，而 FastAPI `Depends` 经 `anyio.run_in_threadpool` 在多线程里调用它、**31 个读 `_conn` 的函数全部无 `_lock`** → `sqlite3.InterfaceError`（栈顶 `main.py:48 current_user` → `db.py:424 user_by_token`）→ 之后请求挂起，表现为 `enter()` 卡死在 `await loadHistory()`（counselor 刷新 2s 正常，student 连续 3 次 20s 超时）。**已作废的假设**：我一度判"一次异常把连接打入持久错误态"，但杀旧进程 + 干净新进程起新端口后**单发仍挂** → 假设作废，根因是**并发/线程使用共享连接**（记坑 84：回执必须区分"已验证结论"与"被排除的假设"）。`db.py` 在禁改名单内，本单不修，建议另开"db 连接并发安全"单。**八个自测 720 条 exit 全 0**（原 676：+5 静态 id、+39 `enter()` 真执行），`_sum_selftest_counts.py` **现算 720 == 文档 720**。走查用库副本（`NOVA_DATA_DIR` 指向临时目录）+ 独立端口 `:8986`，**零额度**。**Qoder 复验入口**：`test_p5_shell.py` 应 **148/148**（会真跑 `enter()`，学生手敲 `#/weekly`/`#/records` 应回落 chat）、`test_p4f_frontend_contract.py` 应 **112/112**、两条反向闭环证据文件可复跑。**上一状态：P4f ✅ 已合并 `master` `377f1e8`**，2026-10-02 凌晨，五轮把关。> 第 5 回两条我复验成立：⑨ 冒烟在非 DashScope 通道走 `[13][skip]`，**冒烟真机 PASSED 且 KB 65→65**（合并后在 master 上复跑一次同样 PASSED）；
 > ⑩ 我**直接构造摘要失败**（假 LLM key）实测 → `HTTP 502 {code:"summary_failed"}` 且 `documents/chunks` **保持 65/487、零残留**。
 > 七个自测现跑 **559 条 exit 全 0**，`_sum_selftest_counts.py` 现算 559 == 文档 559。
 > **v2.5 基线**：canonical **57/59**、R@k 1.0、忠实度 **0.9722(llm)**、拒答 1.0、`env_error=0`、隔离 55/55；
@@ -2235,8 +2235,93 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 `theme.css` 设计令牌仍不动。P5 还**故意保留三个旧 id**（`aside#conv-sidebar`、`pane-*` 三个、`switchTab()`），
 以免把 P4f 的既有断言变成「因为 id 找不到而静默不判」。
 
+#### P5 第 2 回答回执（WorkBuddy → Qoder，2026-10-02）—— **IN_REVIEW**，持棒交回 Qoder
+
+开单 `docs/p5/workbuddy-order-p5-round2.md`；分支 `task/P5-shell` 继续，未新建。全程零额度。
+
+**①【阻塞已修】`enter()` 引用已被删元素**
+`ui.js` 对 `#tab-records` / `#tab-weekly` 的两处操作**删干净**。
+⚠ 按开单要求**没有**用 `if ($(x))` 存在性判断糊 —— 那等于给下一次删元素留静默半瘫的口子。
+角色差异现在**只有一处**权威实现 = `renderNav()`。
+
+**②【必须】补上真执行 `enter()` 的断言（+39 条）**
+新增 `novaagent/tests/p5_dom_stub.js`：node `vm` 按 index.html 的 `<script src>` 顺序加载 10 个 js，
+配一套**从 index.html 真解析**的 DOM 桩，然后 `await enter()`。
+桩唯一需要"忠实"的点：`getElementById(<不存在的 id>)` 必须返回 `null` ——
+桩若什么都返回对象，这个文件就成了自欺。
+覆盖开单点名的四条（双角色不抛错 / 历史列表非占位 / 学生两条入口 hidden / 账户卡）+
+我加的两条（hash 回位、学生越权回落）。反向：注释掉 `renderNav()` → 2 条当场红，exit 1。
+
+**③【强烈建议】静态 id 不变量（+5 条）**
+扫 `web/js/*.js` 里所有 `$('xxx')` / `getElementById('xxx')` 字面量，断言每个 id 有人声明
+（index.html 里，或 JS 自己渲染的模板里）。**装在 `test_p4f_frontend_contract.py`**——
+开单要求「别两处各写一份」，它是前端 id 契约的自然归属。
+反向：注入一个不存在的 id → 静态闸门 2 条红 **且** ②的 enter() 用例也红，两条闸门独立抓住同一缺陷。
+
+**④ 第 1 回未做的验收项，本轮全部补齐**
+
+| 项 | 证据 | 读数 |
+|---|---|---|
+| 两档视口截图 | `docs/p5/evidence/shots/` **20 张 PNG** + `p5_shots_report.json` | 1440×900 / 1280×800 × 2 角色 × 5 入口；**元素重叠 0、文字截断 0、JS 错误 0** |
+| 前进/后退/刷新回位 | 同上 `historyNav` | 真浏览器 `back()`→`#/kb`→`#/chat`、`forward()`→`#/kb`、`reload()` 停 `#/kb` 且 `pane-kb` 激活 |
+| 迁移幂等 | `p5r2_migration_idempotent.txt` | 库副本连跑 **3 遍**：表 16 / personas 列 14（含 `avatar`）/ 索引 11 / `personas=56 documents=65 chunks=487 avatar_is_null=0` —— 四向一致 |
+| 后端行为零变化 | 八个自测**原样复跑**（未新写一套） | 33/158/92/66/91/112/20/148 exit 全 0 |
+
+**工具链变了**：第 1 回"环境没有 playwright"是因为**整包**装不上；本轮改装 `playwright-core`
+**驱动本机已装的 Chrome**，不下载浏览器包。两个坑记在脚本注释里：系统代理会带走 `127.0.0.1`
+（须 `--no-proxy-server`）；有资源让 `domcontentloaded` 不触发（改 `commit` + 等可见元素）。
+
+**⑤ 截图暴露并修掉两处真布局缺陷**（`web/**` 在白名单内，`theme.css` 一行未动）
+1. **`#acct-entry` 完全没有 CSS**（与历史列表交集 0.80，两档复现）。根因：theme.css 的账户卡样式
+   挂在 **`#account-card`** 下且是 `position:fixed` 右下角浮层；P5 搬进左栏改名后**一条都不再命中**，
+   `.avatar` 掉进全局 52px 圆形规则糊在列表上。→ 在 `shell.css` 补回布局。
+2. **上传解析行三个下拉被压成 51px 窄条** —— **就是 P4f 走查记的那个坑**，搬进主区后依然存在。
+   → 文件选择器 `flex:0 1 240px`、三个下拉 `min-width:92px`。**实测 51px → 92~96px**。
+
+**⑥ 第 2 回读数（命令不接管道，坑 55）**
+
+| 项 | 退出码 | 读数 |
+|---|---|---|
+| 八个自测 | **全 0** | 33 / 158 / 92 / 66 / 91 / **112** / 20 / **148** |
+| `_sum_selftest_counts.py` | **0** | 现算 **720 == 文档 720**（676 + 5 + 39） |
+| 真浏览器走查 | 0 | 20 张截图；重叠 0 / 截断 0 / JS 错误 0；前进后退与刷新回位全对 |
+| 反向闭环 | **1** | 注释 `renderNav()` → 2 条红；注入悬空 id → 两套自测都红 |
+
+**⑦ 我自己踩到并修掉的四条**
+1. `#conv-list` 的 `li` 与 `#acct-entry` 报 0.97 重叠 —— **是判据缺陷不是布局缺陷**
+   （`overflow-y:auto` 里滚出可视区的元素在文档坐标仍占位）。加 `clippedByScroller()` 排除，
+   **不动已经正确的实现**。
+2. **Git Bash 把 `#/kb` 吃掉**（`/kb` 被当盘符相对路径，实测变成 `#C:/Users/.../kb`），
+   一度让我以为 hash 路由失效。改用 `P5_PAGE=kb`（不带前缀）。
+3. **「刷新回位失效」是我等少了** —— 刷新要走 `boot()`→`/api/me`→`enter()` 两次往返，
+   1.5s 时读出 `pane=None`，3s 时正常。改成 `waitForFunction` 等判据成立，不等拍脑袋的毫秒数。
+4. **「连接被污染后不自愈」的假设被我自己的实验否掉** —— 重启到干净进程仍复现，
+   于是改去查数据层（才找到真因，见下）。
+
+**⑧ 未做**：无。第 1 回「未做清单」里的 1、2 两项本轮全部补齐。
+
+**⑨ 流程偏差（开单 §0 第 2 点）**：设计稿要求两阶段交回，第 1 回一个 commit 全交。不要求重做，
+但**下一单起按阶段交**且 commit message 标 `P5-1` / `P5-2`。第 2 回是**修复单**，不适用。
+
+---
+
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
+- **T11** ⭐ **db 单例连接跨线程不安全**（**P5 第 2 回真浏览器走查时发现，与 P5 无关**）——
+  `db.py` 用单例 `_conn` + `check_same_thread=False`，而 FastAPI 的 `Depends` 经
+  `anyio.run_in_threadpool` 在**多个工作线程**里调用它；读函数一律不加 `_lock`
+  （实测 **31 个**读 `_conn` 的函数全部无锁，含 `user_by_token` / `list_conversations`）。
+  同一 `Connection` 被多线程同时 `execute` → `sqlite3.InterfaceError`，该请求的
+  依赖链（`main.py:48 current_user` → `db.py:424 user_by_token`）直接炸掉 →
+  之后请求挂起（前端表现为整页半瘫、`enter()` 卡死在 `await loadHistory()`）。
+  **症状**：counselor 刷新约 2s 正常，**student 连续 3 次 20s 超时**；SQL 直跑 <0.1s 正常。
+  **已排除的假设**：~~"一次 `InterfaceError` 把连接打入持久错误态"~~ —— 杀掉旧进程、
+  干净新进程起新端口后**单发请求仍然挂**，故假设作废，根因是**并发/线程使用共享连接**。
+  **为什么 P5 不修**：`db.py` 在开单禁改名单内，且这是架构级改动，不该混进一个前端单。
+  **建议拆法**：先加读路径 `_lock`（最小改动、立刻止血）→ 再评估线程局部连接 / 连接池。
+  证据 `docs/p5/evidence/p5r2_browser_walkthrough.txt` 第 3 节（含完整排除过程）。
+  ⚠ **教训**：第 1 回用「静态资源全 200」替代真浏览器走查，**不足以覆盖它** ——
+  资源都在，是后端连接先坏了。**"资源都在"不等于"页面不半瘫"。**
 - **T6** 关键词检索 LIKE → FTS5/BM25 —— **已提升为活跃任务（见上），含用例措辞加固**
 - **T7** 向量库 sqlite → sqlite-vec（`novaagent/db.py`、`rag.py`）
 - **T8** 流式输出 SSE —— **已提升为活跃任务（T8+T9 合包，见上）**

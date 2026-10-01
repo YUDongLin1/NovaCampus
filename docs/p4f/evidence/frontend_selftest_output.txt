@@ -100,6 +100,11 @@
 [PASS] F 风格枚举前后端一致(不一致=某些风格静默回落 balanced)
 [PASS] F 前端用规格档位名 public
 [PASS] F 后端可见性档位是 private/public(规格原文)
+[PASS] F 前置:确实扫到了足量 id 引用(防空集假通过)
+[PASS] F 前置:确实扫到 JS 自己声明的 id(否则这条会恒红)
+[PASS] F JS 引用的每个 id 都有人声明(引用已删除的元素 = 登录后静默半瘫)
+[PASS] F 已下线的 #tab-records 不再被 JS 引用
+[PASS] F 已下线的 #tab-weekly 不再被 JS 引用
 [PASS] F p.name 渲染前经 esc()
 [PASS] F p.college 渲染前经 esc()
 [PASS] F persona_prompt 回填经 esc()
@@ -107,4 +112,4 @@
 [PASS] F 会话列表人设徽标经 esc()
 [PASS] F textarea 回填已转义(</textarea> 截断攻击)
 ==============================================================================
-[RESULT] 107/107 passed
+[RESULT] 112/112 passed

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import shutil
 import shutil as _shutil
@@ -474,9 +475,120 @@ def test_avatar_rw_and_rbac() -> None:
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ============ ⑤ 真执行 enter():第 2 回②(本轮阻塞项的守门人) ============
+DOM_STUB = Path(__file__).resolve().parent / "p5_dom_stub.js"
+
+
+def run_enter(role: str, page: str = "") -> tuple[dict | None, str]:
+    """用 DOM 桩在 node 里**真调一次 enter()**,返回 (读数, 原始输出)。
+
+    ⚠ 桩的 id 是从 index.html **真解析**的,`getElementById` 找不到就返回 null ——
+    与浏览器一致。所以「JS 引用了已删除的元素」在这里会真抛 TypeError。
+    桩若什么都返回对象,本文件就成了自欺(坑 71)。
+    """
+    if not NODE:
+        return None, "node 不可用"
+    if not DOM_STUB.is_file():
+        return None, f"DOM 桩缺失: {DOM_STUB}"
+    env = dict(os.environ)
+    env["P5_PAGE"] = page          # 页面 id 走 env:Git Bash 会把 `#/kb` 里的 `/kb` 当路径转换(见桩内注释)
+    try:
+        p = subprocess.run([NODE, str(DOM_STUB), str(WEB), role],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=60, cwd=str(ROOT), env=env)
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}"
+    raw = (p.stdout or p.stderr or "").strip()
+    if p.returncode != 0:
+        return None, f"exit={p.returncode} {raw[:400]}"
+    try:
+        return json.loads(raw)["v"], raw
+    except Exception as e:  # noqa: BLE001
+        return None, f"解析失败 {type(e).__name__}: {raw[:300]}"
+
+
+def test_enter_boots() -> None:
+    """开单第 2 回②:109 条全绿而真页面半瘫 —— 因为没有一条真的调 `enter()`。
+
+    这里覆盖开单列的四条(counselor / student 各跑一次),外加两条我自己加的:
+    hash 回位(验收标准第 2 条)与学生越权手敲回落。
+    """
+    if not NODE:
+        check(False, "P5 前置:node 可用(否则 enter() 无法真执行)", "node 不在 PATH")
+        return
+
+    read = {}
+    for role in ("counselor", "student"):
+        v, raw = run_enter(role)
+        read[role] = v
+        check(v is not None, f"P5 enter() 在 role={role} 下真跑成功", raw[:300])
+        if v is None:
+            continue
+        # ① 不抛错(本轮缺陷的原始症状就是这里)
+        check(v["threw"] is None, f"P5 enter() role={role} 不抛错", f"threw={v['threw']}")
+        check(v["loadErrors"] == [], f"P5 enter() role={role} 加载全部 js 无顶层报错",
+              f"loadErrors={v['loadErrors']}")
+        # 非空前置:桩真的把 enter() 跑到底了(不是脚本加载完就返回)
+        check(v["scripts"] and len(v["scripts"]) >= 10,
+              f"P5 桩按 index.html 顺序加载了全部 js(role={role})", f"n={len(v['scripts'])}")
+        # ② 历史列表有真实条目,不是占位「—」(开单第 2 条)
+        check(v["convListItems"] > 0 and v["convListPlaceholder"] is False,
+              f"P5 enter() 后 #conv-list 有真实条目(role={role},非占位)",
+              f"items={v['convListItems']} placeholder={v['convListPlaceholder']}")
+        check(v["convCount"] == "3",
+              f"P5 #conv-count 显示真实条数(role={role})", f"got={v['convCount']!r}")
+        # ③ 学生侧周报/工作记录两条入口 hidden
+        if role == "student":
+            check(v["navHidden"] == ["weekly", "records"],
+                  "P5 学生侧 #nav-entries 的 weekly/records 入口被隐藏", f"hidden={v['navHidden']}")
+            check("weekly" not in v["navVisible"] and "records" not in v["navVisible"],
+                  "P5 学生侧可见入口不含周报/工作记录", f"visible={v['navVisible']}")
+            check(v["personasNewDisplay"] == "none",
+                  "P5 学生侧「新建人设」按钮隐藏", f"got={v['personasNewDisplay']!r}")
+        else:
+            check(v["navHidden"] == [],
+                  "P5 辅导员侧 6 个入口全部可见", f"hidden={v['navHidden']}")
+            check(v["personasNewDisplay"] == "" and v["uploadRowDisplay"] == "flex",
+                  "P5 辅导员侧显示新建人设/上传行", f"{v['personasNewDisplay']!r}/{v['uploadRowDisplay']!r}")
+        # ④ 账户卡
+        expect_name = "student01" if role == "student" else "counselor01"
+        check(v["acctName"] == expect_name,
+              f"P5 #acct-name === ME.username(role={role})", f"got={v['acctName']!r}")
+        check(v["acctRole"] == ("学生" if role == "student" else "辅导员"),
+              f"P5 #acct-role 角色中文化正确(role={role})", f"got={v['acctRole']!r}")
+        check(v["maskDisplay"] == "none",
+              f"P5 登录遮罩已关闭(role={role})", f"got={v['maskDisplay']!r}")
+        check(v["messagesChildren"] >= 1,
+              f"P5 欢迎气泡已进消息区(role={role})", f"n={v['messagesChildren']}")
+        check("persona-select" in v["personaBarHtml"],
+              f"P5 人设选择器已渲染(role={role})", f"len={len(v['personaBarHtml'])}")
+
+    # ⑤ hash 回位(验收标准第 2 条:刷新回同一页)——桩里 hash 是启动时就带上的
+    for page in ("kb", "weekly", "personas"):
+        v, raw = run_enter("counselor", page)
+        check(v is not None, f"P5 enter() 带 hash=#/{page} 真跑成功", raw[:300])
+        if v:
+            check(v["threw"] is None and v["page"] == page and v["activePane"] is True,
+                  f"P5 带 #/{page} 刷新回位到该页且 pane 激活",
+                  f"threw={v['threw']} page={v['page']} active={v['activePane']}")
+    v, raw = run_enter("counselor", "nope")
+    check(v is not None, "P5 enter() 带未知 hash 真跑成功", raw[:300])
+    if v:
+        check(v["page"] == "chat",
+              "P5 未知 hash(#/nope)回落到会话页而不是空白主区", f"page={v['page']}")
+    # ⑥ 学生手敲越权 hash → 回落会话页(前端体验层;后端 403 是另一层,P5 真机已验)
+    for page in ("weekly", "records"):
+        v, raw = run_enter("student", page)
+        check(v is not None, f"P5 学生带 hash=#/{page} 真跑成功", raw[:300])
+        if v:
+            check(v["page"] == "chat",
+                  f"P5 学生手敲 #/{page} 被挡回会话页", f"page={v['page']}")
+
+
 def main() -> int:
     for fn in (test_shell_wiring, test_routing_pure, test_avatar_library,
-               test_history_grouping, test_avatar_migration, test_avatar_rw_and_rbac):
+               test_history_grouping, test_enter_boots, test_avatar_migration,
+               test_avatar_rw_and_rbac):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

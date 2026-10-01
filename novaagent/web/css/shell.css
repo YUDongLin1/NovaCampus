@@ -44,8 +44,45 @@
   font-size: 11.5px; letter-spacing: 1px; color: var(--muted, #7c7466); padding: 6px 4px 4px;
 }
 .rail-n { background: rgba(30,42,56,.08); border-radius: 8px; padding: 0 6px; font-size: 10.5px; }
-#conv-list { flex: 1; overflow-y: auto; }
+#conv-list { flex: 1; min-height: 0; overflow-y: auto; }
 .conv-group { font-size: 11px; color: var(--muted, #7c7466); padding: 8px 6px 3px; letter-spacing: 1px; }
+
+/* ---------- 左栏底部:账户卡 ----------
+ * 【为什么这里要重写一遍布局】——theme.css 里账户卡的样式全部挂在 **#account-card**
+ * 这个选择器下,而且是 `position:fixed; right:20px; bottom:20px`(P4f 时代的右下角浮层)。
+ * P5 把它搬进左栏、改名 `acct-entry` 后,那些规则**一条都不再命中**:
+ * 于是它退化成裸 div,`.avatar` 落到全局 52px 圆形规则上,
+ * 结果是「压不进左栏、糊在历史列表上面」—— 真浏览器截图实测:
+ * `#acct-entry` 与 `li` 交集 0.80(box y=848~885,1440×900),1440/1280 两档都复现。
+ *
+ * 这不是「顺手美化」,是把搬位后丢掉的布局补回来。按 P5 §5 的口径,
+ * theme.css 一行不动,布局写在本文件。
+ */
+#acct-entry {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; margin-top: 6px;
+  border-top: 1px solid var(--border-soft, #eee7d8);
+  background: rgba(255,253,248,.6); border-radius: 12px;
+  flex: 0 0 auto;                       /* 关键:不参与历史列表的伸缩,否则被压扁 */
+}
+#acct-entry .avatar {
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 11px;
+  font-family: var(--font-display, serif); font-size: 15px;
+  background: linear-gradient(150deg, var(--ink-500, #3a4a63), var(--ink, #16233d));
+  color: #f7f3ea; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px rgba(255,254,251,.9), 0 0 0 3.5px var(--cinnabar, #bf3b2b);
+}
+#acct-entry .acct-info { min-width: 0; flex: 1; }
+#acct-entry .name { font-size: 13px; font-weight: 600; color: var(--ink, #16233d);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#acct-entry .role { font-size: 11px; color: var(--muted, #7c7466);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#acct-entry .gear {
+  flex: 0 0 32px; width: 32px; height: 32px; border-radius: 9px;
+  border: 1px solid var(--border, #e2d9c6); background: #faf6ec;
+  color: var(--muted, #7c7466); font-size: 15px; cursor: pointer; transition: .2s;
+}
+#acct-entry .gear:hover { color: var(--cinnabar, #bf3b2b); border-color: var(--cinnabar, #bf3b2b); transform: rotate(35deg); }
 
 /* ---------- 右主区 ---------- */
 #stage { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
@@ -65,6 +102,18 @@
 .kb-layout .kb-side { width: 260px; flex: 0 0 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
   border-right: 1px solid var(--border-soft, #eee7d8); padding-right: 12px; }
 .kb-layout .kb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+/* 上传解析行的三个下拉:theme.css 的 `.row input, .row select { flex: 1 }` 让
+   5 个控件平分一行,而 `input[type=file]` 的固有宽度远大于 select,于是三个下拉
+   被压成 ~24px 的窄条、只看得见一个箭头 —— **这就是 P4f 走查记的"51px"那个坑**,
+   搬进主区后依然存在(真浏览器实测 1440×900 下 vis/up-cat/up-audience 各 51px)。
+ * 修法:文件选择器不参与伸缩,三个下拉按内容取宽(给 flex-basis + max-width,
+ * 不写死像素 —— 1280 与 1440 都实测过)。既有 P4f 走查结论是"待修",本轮随截图一起收口。*/
+#upload-row > input[type=file] { flex: 0 1 240px; min-width: 0; }
+#upload-row > select { flex: 0 1 auto; min-width: 92px; }
+#upload-row > button { flex: 0 0 auto; }
+#import-row > input { flex: 1 1 240px; min-width: 0; }
+#import-row > button { flex: 0 0 auto; }
 
 @media (max-width: 1180px) {
   #conv-sidebar { width: 180px; flex-basis: 180px; }

@@ -12,8 +12,8 @@
 [PASS] P5 hash 入口 #/chat 指向真实页面(拼错=静默空白)
 [PASS] P5 hash 入口 #/personas 指向真实页面(拼错=静默空白)
 [PASS] P5 hash 入口 #/kb 指向真实页面(拼错=静默空白)
-[PASS] P5 hash 入口 #/weekly 指向真实页面(拼错=静默空白)
 [PASS] P5 hash 入口 #/records 指向真实页面(拼错=静默空白)
+[PASS] P5 hash 入口 #/weekly 指向真实页面(拼错=静默空白)
 [PASS] P5 入口走真实 hash 链接(前进/后退原生可用)
 [PASS] P5 hashchange 驱动切换(刷新/前进后退都落到同一处)
 [PASS] P5 weekly 入口标了 data-staff(按角色整条隐藏)
@@ -81,6 +81,45 @@
 [PASS] P5 空列表 → 三组皆空(不炸、不产生幽灵条目)
 [PASS] P5 「现在」取自服务端(Date 响应头),不用浏览器本地时区
 [PASS] P5 分组用 serverNowMs() 而不是 Date.now()
+[PASS] P5 enter() 在 role=counselor 下真跑成功
+[PASS] P5 enter() role=counselor 不抛错
+[PASS] P5 enter() role=counselor 加载全部 js 无顶层报错
+[PASS] P5 桩按 index.html 顺序加载了全部 js(role=counselor)
+[PASS] P5 enter() 后 #conv-list 有真实条目(role=counselor,非占位)
+[PASS] P5 #conv-count 显示真实条数(role=counselor)
+[PASS] P5 辅导员侧 6 个入口全部可见
+[PASS] P5 辅导员侧显示新建人设/上传行
+[PASS] P5 #acct-name === ME.username(role=counselor)
+[PASS] P5 #acct-role 角色中文化正确(role=counselor)
+[PASS] P5 登录遮罩已关闭(role=counselor)
+[PASS] P5 欢迎气泡已进消息区(role=counselor)
+[PASS] P5 人设选择器已渲染(role=counselor)
+[PASS] P5 enter() 在 role=student 下真跑成功
+[PASS] P5 enter() role=student 不抛错
+[PASS] P5 enter() role=student 加载全部 js 无顶层报错
+[PASS] P5 桩按 index.html 顺序加载了全部 js(role=student)
+[PASS] P5 enter() 后 #conv-list 有真实条目(role=student,非占位)
+[PASS] P5 #conv-count 显示真实条数(role=student)
+[PASS] P5 学生侧 #nav-entries 的 weekly/records 入口被隐藏
+[PASS] P5 学生侧可见入口不含周报/工作记录
+[PASS] P5 学生侧「新建人设」按钮隐藏
+[PASS] P5 #acct-name === ME.username(role=student)
+[PASS] P5 #acct-role 角色中文化正确(role=student)
+[PASS] P5 登录遮罩已关闭(role=student)
+[PASS] P5 欢迎气泡已进消息区(role=student)
+[PASS] P5 人设选择器已渲染(role=student)
+[PASS] P5 enter() 带 hash=#/kb 真跑成功
+[PASS] P5 带 #/kb 刷新回位到该页且 pane 激活
+[PASS] P5 enter() 带 hash=#/weekly 真跑成功
+[PASS] P5 带 #/weekly 刷新回位到该页且 pane 激活
+[PASS] P5 enter() 带 hash=#/personas 真跑成功
+[PASS] P5 带 #/personas 刷新回位到该页且 pane 激活
+[PASS] P5 enter() 带未知 hash 真跑成功
+[PASS] P5 未知 hash(#/nope)回落到会话页而不是空白主区
+[PASS] P5 学生带 hash=#/weekly 真跑成功
+[PASS] P5 学生手敲 #/weekly 被挡回会话页
+[PASS] P5 学生带 hash=#/records 真跑成功
+[PASS] P5 学生手敲 #/records 被挡回会话页
 [PASS] P5 迁移第1遍:personas.avatar 列存在
 [PASS] P5 迁移第2遍:personas.avatar 列存在
 [PASS] P5 迁移幂等:连跑两遍 schema 与计数完全一致
@@ -109,4 +148,4 @@
 [PASS] P5 自测未破坏语料(写库测试自查,坑 72)
 [PASS] P5 本用例只增了自造的 3 条 personas(副本上)
 ==============================================================================
-[RESULT] 109/109 passed
+[RESULT] 148/148 passed
