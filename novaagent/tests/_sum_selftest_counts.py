@@ -65,7 +65,13 @@ SELFTESTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 #     507 → 实现方手抄（把 test_p4f_c0 按63 计）→ Qoder 代改为 508（对，第 3 回真值）
 #     508 → **第 4 回本工具首次现算就报红 532**（本轮新增 24 条：噪声闸 22 + 同义豁免 14
 #          中与既有节重叠的部分；test_p4f_persona_eval 68 → 92）
-EXPECTED_TOTAL = 532
+#     532 → **第 5 回新增 27 条**（⑨ 冒烟通道守卫 20 条 + ⑩ F3 上传原子性 7 条；
+#          test_p4f_c0 64 → 91，其中 +1 来自本回把一个**条件断言**改成无条件执行：
+#          C0-⑥「返回值 != 真实 key 值」原写 `if real:`，环境里没注入 LLM_API_KEY 时
+#          它根本不跑 → 单独跑 89 / 经本工具注入假 key 跑 90，**换个环境条数就变**。
+#          条数随环境漂移正是坑 56/59 的同族（聚合数对不上又查不出为什么），故改成
+#          无条件执行（缺值时自己补假 key 护身符）。现在两种环境下**都是 91**。）
+EXPECTED_TOTAL = 559
 
 # ── 文档里逐条写的分项数（报错时用于定位「哪一条抄错了」）──────────────
 # ⚠ 这份表本身也可能抄错 —— 它存在的意义是**报错时立刻指出是哪一条**，
@@ -75,7 +81,8 @@ DOCUMENTED_PER_FILE: dict[str, int] = {
     "test_p4f_persona.py": 158,
     "test_p4f_persona_eval.py": 92,       # 第 4 回：68 + 24
     "test_p4f_persona_eval_wiring.py": 66,
-    "test_p4f_c0.py": 64,# 第 4 回：63 → 64（复核方实测）
+    "test_p4f_c0.py": 91,# 第 5 回：64 → 91（⑨ 通道守卫 20 + ⑩ F3 上传原子性 7 + C0-⑥ 条件断言改无条件 +1；
+                       #  两种环境下都是 91，不再随 LLM_API_KEY 是否注入而漂移）
     "test_p4f_frontend_contract.py": 99,
     "probe_health_keysource.py": 20,
 }

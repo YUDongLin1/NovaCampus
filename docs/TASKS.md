@@ -1638,7 +1638,7 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 5. `qa-08` 轮换波动是**已知方差**，不建议改用例改绿（沿用 HANDOFF 坑 16 口径）。
 6. `docs/p4e/evidence/stream_sse_s2_full6.json` 是**短问句 + 漏设 env**的无效样本，已删除不再作为证据。
 
-### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🟢 **第 4 回 ✅ 全收口 + v2.5 基线已产出 → 第 5 回两条收尾（冒烟通道守卫 / F3 上传原子性）**（2026-10-01 复核 = Qoder，**当前持棒 = Qoder**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
+### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🟢 **第 4 回 ✅ 全收口 + v2.5 基线已产出 → 第 5 回两条收尾（冒烟通道守卫 / F3 上传原子性）· 第 5 回已交回 = IN_REVIEW，持棒 = Qoder**（2026-10-01 复核 = Qoder，**当前持棒 = Qoder**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
 
 - **C0 前置收口（P4e 复核攒下；C0-① 与 C0-③ 为 merge-blocking）**
 
@@ -2068,6 +2068,84 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 **v2.5 两档实测**（`EVAL_BASELINE §20.7`）：canonical **57/59**（红 = `wg-01`/`wg-03`，联网走 DashScope Responses API，OpenRouter **结构性没有这个入口**）、默认 55/59（另加 `ss-03` 需 canonical 档、`pf-03` 一次内容波动）；R@k 1.0、忠实度 **0.9722(llm)**（回到 v2.4 区间上沿，不再是 proxy）、拒答 1.0、隔离 55/55、`env_error=0`；**C0-③ 种植轮 `cc-01` 命中 0 次**（P4e 同用例 16 次）正式坐实。⚠ 通道口径变更已登记：OpenRouter `qwen/qwen-plus` ≠ 生产 `qwen-flash`。
 
 **合并闸门还差冒烟** → 第 5 回两条：⑨ 冒烟的通道判据从「模型名在不在候选里」改成「是不是内置通道」，非内置走 `[13][skip]`；⑩ `kb_upload` 摘要失败**回滚整条写入** + 冒烟自清理进 `finally` + `--cleanup-only` 支持只清不跑。这两条过了即合并。
+
+#### P4f 第 5 回交回回执（WorkBuddy → Qoder，2026-10-01）—— **IN_REVIEW**，持棒交回 Qoder
+
+**⑨ 冒烟通道守卫（`novaagent/tests/smoke_test.py`）** —— 判据换掉了，不是加了个 else。
+
+- 旧判据 `assert smoke_model in _cands` 的**错处**：`_cands = MODEL_CANDIDATES` 是**内置 DashScope 候选清单**，
+  于是「换通道」与「冒烟」互斥（你 `:8973`/`:8974` 连炸两次）。旧版那条「检测到 custom 就跳过」
+  覆盖不到「全局 config 指向非候选模型」。
+- 新判据：**当前通道是不是内置通道**，抽成纯函数 `plan_step13(base_url, custom_enabled, smoke_model, candidates)`
+  → `{"action": "switch"|"skip", "reason", "valid"}`，离线可断言。
+  判据顺序 = 优先级：custom 已启用 > 非内置域 > 候选清单为空。
+- 非内置 → 打印 `[13][skip] 内置模型切换不适用于自定义通道（base_url=…）` 并**跳过**，不 assert 炸；
+  `bad-model → 400` 与「坑 66 还原」**保留在 switch 分支内**（它们验的是 API 校验，不是通道）。
+- 畸形/无 host 的 base_url 一律判**非内置** —— 信息不足时走 skip，不拿猜测当内置。
+- 真实配置口径两向读数（`docs/p4f/evidence/r5_channel_plan_probe.txt`）：
+  `LLM_BASE_URL=https://openrouter.ai/api/v1` → `action=skip`；默认 DashScope 域 → `action=switch valid=True`。
+
+**⑩ F3 上传原子性（`novaagent/novaagent/main.py`，只动 `kb_upload`）**
+
+- 摘要失败 → `_rollback_ingest(doc_id, …)` 删掉刚插入的 document + chunks →
+  `HTTPException(502, {"code":"summary_failed", "reason":…, "hint":上游错误})`；**非 2xx 且计数不变**。
+- 两条纪律写进代码注释：回滚**自己不得抛异常**（否则 429 的根因被盖成「回滚失败」）；
+  `doc_id is None` 不算失败（还没落库就炸 = 本来就没脏）。
+- ⚠ **`/api/kb/import_url` 是同一个形状，按白名单本回没改**，已记 `docs/P4F.md` §六第 3 条待下一单补。
+
+**⑩ 冒烟自清理进 `finally` + `--cleanup-only`**
+
+- 删除本次冒烟文档放进 `finally`；守恒断言仍留在正常路径（失败时异常已上抛，不需要它再判一次）。
+- `uploaded_ids` / `count_before` 移到 `try` **之前**定义 —— 否则登录就失败时 finally 会抛
+  `UnboundLocalError`，**把真正的失败原因盖掉**。这是本回实跑踩到后当场修的（不是想出来的）。
+- 新增 `--cleanup-only`：清完打印删掉的 id 与 `documents/chunks` 计数即退出 0，不再「先清理再跑完整套」。
+
+**实跑读数（全部零额度；命令不接管道，坑 55）**
+
+| 项 | 命令（cwd = `E:/AILearn/NovaCampus/novaagent`） | 退出码 | 读数 |
+|---|---|---|---|
+| 只清理 | `.venv/Scripts/python.exe tests/smoke_test.py --cleanup-only --base http://127.0.0.1:8976` | **0** | `清理历史残留 0 篇: []`；`documents=65 chunks=487` |
+| 语料体检 | `.venv/Scripts/python.exe evals/kb_doctor.py`（cwd 仓库根） | **0** | `documents=65 chunks=487 danger=0` |
+| 自测① | `.venv/Scripts/python.exe tests/probe_port_check.py --selftest` | 0 | 33/33 |
+| 自测② | `… tests/test_p4f_persona.py` | 0 | 158/158 |
+| 自测③ | `… tests/test_p4f_persona_eval.py` | 0 | 92/92 |
+| 自测④ | `… tests/test_p4f_persona_eval_wiring.py` | 0 | 66/66 |
+| 自测⑤ | `… tests/test_p4f_c0.py` | 0 | **91/91**（原 64 → +27） |
+| 自测⑥ | `… tests/test_p4f_frontend_contract.py` | 0 | 99/99 |
+| 自测⑦ | `… tests/probe_health_keysource.py` | 0 | 20/20 |
+| 现算合计 | `… tests/_sum_selftest_counts.py` | **0** | **559 == 文档 559**（33+158+92+66+91+99+20） |
+
+**反向闭环（三条原文都在 `docs/p4f/evidence/`）**
+
+1. `r5_reverse_rollback_removed.txt`：把 `kb_upload` 的 try/回滚删掉（退回旧顺序）→
+   `F3 反例:**回滚成功** …` 与 `F3 反例:库里只剩正例那篇…` 两条**当场红**，exit 1（89/91）；
+   复原 → 91/91 绿。
+2. `r5_reverse_skip_always_true.txt`：把 skip 条件写死成 `if True:` →
+   内置通道那 6 条 + `valid=False` 共 **7 条当场红**，exit 1（84/91）。
+3. `r5_reverse_skip_always_false.txt`：另一极写死 `if False:`（恒 switch）→
+   「非 DashScope 通道 → 走 skip」当场红，exit 1（90/91）。**两极都验，只验一极等于没验**（坑 52）。
+
+**自测形态（为什么它能判红而不是「跑通就行」）**
+
+- ⑨：20 条纯函数断言 + 3 条**源码接线**断言（有 `[13][skip]`；`[13]` 由 `plan_step13` 决定分支；
+  `assert smoke_model in _cands` 只有一处**代码**且缩进 ≥16 = 只在 switch 分支里执行）。
+- ⑩：DB 用**副本**（`config.DB_PATH` 指 temp + `db._conn=None` 重连），`rag.embed_texts` 用假实现、
+  `agent.summarize_document` 用**抛异常**的假实现（真实现会打 embedding/LLM = 烧额度）；
+  **非空前置**：先跑一次摘要成功的上传证明管线真的会 +1，否则「计数不变」可能是「压根没走到 insert」的空集假通过（坑 45）。
+
+**我本回自己的两条自纠（都写进代码注释了）**
+
+1. **条件断言会让条数随环境漂移**：`C0-⑥ 反向:返回值 != 真实 key 值` 原写 `if real:`，
+   环境里没注入 `LLM_API_KEY` 时它根本不跑 → 单独跑 89 条、经 `_sum_selftest_counts.py`
+   注入假 key 跑 90 条。这正是坑 56/59 的同族（**聚合数对不上又查不出为什么**），
+   已改成**无条件执行**（缺值时自己补假 key 护身符），现在两种环境**都是 91**。
+2. **finally 里的收尾逻辑差点盖掉根因**（见上 `uploaded_ids` 那条），实跑踩到后修。
+
+**端口与进程（坑 61 姿势）**：本回只起了 `:8976` 一个实例（假 key 护身符 `ZERO-QUOTA-PROTECTOR-*`），
+用完按**端口反查属主 PID** `Stop-Process -Force` 杀掉，并 `netstat -ano | grep LISTENING` 复查
+`:8973/:8974/:8975/:8976` **均无监听**。未用 Git Bash `kill <Windows PID>`。
+⚠ **冒烟整轮本回没跑**（会真发 LLM/embedding 请求）：按订单约定，绿/红由你跑 ——
+预期 `[13][skip]`（若你走 OpenRouter 通道）且整轮 exit 0。
 
 ### P4g UI 细节收尾（周报文本框等）　📋 **已并入 P5**（2026-10-01 用户提出外壳重构诉求，见 `docs/P5.md`；P4g 的文本框等零碎项作为 P5-1 的子项一并做）
 

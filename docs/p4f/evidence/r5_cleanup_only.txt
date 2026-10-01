@@ -1,0 +1,15 @@
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8976/api/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8976/api/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: POST http://127.0.0.1:8976/api/login "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8976/api/kb/documents "HTTP/1.1 200 OK"
+INFO:httpx:HTTP Request: GET http://127.0.0.1:8976/api/kb/documents "HTTP/1.1 200 OK"
+[U1] 引用剥离 OK(越界[3]/[12]剥除,[1]与〔2025〕/[2026]不误伤)
+[U2] 口令检测 OK(v0.3 密码均为/v0.5 字面量/用户名口令斜杠式 全命中,正常正文不误伤)
+[U3] 敏感扫描 OK(手机号 personal_info/名单 name_list/登录标题 login_title/正常页放行)
+[U4] 拒答门控判定 OK(空来源/单达标低分拒,单来源高置信与双达标答,降级路径答,短正文拒)
+[U5] 出口匹配 OK(F2→保卫处(学平险/意外伤害保险归口);F1短问→校医院 医保办(医保咨询))
+[U6] 禁抓回归 OK(cwc 首页/自家前端 均命中 DENY_URLS)
+[U7] 导航/索引页判据 OK(真实样本 short=60%/long=11% 被拒;正文页放行)
+[1] 三角色登录 OK: admin/counselor/student
+[0] 清理历史残留 0 篇: []
+[0] --cleanup-only 只清理不跑完整套: documents=65 chunks=487

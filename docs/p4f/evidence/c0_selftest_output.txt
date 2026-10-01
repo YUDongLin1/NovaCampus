@@ -24,6 +24,7 @@
 [PASS] C0-⑥ key_source 不返回值本身
 [PASS] C0-⑥ 未注入时读数为 repo_dotenv/unset
 [PASS] C0-⑥ key_source 取值域封闭(只有三个标签)
+[PASS] C0-⑥ 注入(含自补假值)后读数为 session_env
 [PASS] C0-⑥ 反向:返回值 != 真实 key 值
 [PASS] C0-⑥ /api/health flags 含 llm_key_source
 [PASS] C0-⑥ /api/health flags 含 embedding_key_source
@@ -54,6 +55,32 @@
 [PASS] C0-④ 返回体自证两层超时各是多少(排障不用猜)
 [PASS] C0-④ 反向:错误信息写明是总时限兜的、且标明 idle 值不同(排障可分辨是哪一层)
 [PASS] C0-④ 反向:两层超时分别独立可注入(不是同一个值)
+[PASS] ⑨ 非 DashScope 通道(OpenRouter)→ [13] 走 skip 不 assert 炸
+[PASS] ⑨ skip 原因写明 base_url(排障不用猜)
+[PASS] ⑨ 内置通道(base_url='https://dashscope.aliyuncs.com/compatible-mode/v1')→ [13] 真的执行切换
+[PASS] ⑨ 内置通道下合法模型 valid=True(base_url='https://dashscope.aliyuncs.com/compatible-mode/v1')
+[PASS] ⑨ 内置通道(base_url='https://dashscope.aliyuncs.com/compatible-mode/v1/')→ [13] 真的执行切换
+[PASS] ⑨ 内置通道下合法模型 valid=True(base_url='https://dashscope.aliyuncs.com/compatible-mode/v1/')
+[PASS] ⑨ 内置通道(base_url='')→ [13] 真的执行切换
+[PASS] ⑨ 内置通道下合法模型 valid=True(base_url='')
+[PASS] ⑨ 内置通道 + 非候选模型 → valid=False(不该被 skip 静默放过)
+[PASS] ⑨ 自定义通道(custom 已启用)→ skip(旧行为不退步)
+[PASS] ⑨ 畸形 base_url='compatible-mode/v1' 判非内置(不拿信息不足当内置)
+[PASS] ⑨ 畸形 base_url='https://' 判非内置(不拿信息不足当内置)
+[PASS] ⑨ 畸形 base_url='not a url at all' 判非内置(不拿信息不足当内置)
+[PASS] ⑨ 带 userinfo/端口的 OpenRouter 仍判非内置
+[PASS] ⑨ 带端口的内置域仍判内置
+[PASS] ⑨ smoke_test 里有 [13][skip] 打印分支
+[PASS] ⑨ [13] 由 plan_step13 决定分支(不是就地 if)
+[PASS] ⑨ `assert smoke_model in _cands` 只有一处**代码**
+[PASS] ⑨ 该 assert 位于 switch 分支内(缩进 ≥16,不再无条件执行 → 换通道不再炸)
+[PASS] F3 自测前置:样本文本能过质量门(红灯理由才是回滚,不是门)
+[PASS] F3 自测非空前置:副本里有真实语料(防空集假通过)
+[PASS] F3 正例:摘要成功时上传 200(管线真的会写入)
+[PASS] F3 正例:documents +1 且 chunks 增加(证明 insert 路径被走到)
+[PASS] F3 反例:摘要失败时 `/api/kb/upload` 返回非 2xx
+[PASS] F3 反例:**回滚成功** —— documents/chunks 计数与上传前一致(不留孤儿文档)
+[PASS] F3 反例:库里只剩**正例**那篇,失败那篇没留下
 [PASS] P4f 迁移第1遍:personas 表存在
 [PASS] P4f 迁移第1遍:conversations.persona_id 存在
 [PASS] P4f 迁移第1遍:personas 列齐备
@@ -64,4 +91,4 @@
 [PASS] P4f 迁移幂等:schema(列/索引)两遍一致
 [PASS] P4f 迁移自测非空前置:副本里有真实数据(防空集假通过)
 ==============================================================================
-[RESULT] 64/64 passed
+[RESULT] 91/91 passed

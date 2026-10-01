@@ -184,6 +184,26 @@ async def list_models(user=Depends(current_user)):
     return {"models": config.MODEL_CANDIDATES, "current": agent.effective_llm(user["id"])["model"]}
 
 
+def _rollback_ingest(doc_id: int | None, label: str, exc: BaseException) -> None:
+    """P4f ⑩ / F3: 入库后处理(摘要)失败 → 删掉刚插入的 document 与 chunks。
+
+    ⚠ 两条纪律:
+      1. **回滚本身不得抛异常** —— 回滚失败只能记 error,绝不能把上游 LLM 的错误
+         换成"回滚失败"的错,那会让排障时看不到真正的根因(429/400/超时);
+      2. **doc_id 为 None 时不算失败** —— 那是"还没落库就炸了",本来就没脏。
+    """
+    if doc_id is None:
+        return
+    try:
+        db.delete_document(doc_id)
+    except Exception as de:  # noqa: BLE001
+        logger.error("ingest rollback FAILED doc=%s label=%s err=%s: %s",
+                     doc_id, label, type(de).__name__, de)
+        return
+    logger.warning("ingest rolled back doc=%s label=%s reason=%s: %s",
+                   doc_id, label, type(exc).__name__, exc)
+
+
 # ---------- 知识库(辅导员/管理员可写,按角色可见) ----------
 
 @app.post("/api/kb/upload")
@@ -235,7 +255,17 @@ async def kb_upload(
                                 folder_id=fid, audience=audience)
     db.insert_chunks(doc_id, list(zip(range(len(chunks)), chunks, vectors)))
     eff = agent.effective_llm(user["id"])
-    summary = await agent.summarize_document(Path(name).stem, chunks, eff["model"], eff["base_url"], eff["api_key"])
+    # P4f ⑩ / F3: 摘要失败 → **整条写入回滚**(旧行为:文档与分块已落库却返回 500)。
+    # 实测代价(Qoder 第 5 回):三次失败的冒烟各往 KB 里留 3 篇孤儿文档(65/487 → 68/490),
+    # 手工清了三轮 —— 「失败的上传」不该在知识库里留下任何痕迹。
+    try:
+        summary = await agent.summarize_document(
+            Path(name).stem, chunks, eff["model"], eff["base_url"], eff["api_key"])
+    except Exception as e:  # noqa: BLE001  上游 429/400/超时一律回滚,不静默留脏
+        _rollback_ingest(doc_id, name, e)
+        raise HTTPException(502, detail={"code": "summary_failed",
+                                         "reason": "文档摘要生成失败,本次上传已整条回滚(未入库)",
+                                         "hint": f"上游 LLM 返回错误: {str(e)[:160]}"})
     db.update_document_summary(doc_id, summary)
     logger.info("ingested doc=%s chunks=%d role_min=%s category=%s folder=%s audience=%s by %s",
                 name, len(chunks), role_min, category, fid, audience, user["username"])

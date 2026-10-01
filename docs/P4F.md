@@ -248,23 +248,84 @@ _PERSONA_INJECTION_MARK + persona 段（人设提示词 + 风格 + 范围）
 
 ---
 
+## 二·五、第 5 回两条收尾（⑨ 冒烟通道守卫 / ⑩ F3 上传原子性）
+
+> 开单：`docs/p4f/workbuddy-order-round5.md`。两条都是**上一轮自己引入的缺陷挡住了合并闸门**：
+> 评测已绿（v2.5 两档已产出），唯一过不去的是冒烟，而冒烟过不去有两条原因都出自本单代码。
+
+### ⑨ 冒烟的通道守卫写反了（`novaagent/tests/smoke_test.py`）
+
+**缺陷**：第 3 回 ③ 加的守卫是 `assert smoke_model in _cands`，而 `_cands = MODEL_CANDIDATES`
+是**内置 DashScope 的候选清单**。于是「换通道」（恰恰是额度纪律要求的能力）与「冒烟」互斥 ——
+Qoder 实测 `NOVA_SMOKE_MODEL='qwen/qwen-plus'` 在 `:8973` / `:8974` 连炸两次。
+旧版那条「检测到 custom 就跳过」的分支覆盖不到「**全局 config 指向非候选模型**」这一种。
+
+**改法**：判据从「模型名在候选里」换成「**当前通道是不是内置通道**」，并抽成**纯函数** `plan_step13()`：
+
+| 输入 | action | 含义 |
+|---|---|---|
+| `LLM_BASE_URL=https://openrouter.ai/api/v1` | `skip` | 打印 `[13][skip] …（base_url=…）`，**不 assert 炸** |
+| `LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1` | `switch` | 真的执行切换 + 非法模型 400 + 还原 |
+| `LLM_BASE_URL=` 空（= 回落默认 DashScope） | `switch` | 同上 |
+| custom API 已启用 | `skip` | 旧行为不退步 |
+| 畸形/无 host 的 base_url | `skip` | **安全方向**：信息不足时跳过，不拿猜测当内置 |
+
+`bad-model → 400` 那条反向断言**保留在 switch 分支内**（它验的是 API 校验，不是通道）。
+能判红的自测 20 条在 `test_p4f_c0.py::test_smoke_channel_guard`，含**源码接线**断言：
+`assert smoke_model in _cands` 必须只有一处**代码**且缩进 ≥16（即只在 switch 分支里执行）。
+
+### ⑩ 冒烟与上传都不许「炸了就留脏」
+
+**F3（产品缺陷，`novaagent/novaagent/main.py`）**：`/api/kb/upload` 原顺序是
+`insert_document → insert_chunks → summarize_document`，摘要失败（429/400/超时）→ 接口 500，
+但**文档与分块已经落库**。Qoder 实测三次失败的冒烟各留 3 篇孤儿文档（`65/487 → 68/490`）。
+
+改法：摘要失败 → `_rollback_ingest()` 删掉刚插入的 document 与 chunks → 抛
+`HTTPException(502, {"code":"summary_failed", …})`。两条纪律：
+① 回滚自己**不得抛异常**（否则会把 429 的根因盖成「回滚失败」）；
+② `doc_id is None` 时不算失败（还没落库就炸 = 本来就没脏）。
+⚠ 按白名单**只动了 `kb_upload` 的写入顺序/回滚**；`kb_import_url` 是**同一个形状**，
+本回未改，已列给下一单（见 §六）。
+
+**冒烟自清理进 `finally`**：旧版 `[18]` 在正常路径末尾，中途任何 assert/异常都不会执行到。
+现在删除本次冒烟文档放进 `finally`，且 `uploaded_ids` / `count_before` 在 `try` **之前**定义 ——
+否则登录就失败时 finally 引用未绑定局部变量会抛 `UnboundLocalError`，
+**把真正的失败原因盖掉**（这一条是本回实跑踩到、当场修掉的）。
+另新增 `--cleanup-only`：**只清理不跑完整套**，清完打印删掉的 id 与 `documents/chunks` 计数后退出 0
+（旧版只有「先清理再跑完整套」一种形态，于是「跑一次失败的冒烟」=「再污染一次语料」）。
+
+### 本回实跑读数（全部零额度）
+
+| 项 | 命令 | 结果 |
+|---|---|---|
+| `--cleanup-only` | `python tests/smoke_test.py --cleanup-only --base http://127.0.0.1:8976` | exit 0，`[0] 清理历史残留 0 篇: []`，`documents=65 chunks=487` |
+| 语料体检 | `python evals/kb_doctor.py` | `documents=65 chunks=487 danger=0`（exit 0） |
+| 七个自测 | 见 §3.1 | 33/158/92/66/**91**/99/20，exit 全 0 |
+| 现算合计 | `python tests/_sum_selftest_counts.py` | **559 == 文档 559**，exit 0 |
+| 反向闭环 | 见 §3.2 三个 `r5_reverse_*.txt` | 拆回滚 → exit 1；skip 写死 True → exit 1（7 条红）；写死 False → exit 1 |
+
+⚠ **冒烟整轮本回没跑**：它会真发 LLM/embedding 请求，按订单「绿/红由 Qoder 跑」的约定交回。
+本回只保证**不依赖网络的断言**（skip 分支纯函数、回滚用 mock）全绿。
+
 ## 三、测试与证据（全部零额度）
 
-### 3.1 自测矩阵（七个自测，**428 条断言**，exit 全 0）
+### 3.1 自测矩阵（七个自测，**559 条断言**，exit 全 0）
 
-> 条数以**第 2 复修复核后**的当前代码实测为准（2026-10-01 重跑）。
-> 第一版写的 401 条（63+124+...）与 `c0_selftest_output.txt` 停在 63 条，
-> 是**证据没跟着最后一次代码改动重跑**（坑 56/59 家族），本轮已刷新。
+> 条数以 `_sum_selftest_counts.py` **现跑**为准（2026-10-01 第 5 回重跑，
+> 证据 `docs/p4f/evidence/r5_sum_selftest_counts.txt`）。
+> 历史几次手抄都是错的：401 → 428 → 507 → 508 → 532 → **559**，
+> 每一次都是「聚合数手抄、没跟着逐条读数重算」（坑 56/59 家族），
+> 故第 4 回已把「合计」做成可执行断言（本文件存在理由），本回直接读它的输出。
 
 | 自测 | 条数 | 覆盖面 |
 |---|---|---|
-| `test_p4f_c0.py` | **64/64** | C0 六条（含白名单判红、双层超时假 transport、`key_source` 反向） |
-| `test_p4f_persona.py` | **136/136** | 数据层 / prompt 组装 / 注入防御 / 权限 / 不提权 / **C5 炸点覆盖元测试** |
+| `test_p4f_c0.py` | **91/91** | C0 六条（含白名单判红、双层超时假 transport、`key_source` 反向）+ **第 5 回 ⑨⑩**（通道守卫 20 + F3 上传原子性 7） |
+| `test_p4f_persona.py` | **158/158** | 数据层 / prompt 组装 / 注入防御 / 权限 / 不提权 / **C5 炸点覆盖元测试** |
 | `test_p4f_frontend_contract.py` | **99/99** | P4b-0 不变量 + persona 接线（零浏览器） |
 | `probe_health_keysource.py` | **20/20** | C0-⑥ 两态对照 |
-| `test_p4f_persona_eval.py` | **33/33** | persona 判据**离线判红** |
-| `test_p4f_persona_eval_wiring.py` | **62/62** | persona 用例在**主循环**的接线 |
-| `probe_port_check.py --selftest` | **14/14** | C0-⑤ 探针**判据纯函数**的能判红/能判绿（含极性自检） |
+| `test_p4f_persona_eval.py` | **92/92** | persona 判据**离线判红** |
+| `test_p4f_persona_eval_wiring.py` | **66/66** | persona 用例在**主循环**的接线 |
+| `probe_port_check.py --selftest` | **33/33** | C0-⑤ 探针**判据纯函数**的能判红/能判绿（含极性自检） |
 
 跑法（项目 venv 里才有 httpx/fastapi）：
 
@@ -292,6 +353,13 @@ cd E:/AILearn/NovaCampus/novaagent
 | `persona_eval_wiring_selftest.txt` | 主循环接线 62/62 |
 | `port_probe_selftest_output.txt` | C0-⑤ 探针判据纯函数自测 **14/14** |
 | `c5_tripwire_reverse_check.txt` | **拆掉流式炸点后 C5 当场红**的闭环原文（坑 52 反向验证） |
+| `r5_cleanup_only.txt` | 第 5 回⑩：`--cleanup-only` 实跑原文（exit 0，`documents=65 chunks=487`） |
+| `r5_channel_plan_probe.txt` | 第 5 回⑨：真实配置口径下 `[13]` 判据两向读数（OpenRouter→skip / DashScope→switch） |
+| `r5_reverse_rollback_removed.txt` | 第 5 回⑩ 反向：**拆掉回滚后 F3 断言当场红**（exit 1） |
+| `r5_reverse_skip_always_true.txt` | 第 5 回⑨ 反向：**skip 条件写死 True** 后当场红（exit 1，7 条） |
+| `r5_reverse_skip_always_false.txt` | 第 5 回⑨ 反向另一极：**写死 False（恒 switch）** 后当场红（exit 1） |
+| `r5_sum_selftest_counts.txt` | 第 5 回：七个自测现算合计 **559 == 文档 559**（exit 0） |
+| `r5_kb_doctor.txt` | 第 5 回：交回前语料体检 `documents=65 chunks=487 danger=0` |
 
 ### 3.3 「判据能判红」的证据形态
 
@@ -390,6 +458,11 @@ cd E:/AILearn/NovaCampus/novaagent
    ⚠️ **实现方本轮不改 `cases.json`**（用例一条都不许动），等Qoder 复算后定。
 2. **`GET /api/personas` 回传 `persona_prompt` 原文给学生**。public 人设的提示词全文对所有学生可见。
    要不要对非作者只回名称/风格，是**产品决定**，已单独提请负责人拍板。
+
+3. **`/api/kb/import_url` 与 F3 同形状，本回**没改**（白名单只放行 `kb_upload` 的写入顺序/回滚）。
+   它同样是 `insert_document → insert_chunks → summarize_document`，摘要失败会留孤儿文档。
+   修法与 `kb_upload` 完全一样（套同一个 `_rollback_ingest`），建议随 P4g/P5 一并补，
+   别再等它挡一次合并闸门。
 
 复核方另转两条 P4g 的 C0 候选（不属P4f 改动）：
 - **F1** `evals/faithfulness.py:70`：任何异常都吞掉换成 proxy 分，报告只写 `method="proxy"`，

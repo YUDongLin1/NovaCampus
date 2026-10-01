@@ -132,10 +132,27 @@ def test_c0_06_key_source() -> None:
           f"vals={vals}")
     # ③ ⚠ 反向用例:如果实现改成返回 key 值,这条必须判红。
     #    做法:直接断言"返回值不等于该键的真实值"。
-    real = os.environ.get("LLM_API_KEY") or ""
-    if real:
-        check(config.key_source("LLM_API_KEY") != real,
+    #
+    #    【第 5 回的**自纠**:这条原本写成 `if real:` 条件断言】——
+    #    环境里没注入 LLM_API_KEY 时它**根本不执行**,于是同一份代码在两种环境下
+    #    条数差 1(单独跑 89 / 经 `_sum_selftest_counts.py` 注入假 key 跑 90)。
+    #    「换个环境条数就变」正是坑 56/59 的同族(聚合数对不上又查不出为什么),
+    #    故改为**无条件执行**:缺值时自己补一个假值(**假 key 护身符**,零额度),
+    #    反例的区分力不变 —— 实现若返回值本身,仍然当场判红。
+    saved_real = os.environ.get("LLM_API_KEY")
+    probe_val = saved_real or "ZERO-QUOTA-PROTECTOR-LLM"
+    try:
+        os.environ["LLM_API_KEY"] = probe_val
+        check(config.key_source("LLM_API_KEY") == "session_env",
+              "C0-⑥ 注入(含自补假值)后读数为 session_env",
+              f"got={config.key_source('LLM_API_KEY')}")
+        check(config.key_source("LLM_API_KEY") != probe_val,
               "C0-⑥ 反向:返回值 != 真实 key 值", "")
+    finally:
+        if saved_real is None:
+            os.environ.pop("LLM_API_KEY", None)
+        else:
+            os.environ["LLM_API_KEY"] = saved_real
     # ④ health flags 必须含两个来源字段(读源码静态断言,零额度、零 IO)
     main_src = (ROOT / "novaagent" / "novaagent" / "main.py").read_text(encoding="utf-8")
     check('"llm_key_source"' in main_src, "C0-⑥ /api/health flags 含 llm_key_source", "")
@@ -321,6 +338,203 @@ def test_c0_04_timeout() -> None:
           f"idle={res2.get('idle_timeout_s')} total={res2.get('total_timeout_s')}")
 
 
+# ============================ ⑨ 冒烟通道守卫(纯函数,零额度) ============================
+def test_smoke_channel_guard() -> None:
+    """第 5 回⑨:[13] 的判据必须是「当前通道是不是内置通道」,不是「模型名在不在候选里」。
+
+    ⚠ 反向用例的形状(订单要求 4):把 skip 条件写死成 True(恒 skip)或写死成 False
+      (恒 switch),下面的两组断言**各有一条会红** —— 只测一边的断言等于没有断言(坑 52)。
+    """
+    import smoke_test as st  # 本文件与 smoke_test.py 同目录(script 目录已在 sys.path[0])
+
+    cands = ["qwen-flash", "qwen3.7-plus"]
+    # ① 非内置通道(OpenRouter)→ skip。旧实现在这里 `assert smoke_model in _cands` 直接炸,
+    #    于是「换通道」与「冒烟」互斥(Qoder :8973/:8974 两次)。
+    p = st.plan_step13(base_url="https://openrouter.ai/api/v1", custom_enabled=False,
+                       smoke_model="qwen/qwen-plus", candidates=cands)
+    check(p["action"] == "skip", "⑨ 非 DashScope 通道(OpenRouter)→ [13] 走 skip 不 assert 炸",
+          f"got={p}")
+    check("openrouter" in p["reason"] and "base_url" in p["reason"],
+          "⑨ skip 原因写明 base_url(排障不用猜)", f"reason={p['reason']!r}")
+    # ② 内置通道 → 真的执行切换与还原(写死 True 会在这里红)
+    for bu in ("https://dashscope.aliyuncs.com/compatible-mode/v1",
+               "https://dashscope.aliyuncs.com/compatible-mode/v1/",
+               ""):  # 空 = 回落 config 默认(DashScope 兼容模式)
+        p2 = st.plan_step13(base_url=bu, custom_enabled=False,
+                            smoke_model="qwen-flash", candidates=cands)
+        check(p2["action"] == "switch", f"⑨ 内置通道(base_url={bu!r})→ [13] 真的执行切换",
+              f"got={p2}")
+        check(p2["valid"] is True, f"⑨ 内置通道下合法模型 valid=True(base_url={bu!r})",
+              f"got={p2}")
+    # ③ 内置通道 + 非法模型 → valid=False(由调用方 assert 判红,这是**正确**的红,
+    #    与 ① 那种"换了通道就炸"的假红不是一回事)
+    p3 = st.plan_step13(base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                        custom_enabled=False, smoke_model="qwen/qwen-plus", candidates=cands)
+    check(p3["action"] == "switch" and p3["valid"] is False,
+          "⑨ 内置通道 + 非候选模型 → valid=False(不该被 skip 静默放过)", f"got={p3}")
+    # ④ 用户自定义通道 → skip(旧版唯一覆盖到的那一种,必须不退步)
+    p4 = st.plan_step13(base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                        custom_enabled=True, smoke_model="anything", candidates=cands)
+    check(p4["action"] == "skip", "⑨ 自定义通道(custom 已启用)→ skip(旧行为不退步)",
+          f"got={p4}")
+    # ⑤ 畸形/无 host 的 base_url → 判**非内置**(安全方向:信息不足时走 skip,不 assert 炸)
+    for bad in ("compatible-mode/v1", "https://", "not a url at all"):
+        check(not st.is_builtin_llm_channel(bad),
+              f"⑨ 畸形 base_url={bad!r} 判非内置(不拿信息不足当内置)", "")
+    # ⑥ 端口/userinfo 不参与判定
+    check(st.is_builtin_llm_channel("https://u:p@openrouter.ai:443/api/v1") is False,
+          "⑨ 带 userinfo/端口的 OpenRouter 仍判非内置", "")
+    check(st.is_builtin_llm_channel("https://dashscope.aliyuncs.com:443/compatible-mode/v1"),
+          "⑨ 带端口的内置域仍判内置", "")
+    # ⑦ 源码接线:判据**真的**被 [13] 用上,且成员断言只在 switch 分支里
+    src = (ROOT / "novaagent" / "tests" / "smoke_test.py").read_text(encoding="utf-8")
+    check("[13][skip]" in src, "⑨ smoke_test 里有 [13][skip] 打印分支", "")
+    check("plan_step13(" in src and '_plan["action"]' in src,
+          "⑨ [13] 由 plan_step13 决定分支(不是就地 if)", "")
+    # 只认**代码行**(注释里也提到了这个断言,按 strip().startswith("assert") 过滤)
+    hits = [ln for ln in src.splitlines()
+            if ln.strip().startswith("assert") and "smoke_model in _cands" in ln]
+    check(len(hits) == 1, "⑨ `assert smoke_model in _cands` 只有一处**代码**", f"n={len(hits)}")
+    for ln in hits:
+        indent = len(ln) - len(ln.lstrip())
+        check(indent >= 16,
+              "⑨ 该 assert 位于 switch 分支内(缩进 ≥16,不再无条件执行 → 换通道不再炸)",
+              f"indent={indent}")
+
+
+# ============================ ⑩ F3 上传原子性(mock,库副本,零额度) ============================
+_ROLLBACK_TEXT = (
+    "第一条 为规范研究生学籍管理,制定本规定,适用于全校各类研究生。"
+    "第二条 研究生最长学习年限为六年,超过年限者应予退学处理。"
+    "第三条 学生申请休学应当提交书面申请与医院证明,经导师和培养单位同意后报研究生院审批。"
+    "第四条 休学以一学期为单位,期满前一周应当提交复学申请,经研究生院批准后复学。"
+    "第五条 研究生退学由培养单位提出意见,报研究生院审核批准后办理退学手续。"
+    "第六条 本规定仅用于上传原子性自测,不作为实际管理依据。"
+)
+
+
+def test_f3_upload_rollback() -> None:
+    """第 5 回⑩/F3:摘要失败 → 整条写入回滚,documents/chunks 计数**不变**。
+
+    ⚠ 隔离与零额度三重保险:
+      1. DB 用**副本**(config.DB_PATH 指向 temp + `db._conn=None` 强制重连),原库零改动;
+      2. `rag.embed_texts` 用假实现(真实现会打 embedding API = 烧额度);
+      3. `agent.summarize_document` 用**抛异常**的假实现(真实现会打 LLM = 烧额度)。
+    ⚠ 非空前置(坑 45):先跑一次**成功**上传证明管线真的会写入,
+      否则「计数不变」可能是「压根没走到 insert」的空集假通过。
+    """
+    import io as _io
+    import shutil
+    import sqlite3
+    import tempfile
+
+    from fastapi import HTTPException, UploadFile
+
+    from novaagent import db as db_mod
+    from novaagent import main as main_mod
+    from novaagent import rag as rag_mod
+
+    # 前置:这段文本必须能过质量门(否则失败的是门不是回滚,红灯理由就错了 —— 坑 52)
+    gate = main_mod.quality_gate_reject("", "F3回滚自测-学籍规定", _ROLLBACK_TEXT)
+    check(gate is None, "F3 自测前置:样本文本能过质量门(红灯理由才是回滚,不是门)",
+          f"gate={gate}")
+
+    src = config.DB_PATH
+    tmp = Path(tempfile.mkdtemp(prefix="p4f_f3_"))
+    dst = tmp / "agent.db"
+    saved_conn = db_mod._conn
+    saved_embed = rag_mod.embed_texts
+    saved_has_summary = hasattr(main_mod.agent, "summarize_document")
+
+    async def _fake_embed(texts):
+        return [[0.1] * 8 for _ in texts]
+
+    async def _boom(*_a, **_kw):
+        raise RuntimeError("upstream 429: rate limit exceeded")
+
+    async def _ok(*_a, **_kw):
+        return "AI 摘要(自测假实现)"
+
+    def _counts() -> tuple[int, int]:
+        con = sqlite3.connect(f"file:{dst}?mode=ro", uri=True)
+        try:
+            d = con.execute("select count(*) from documents").fetchone()[0]
+            c = con.execute("select count(*) from chunks").fetchone()[0]
+        finally:
+            con.close()
+        return d, c
+
+    def _upload() -> int:
+        """调一次 kb_upload(直调函数、不走 HTTP),返回 HTTP 状态码(200=成功)。"""
+        up = UploadFile(file=_io.BytesIO(_ROLLBACK_TEXT.encode("utf-8")),
+                        filename="F3回滚自测-学籍规定.md")
+        con = sqlite3.connect(str(dst))
+        try:
+            uid = con.execute("select id from users where username='counselor'").fetchone()[0]
+        finally:
+            con.close()
+        user = {"id": uid, "username": "counselor", "role": "counselor"}
+        try:
+            res = asyncio.run(main_mod.kb_upload(
+                file=up, role_min="student", category="其他", folder_id="",
+                audience="common", user=user))
+            return 200 if res and res.get("doc_id") else 0
+        except HTTPException as e:
+            return e.status_code
+        except Exception:  # noqa: BLE001  未捕获异常在服务端就是 500(Qoder 实测正是 500)
+            return 500
+
+    try:
+        shutil.copy2(src, dst)
+        config.DB_PATH = dst
+        db_mod._conn = None
+        db_mod.connect()          # 连到副本(副本里已有 seed 用户)
+        rag_mod.embed_texts = _fake_embed
+
+        d0, c0 = _counts()
+        check(d0 > 0 and c0 > 0, "F3 自测非空前置:副本里有真实语料(防空集假通过)",
+              f"documents={d0} chunks={c0}")
+
+        # --- ① 正例(非空前置):摘要成功 → 真的落库 ---
+        main_mod.agent.summarize_document = _ok
+        code_ok = _upload()
+        d1, c1 = _counts()
+        check(code_ok == 200, "F3 正例:摘要成功时上传 200(管线真的会写入)", f"code={code_ok}")
+        check(d1 == d0 + 1 and c1 > c0,
+              "F3 正例:documents +1 且 chunks 增加(证明 insert 路径被走到)",
+              f"documents {d0}→{d1} chunks {c0}→{c1}")
+
+        # --- ② 反例(本单要修的缺陷):摘要失败 → 非 2xx 且计数不变 ---
+        main_mod.agent.summarize_document = _boom
+        code_bad = _upload()
+        d2, c2 = _counts()
+        check(400 <= code_bad < 600, "F3 反例:摘要失败时 `/api/kb/upload` 返回非 2xx",
+              f"code={code_bad}(旧实现未捕获异常 = 500,正是 Qoder 看到的那个 500)")
+        check((d2, c2) == (d1, c1),
+              "F3 反例:**回滚成功** —— documents/chunks 计数与上传前一致(不留孤儿文档)",
+              f"上传前=({d1},{c1}) 上传后=({d2},{c2})")
+        con = sqlite3.connect(f"file:{dst}?mode=ro", uri=True)
+        try:
+            left = con.execute(
+                "select count(*) from documents where title like 'F3回滚自测%'").fetchone()[0]
+        finally:
+            con.close()
+        check(left == 1, "F3 反例:库里只剩**正例**那篇,失败那篇没留下", f"left={left}")
+    finally:
+        if saved_has_summary:
+            try:
+                del main_mod.agent.summarize_document  # 去掉实例属性,回落到类方法
+            except AttributeError:
+                pass
+        rag_mod.embed_texts = saved_embed
+        db_mod._conn = None
+        config.DB_PATH = src
+        db_mod.connect()          # 复位回**原库**(不留在副本上)
+        if saved_conn is not None:
+            db_mod._conn = saved_conn
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ============================ 迁移幂等(库副本,零额度) ============================
 def test_migration_idempotent() -> None:
     """personas 迁移幂等:在**库副本**上连跑两遍,结构与计数一致。原库零改动。
@@ -388,7 +602,8 @@ def test_migration_idempotent() -> None:
 
 def main() -> int:
     for fn in (test_c0_01_allowlist, test_c0_06_key_source, test_c0_03_scope,
-               test_c0_04_timeout, test_migration_idempotent):
+               test_c0_04_timeout, test_smoke_channel_guard, test_f3_upload_rollback,
+               test_migration_idempotent):
         try:
             fn()
         except Exception as e:  # noqa: BLE001
