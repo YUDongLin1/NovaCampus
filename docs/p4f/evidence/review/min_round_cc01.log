@@ -1,0 +1,23 @@
+[server] ready on 8953 (pid=8306), running: ../docs/p4f/run_min_round.py --base http://127.0.0.1:8953
+[min-round] cases.json 过滤: 1/59 条 -> ['cc-01']
+[env_flags] server={'grounding_gate_enabled': True, 'grounding_early_window_chars': 80, 'grounding_stream_force_ungrounded': False, 'grounding_gate_scope_mode': 'factual_turns', 'web_search_enabled_default': False, 'web_search_idle_timeout_s': 20.0, 'web_search_total_timeout_s': 45.0, 'web_search_timeout_s': 20.0, 'web_search_max_sources': 8, 'graph_enabled': True, 'max_rewrite': 2, 'llm_model': 'stealth/space-bunny-alpha', 'llm_key_source': 'session_env', 'embedding_key_source': 'repo_dotenv', 'eval_temperature': '0'}
+[eval] 共 1 条用例
+
+[FAIL] cc-01      [context_compress] HTTP 404: {"detail":"'choices'"}
+
+===== 汇总 =====
+  context_compress 0/1
+  TOTAL            0/1(0%)
+
+[P4b C7 评测隔离] 断言失败 1 处(退出码将非 0):
+  - cc-01 会话 1819 user 消息数 10 != 应发轮数 9
+  Recall@k 均值: None | 忠实度均值: None(na) | 拒答准确率: None
+[P4e S2-③ grounding 闸门] 命中 0 次, 重生后仍不合格 0 次
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20261001_150408.json
+[min-round] run_evals.run() 退出码 = 1
+[server] done rc=1, shutting down 8953
+[server] taskkill //PID 40924 //F (端口 8953 上的 Windows PID)
+[server] taskkill issued
+[port-check] :8953 closed=True
+[wrapper exit=1]

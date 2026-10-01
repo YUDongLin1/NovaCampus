@@ -1,0 +1,9 @@
+time=3.40s  usage={"prompt_tokens": 232, "completion_tokens": 142, "total_tokens": 374, "cost": 0, "is_byok": false, "prompt_tokens_details": {"cached_tokens": 128, "cache_write_tokens": 0, "audio_tokens": 0, "video_tokens": 0}, "cost_details": {"upstream_inference_cost": 0, "upstream_inference_prompt_cost": 0, "upstream_inference_completions_cost": 0}, "completion_tokens_details": {"reasoning_tokens": 0, "image_tokens": 0, "audio_tokens": 0}}
+
+--- content (51 字) ---
+- 本人书面申请。[1]
+- 家长知情同意书。[1]
+- 因病休学的，须附二级以上医院诊断证明。[2]
+
+--- reasoning 长度 447 字，前 300 ---
+We need answer Chinese, only based on provided. Need list points and sources at sentence ends. Asked what materials. Need include general application: written application + parental consent; illness: diagnosis certificate from hospital grade two or above. Maybe distinguish. "只列要点". No intro perhaps 

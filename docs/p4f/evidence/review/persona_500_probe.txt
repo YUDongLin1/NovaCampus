@@ -1,0 +1,20 @@
+# persona 路径 HTTP 500 的实测诊断（Qoder，2026-10-01）
+
+工具：`docs/p4f/probe_persona_500.py`（TestClient + 把 `llm.chat` 包一层捞上游响应体，零产品代码改动）
+
+    [probe] 建 persona -> 200
+    [llm.chat] 上游 400；消息 1 条 / 总 657 字
+    [llm.chat] 响应体 = {"error":{"message":"qwen-flash is not a valid model ID","code":400},...}
+    [llm.chat] 上游 400；消息 2 条 / 总 3154 字
+    [llm.chat] 响应体 = {"error":{"message":"qwen-flash is not a valid model ID","code":400},...}
+
+**结论**：崩的不是 P4f 的 persona 代码，而是**本地库的用户级模型覆盖** ——
+`user_settings(2).model = 'qwen-flash'`（9-30 演示遗留）经 `agent.effective_llm()` **优先于**
+会话环境变量 `LLM_MODEL`，于是请求带着 `qwen-flash` 打到 OpenRouter，被回 400。
+
+**同一份报告里的 `env_flags.server.llm_model` 却写着测试模型名** ——
+即「报告自证的模型 ≠ 实际请求的模型」，5 条红看起来像实现崩了。已记 HANDOFF 坑 66，
+并把「逐用例记录实际生效的 model 与来源」列为 P4g C0 候选（与 C0-⑥ 同族：能自证才可信）。
+
+清空该设置后重跑：`pf-01/02/pf-inject-01` 全过（见 `min_round_canonical_r2.log`）。
+跑完 `user_settings(2).model` 已还原为 `qwen-flash` 并核对。
