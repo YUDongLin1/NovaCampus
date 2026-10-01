@@ -245,6 +245,17 @@ def _migrate() -> None:
         "ON personas(owner_id) WHERE is_default=1 AND deleted_at IS NULL"
     )
     _conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_persona ON conversations(persona_id)")
+
+    # ---------- P5-2: personas.avatar(内置头像库的**逻辑 id**) ----------
+    # ⚠ 存的是 id(如 'av-07'),**不是**路径、不是 base64、不是整图 —— 将来换图不迁移数据。
+    #   旧库用 ALTER 幂等加列(与上面 user_settings 同一套写法),**不要求重建库**。
+    # ⚠ 不设 CHECK 约束:未知 id 必须能落库且前端渲染成默认头像(前向兼容,
+    #   P5 验收标准第 4 条)—— 用 CHECK 枚举会把「将来新增第 17 个头像」变成 500。
+    p_cols = [r["name"] for r in _conn.execute("PRAGMA table_info(personas)")]
+    if "avatar" not in p_cols:
+        with _lock:
+            _conn.execute("ALTER TABLE personas ADD COLUMN avatar TEXT NOT NULL DEFAULT ''")
+            _conn.commit()
     _conn.commit()
 
     _migrate_messages_to_conversations()
@@ -878,6 +889,21 @@ _STYLE_VALUES = ("concise", "balanced", "detailed", "warm", "formal")
 _PERSONA_VISIBILITY_VALUES = ("private", "public")
 
 
+def normalize_avatar(v) -> str:
+    """头像 id 归一化(P5-2)。**纯函数**,离线可断言。
+
+    · 只留 `[A-Za-z0-9_-]`,截断 32 字符;空/非法 → `''`(前端渲染默认头像)。
+    · ⚠ **故意不做白名单校验**:头像库将来会加第 17、18 个,若这里按当前 16 个 id 做
+      白名单,老库里的新 id 就会被拒(或更糟:静默清空)。未知 id 由**前端**回落成默认
+      头像(P5 验收标准第 4 条:未知 id 不报错),后端只保证「存得进、取得出、不炸」。
+    """
+    s = str(v or "").strip()
+    if not s:
+        return ""
+    kept = "".join(ch for ch in s if (ch.isalnum() and ch.isascii()) or ch in "-_")
+    return kept[:32]
+
+
 def _persona_row_to_dict(row) -> dict:
     d = dict(row)
     for k in ("bound_folder_ids", "bound_categories"):
@@ -988,19 +1014,19 @@ def _persona_can_use(p: dict, user_id: int, role: str) -> bool:
 def create_persona(user_id: int, name: str, college: str = "", persona_prompt: str = "",
                    style: str = "balanced", bound_folder_ids: list | None = None,
                    bound_categories: list | None = None, visibility: str = "private",
-                   is_default: bool = False) -> int:
+                   is_default: bool = False, avatar: str = "") -> int:
     connect()
     now = _now()
     with _lock:
         cur = _conn.execute(
             "INSERT INTO personas (owner_id,name,college,persona_prompt,style,"
-            "bound_folder_ids,bound_categories,visibility,is_default,created_at,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,0,?,?)",
+            "bound_folder_ids,bound_categories,visibility,is_default,created_at,updated_at,avatar) "
+            "VALUES (?,?,?,?,?,?,?,?,0,?,?,?)",
             (user_id, (name or "").strip()[:40] or "未命名辅导员", (college or "").strip()[:40],
              (persona_prompt or "").strip()[:2000], style,
              json.dumps(list(bound_folder_ids or []), ensure_ascii=False),
              json.dumps(list(bound_categories or []), ensure_ascii=False),
-             visibility, now, now),
+             visibility, now, now, normalize_avatar(avatar)),
         )
         pid = cur.lastrowid
         _conn.commit()
@@ -1026,6 +1052,10 @@ def update_persona(persona_id: int, user_id: int, role: str, patch: dict) -> dic
         if col in patch:
             fields.append(f"{col}=?")
             vals.append(caster(patch[col]).strip()[:limit])
+    # P5-2: avatar 走独立归一化(不进上面的 caster 链:它要的是**清洗**而不是「截断原文」)
+    if "avatar" in patch:
+        fields.append("avatar=?")
+        vals.append(normalize_avatar(patch["avatar"]))
     if "style" in patch and patch["style"] in _STYLE_VALUES:
         fields.append("style=?")
         vals.append(patch["style"])

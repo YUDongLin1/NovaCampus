@@ -4,13 +4,18 @@
 [PASS] F api.js 最先加载(其余文件顶层依赖它的 TOKEN/$/esc)
 [PASS] F 引用的 api.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 ui.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 avatars.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 shell.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 conversations.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 persona.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 persona-page.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 chat.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 kb.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 weekly.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 theme.css 真实存在
 [PASS] F 引用的 persona.css 真实存在
+[PASS] F 引用的 shell.css 真实存在
+[PASS] F 引用的 persona-page.css 真实存在
 [PASS] F 后端 /js/{name} 路由在(新增 js 无需改 main.py)
 [PASS] F 后端 /css/{name} 路由在(新增 css 无需改 main.py)
 [PASS] F 静态路由有目录穿越防护(root 前缀校验)
@@ -59,7 +64,10 @@
 [PASS] F 只用 isStaff() 决定**是否提供管理入口**,不判断谁能看到谁
 [PASS] F 前置:找得到 openPersonaEditor 的模板
 [PASS] F 模板里确实声明了表单 id(防空集假通过)
+[PASS] F 模板声明的 #pf-avatars 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-cats 在 JS 里有对应的读取(拼错=静默 null)
 [PASS] F 模板声明的 #pf-college 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-default 在 JS 里有对应的读取(拼错=静默 null)
 [PASS] F 模板声明的 #pf-err 在 JS 里有对应的读取(拼错=静默 null)
 [PASS] F 模板声明的 #pf-folders 在 JS 里有对应的读取(拼错=静默 null)
 [PASS] F 模板声明的 #pf-name 在 JS 里有对应的读取(拼错=静默 null)
@@ -92,6 +100,11 @@
 [PASS] F 风格枚举前后端一致(不一致=某些风格静默回落 balanced)
 [PASS] F 前端用规格档位名 public
 [PASS] F 后端可见性档位是 private/public(规格原文)
+[PASS] F 前置:确实扫到了足量 id 引用(防空集假通过)
+[PASS] F 前置:确实扫到 JS 自己声明的 id(否则这条会恒红)
+[PASS] F JS 引用的每个 id 都有人声明(引用已删除的元素 = 登录后静默半瘫)
+[PASS] F 已下线的 #tab-records 不再被 JS 引用
+[PASS] F 已下线的 #tab-weekly 不再被 JS 引用
 [PASS] F p.name 渲染前经 esc()
 [PASS] F p.college 渲染前经 esc()
 [PASS] F persona_prompt 回填经 esc()
@@ -99,4 +112,4 @@
 [PASS] F 会话列表人设徽标经 esc()
 [PASS] F textarea 回填已转义(</textarea> 截断攻击)
 ==============================================================================
-[RESULT] 99/99 passed
+[RESULT] 112/112 passed

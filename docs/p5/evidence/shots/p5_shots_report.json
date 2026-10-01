@@ -1,0 +1,1155 @@
+{
+  "base": "http://127.0.0.1:8985",
+  "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "viewports": [
+    {
+      "viewport": "1440x900",
+      "role": "counselor",
+      "pages": [
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/chat",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "chat",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_counselor_chat.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "kb",
+          "activePane": "pane-kb",
+          "hash": "#/kb",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 298,
+            "cat": 298,
+            "audience": 298
+          },
+          "uploadRow": {
+            "file": 240,
+            "vis": 96,
+            "upCat": 96,
+            "upAudience": 92,
+            "upFolder": 92
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 827
+          },
+          "kbTreeW": 247,
+          "kbDocsW": 910,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "kb",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_counselor_kb.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "personas",
+          "activePane": "pane-personas",
+          "hash": "#/personas",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "personas",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_counselor_personas.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "weekly",
+          "activePane": "pane-weekly",
+          "hash": "#/weekly",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "weekly",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_counselor_weekly.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "records",
+          "activePane": "pane-records",
+          "hash": "#/records",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "records",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_counselor_records.png"
+        }
+      ]
+    },
+    {
+      "viewport": "1440x900",
+      "role": "student",
+      "pages": [
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/chat",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "chat",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_student_chat.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "kb",
+          "activePane": "pane-kb",
+          "hash": "#/kb",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 298,
+            "cat": 298,
+            "audience": 298
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 827
+          },
+          "kbTreeW": 247,
+          "kbDocsW": 910,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "kb",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_student_kb.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "personas",
+          "activePane": "pane-personas",
+          "hash": "#/personas",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "personas",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_student_personas.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/weekly",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "weekly",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_student_weekly.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/records",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 837,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 827
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "records",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1440x900_student_records.png"
+        }
+      ]
+    },
+    {
+      "viewport": "1280x800",
+      "role": "counselor",
+      "pages": [
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/chat",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "chat",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_counselor_chat.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "kb",
+          "activePane": "pane-kb",
+          "hash": "#/kb",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 245,
+            "cat": 245,
+            "audience": 245
+          },
+          "uploadRow": {
+            "file": 240,
+            "vis": 96,
+            "upCat": 96,
+            "upAudience": 92,
+            "upFolder": 92
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 727
+          },
+          "kbTreeW": 247,
+          "kbDocsW": 750,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "kb",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_counselor_kb.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "personas",
+          "activePane": "pane-personas",
+          "hash": "#/personas",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "personas",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_counselor_personas.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "weekly",
+          "activePane": "pane-weekly",
+          "hash": "#/weekly",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "weekly",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_counselor_weekly.png"
+        },
+        {
+          "acctName": "counselor",
+          "acctRole": "辅导员",
+          "convItems": 156,
+          "convPlaceholder": false,
+          "convCount": "154",
+          "msgChildren": 2,
+          "navHidden": [],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas",
+            "weekly",
+            "records"
+          ],
+          "activePage": "records",
+          "activePane": "pane-records",
+          "hash": "#/records",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 408,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "records",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_counselor_records.png"
+        }
+      ]
+    },
+    {
+      "viewport": "1280x800",
+      "role": "student",
+      "pages": [
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/chat",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "chat",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_student_chat.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "kb",
+          "activePane": "pane-kb",
+          "hash": "#/kb",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 245,
+            "cat": 245,
+            "audience": 245
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 727
+          },
+          "kbTreeW": 247,
+          "kbDocsW": 750,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "kb",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_student_kb.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "personas",
+          "activePane": "pane-personas",
+          "hash": "#/personas",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "personas",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_student_personas.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/weekly",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "weekly",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_student_weekly.png"
+        },
+        {
+          "acctName": "student",
+          "acctRole": "学生",
+          "convItems": 1,
+          "convPlaceholder": true,
+          "convCount": "0",
+          "msgChildren": 1,
+          "navHidden": [
+            "weekly",
+            "records"
+          ],
+          "navVisible": [
+            "chat",
+            "chat",
+            "kb",
+            "personas"
+          ],
+          "activePage": "chat",
+          "activePane": "pane-chat",
+          "hash": "#/records",
+          "maskDisplay": "none",
+          "kbDropdowns": {
+            "folder": 0,
+            "cat": 0,
+            "audience": 0
+          },
+          "uploadRow": {
+            "file": 0,
+            "vis": 0,
+            "upCat": 0,
+            "upAudience": 0,
+            "upFolder": 0
+          },
+          "acctEntry": {
+            "x": 8,
+            "y": 737,
+            "w": 193,
+            "h": 53
+          },
+          "convListBox": {
+            "y": 335,
+            "bottom": 727
+          },
+          "kbTreeW": 0,
+          "kbDocsW": 0,
+          "hOverflowPx": 0,
+          "overlaps": [],
+          "truncated": [],
+          "requested": "records",
+          "pageErrors": [],
+          "gotoAttempts": 1,
+          "shot": "1280x800_student_records.png"
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "historyNav": [
+    {
+      "role": "counselor",
+      "steps": [
+        {
+          "act": "goto #/personas",
+          "hash": "#/personas",
+          "pane": "pane-personas",
+          "nav": "personas"
+        },
+        {
+          "act": "back()",
+          "hash": "#/kb",
+          "pane": "pane-kb",
+          "nav": "kb"
+        },
+        {
+          "act": "back()",
+          "hash": "#/chat",
+          "pane": "pane-chat",
+          "nav": "chat"
+        },
+        {
+          "act": "forward()",
+          "hash": "#/kb",
+          "pane": "pane-kb",
+          "nav": "kb"
+        }
+      ],
+      "afterReload": {
+        "hash": "#/kb",
+        "pane": "pane-kb",
+        "nav": "kb"
+      },
+      "reloadKeptPage": true,
+      "afterReloadAcct": "counselor"
+    },
+    {
+      "role": "student",
+      "steps": [
+        {
+          "act": "goto #/personas",
+          "hash": "#/personas",
+          "pane": "pane-personas",
+          "nav": "personas"
+        },
+        {
+          "act": "back()",
+          "hash": "#/kb",
+          "pane": "pane-kb",
+          "nav": "kb"
+        },
+        {
+          "act": "back()",
+          "hash": "#/chat",
+          "pane": "pane-chat",
+          "nav": "chat"
+        },
+        {
+          "act": "forward()",
+          "hash": "#/kb",
+          "pane": "pane-kb",
+          "nav": "kb"
+        }
+      ],
+      "afterReload": {
+        "hash": "#/kb",
+        "pane": null,
+        "nav": null
+      },
+      "reloadKeptPage": false,
+      "afterReloadAcct": "student"
+    }
+  ]
+}

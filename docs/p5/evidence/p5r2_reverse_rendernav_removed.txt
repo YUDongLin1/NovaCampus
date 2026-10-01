@@ -1,0 +1,160 @@
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 403 Forbidden"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: DELETE http://testserver/api/personas/1 "HTTP/1.1 403 Forbidden"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/personas/59 "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/personas/999999 "HTTP/1.1 404 Not Found"
+==============================================================================
+[PASS] P5 壳层容器 #shell 在 DOM 里
+[PASS] P5 壳层容器 #conv-sidebar 在 DOM 里
+[PASS] P5 壳层容器 #stage 在 DOM 里
+[PASS] P5 左栏是 6 个入口
+[PASS] P5 入口 chat 存在
+[PASS] P5 入口 kb 存在
+[PASS] P5 入口 personas 存在
+[PASS] P5 入口 weekly 存在
+[PASS] P5 入口 records 存在
+[PASS] P5 主区有 5 个整页
+[PASS] P5 hash 入口 #/kb 指向真实页面(拼错=静默空白)
+[PASS] P5 hash 入口 #/records 指向真实页面(拼错=静默空白)
+[PASS] P5 hash 入口 #/personas 指向真实页面(拼错=静默空白)
+[PASS] P5 hash 入口 #/weekly 指向真实页面(拼错=静默空白)
+[PASS] P5 hash 入口 #/chat 指向真实页面(拼错=静默空白)
+[PASS] P5 入口走真实 hash 链接(前进/后退原生可用)
+[PASS] P5 hashchange 驱动切换(刷新/前进后退都落到同一处)
+[PASS] P5 weekly 入口标了 data-staff(按角色整条隐藏)
+[PASS] P5 records 入口标了 data-staff(按角色整条隐藏)
+[PASS] P5 账户入口仍在左栏内(不是 body 级浮层)
+[PASS] P5 样式 /css/theme.css 真实存在
+[PASS] P5 样式 /css/persona.css 真实存在
+[PASS] P5 样式 /css/shell.css 真实存在
+[PASS] P5 样式 /css/persona-page.css 真实存在
+[PASS] P5 新增样式 shell.css 已被引用
+[PASS] P5 新增样式 persona-page.css 已被引用
+[PASS] P5 脚本 avatars.js 已加载
+[PASS] P5 脚本 shell.js 已加载
+[PASS] P5 脚本 persona-page.js 已加载
+[PASS] P5 avatars.js 早于 persona.js(头像库先就绪)
+[PASS] P5 theme.css 设计令牌仍在(本单只新增文件,不改它)
+[PASS] P5 旧右侧抽屉(#side/#tabs)已下线(两套布局并存会互相盖住)
+[PASS] P5 学生可见入口 = 会话/知识库/辅导员(周报与工作记录**不可见**)
+[PASS] P5 counselor 可见全部 5 个入口
+[PASS] P5 admin 可见全部 5 个入口
+[PASS] P5 未知角色**按最小权限**渲染(不因为拿不到角色就全给)
+[PASS] P5 hash 解析正确(#/kb → kb)
+[PASS] P5 未知/空 hash 回落到默认页(不留空主区)
+[PASS] P5 刷新后按 URL hash 复原页面(不是每次都回会话页)
+[PASS] P5 enter() 里真的用 hash 决定落点
+[PASS] P5 头像库 16 个
+[PASS] P5 头像 id 无重复(重复会让两个选项渲染成同一个)
+[PASS] P5 头像 id 形如 av-NN(逻辑 id,不含路径/后缀)
+[PASS] P5 已知 id 原样返回
+[PASS] P5 未知/脏 id(bogus)回落到默认头像且不抛错
+[PASS] P5 未知/脏 id(empty)回落到默认头像且不抛错
+[PASS] P5 未知/脏 id(nul)回落到默认头像且不抛错
+[PASS] P5 未知/脏 id(undef)回落到默认头像且不抛错
+[PASS] P5 未知/脏 id(dirty)回落到默认头像且不抛错
+[PASS] P5 单个头像 ≤2KB
+[PASS] P5 头像库总增量 ≤40KB
+[PASS] P5 头像 SVG 内无 http(s) 外链(零外部依赖,命名空间除外)
+[PASS] P5 头像不用 <image>(不引外部位图)
+[PASS] P5 雪碧图里 16 个 <symbol>
+[PASS] P5 符号 av-01 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-02 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-03 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-04 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-05 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-06 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-07 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-08 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-09 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-10 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-11 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-12 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-13 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-14 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-15 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 符号 av-16 在雪碧图里(缺一个 = <use> 破图)
+[PASS] P5 卡片/编辑都用 avatarSvg() 渲染(不手拼 <img src>)
+[PASS] P5 渲染走 <use href=#id>(换画风不用迁数据)
+[PASS] P5 今天的会话分到「今天」
+[PASS] P5 6 天前的会话分到「近 7 天」
+[PASS] P5 8 天前的会话分到「更早」
+[PASS] P5 边界:当日零点整点归今天、前 1ms 归近 7 天
+[PASS] P5 边界:7 天前整点仍在近 7 天、再早 1ms 归更早
+[PASS] P5 时间解析失败的会话归到「更早」而不是被丢掉
+[PASS] P5 分组不丢项(三组之和 == 入参条数)
+[PASS] P5 空列表 → 三组皆空(不炸、不产生幽灵条目)
+[PASS] P5 「现在」取自服务端(Date 响应头),不用浏览器本地时区
+[PASS] P5 分组用 serverNowMs() 而不是 Date.now()
+[PASS] P5 enter() 在 role=counselor 下真跑成功
+[PASS] P5 enter() role=counselor 不抛错
+[PASS] P5 enter() role=counselor 加载全部 js 无顶层报错
+[PASS] P5 桩按 index.html 顺序加载了全部 js(role=counselor)
+[PASS] P5 enter() 后 #conv-list 有真实条目(role=counselor,非占位)
+[PASS] P5 #conv-count 显示真实条数(role=counselor)
+[PASS] P5 辅导员侧 6 个入口全部可见
+[PASS] P5 辅导员侧显示新建人设/上传行
+[PASS] P5 #acct-name === ME.username(role=counselor)
+[PASS] P5 #acct-role 角色中文化正确(role=counselor)
+[PASS] P5 登录遮罩已关闭(role=counselor)
+[PASS] P5 欢迎气泡已进消息区(role=counselor)
+[PASS] P5 人设选择器已渲染(role=counselor)
+[PASS] P5 enter() 在 role=student 下真跑成功
+[PASS] P5 enter() role=student 不抛错
+[PASS] P5 enter() role=student 加载全部 js 无顶层报错
+[PASS] P5 桩按 index.html 顺序加载了全部 js(role=student)
+[PASS] P5 enter() 后 #conv-list 有真实条目(role=student,非占位)
+[PASS] P5 #conv-count 显示真实条数(role=student)
+[FAIL] P5 学生侧 #nav-entries 的 weekly/records 入口被隐藏
+        detail: hidden=[]
+[FAIL] P5 学生侧可见入口不含周报/工作记录
+        detail: visible=['chat', 'chat', 'kb', 'personas', 'weekly', 'records']
+[PASS] P5 学生侧「新建人设」按钮隐藏
+[PASS] P5 #acct-name === ME.username(role=student)
+[PASS] P5 #acct-role 角色中文化正确(role=student)
+[PASS] P5 登录遮罩已关闭(role=student)
+[PASS] P5 欢迎气泡已进消息区(role=student)
+[PASS] P5 人设选择器已渲染(role=student)
+[PASS] P5 enter() 带 hash=#/kb 真跑成功
+[PASS] P5 带 #/kb 刷新回位到该页且 pane 激活
+[PASS] P5 enter() 带 hash=#/weekly 真跑成功
+[PASS] P5 带 #/weekly 刷新回位到该页且 pane 激活
+[PASS] P5 enter() 带 hash=#/personas 真跑成功
+[PASS] P5 带 #/personas 刷新回位到该页且 pane 激活
+[PASS] P5 enter() 带未知 hash 真跑成功
+[PASS] P5 未知 hash(#/nope)回落到会话页而不是空白主区
+[PASS] P5 学生带 hash=#/weekly 真跑成功
+[PASS] P5 学生手敲 #/weekly 被挡回会话页
+[PASS] P5 学生带 hash=#/records 真跑成功
+[PASS] P5 学生手敲 #/records 被挡回会话页
+[PASS] P5 迁移第1遍:personas.avatar 列存在
+[PASS] P5 迁移第2遍:personas.avatar 列存在
+[PASS] P5 迁移幂等:连跑两遍 schema 与计数完全一致
+[PASS] P5 自测非空前置:副本里有真实语料(防空集假通过)
+[PASS] P5 加列不动既有 personas 行数
+[PASS] P5 非空前置:读到 users 与 personas 基线
+[PASS] P5 normalize_avatar('') = ''(清洗,不存脏值)
+[PASS] P5 normalize_avatar(None) = ''(清洗,不存脏值)
+[PASS] P5 normalize_avatar('av-01') = 'av-01'(清洗,不存脏值)
+[PASS] P5 normalize_avatar('  av-02  ') = 'av-02'(清洗,不存脏值)
+[PASS] P5 normalize_avatar('<script>') = 'script'(清洗,不存脏值)
+[PASS] P5 normalize_avatar('../../etc/passwd') = 'etcpasswd'(清洗,不存脏值)
+[PASS] P5 normalize_avatar('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'(清洗,不存脏值)
+[PASS] P5 新建人设的 avatar 原样存回(存的是 id 不是路径)
+[PASS] P5 改头像生效
+[PASS] P5 未知 avatar id **存得进**(前向兼容:将来加新头像不用改库)
+[PASS] P5 学生 token 直接 POST /api/personas → 403(前端隐藏只是体验层)
+[PASS] P5 对照:辅导员 token 建人设 200(证明上一条的红不是接口整体坏了)
+[PASS] P5 新建人设默认 avatar=''(前端按 id 回落默认头像)
+[PASS] P5 学生可以**读**人设列表(只读位不是不可见)
+[PASS] P5 学生 DELETE 人设 → 403
+[PASS] P5 改别人的 public 人设 → 404(不是 200 也不是 403)
+[PASS] P5 「改别人的」与「不存在」**同文案**(不泄露存在性)
+[PASS] P5 投影后仍带 avatar 键(卡片要渲染头像)
+[PASS] P5 非作者的 persona_prompt 仍被投影成空串(P4f 脱敏不退步)
+[PASS] P5 自测未破坏语料(写库测试自查,坑 72)
+[PASS] P5 本用例只增了自造的 3 条 personas(副本上)
+==============================================================================
+[RESULT] 146/148 passed
+[evidence] E:\AILearn\NovaCampus\docs\p5\evidence\p5_selftest_output.txt

@@ -1,0 +1,22 @@
+源库 = E:\AILearn\NovaCampus\novaagent\data\agent.db
+副本 = C:\Users\<user>\AppData\Local\Temp\p5r2_mig_iy_9yr1u\agent.db
+
+--- 第 1 遍 connect() ---
+  表 16 张: chunks,chunks_fts,chunks_fts_config,chunks_fts_data,chunks_fts_docsize,chunks_fts_idx,conversation_summary,conversations,documents,folders,messages,personas,sessions,sqlite_sequence,user_settings,users
+  personas 列(14): id,owner_id,name,college,persona_prompt,style,bound_folder_ids,bound_categories,visibility,is_default,deleted_at,created_at,updated_at,avatar
+  索引 11 条: idx_chunks_doc,idx_conversations_persona,idx_conversations_user,idx_documents_audience,idx_documents_folder,idx_folders_owner,idx_messages_user,idx_personas_one_default,idx_personas_owner,sqlite_autoindex_sessions_1,sqlite_autoindex_users_1
+  计数: personas=56 documents=65 chunks=487 avatar_is_null=0
+--- 第 2 遍 connect() ---
+  表 16 张: chunks,chunks_fts,chunks_fts_config,chunks_fts_data,chunks_fts_docsize,chunks_fts_idx,conversation_summary,conversations,documents,folders,messages,personas,sessions,sqlite_sequence,user_settings,users
+  personas 列(14): id,owner_id,name,college,persona_prompt,style,bound_folder_ids,bound_categories,visibility,is_default,deleted_at,created_at,updated_at,avatar
+  索引 11 条: idx_chunks_doc,idx_conversations_persona,idx_conversations_user,idx_documents_audience,idx_documents_folder,idx_folders_owner,idx_messages_user,idx_personas_one_default,idx_personas_owner,sqlite_autoindex_sessions_1,sqlite_autoindex_users_1
+  计数: personas=56 documents=65 chunks=487 avatar_is_null=0
+--- 第 3 遍 connect() ---
+  表 16 张: chunks,chunks_fts,chunks_fts_config,chunks_fts_data,chunks_fts_docsize,chunks_fts_idx,conversation_summary,conversations,documents,folders,messages,personas,sessions,sqlite_sequence,user_settings,users
+  personas 列(14): id,owner_id,name,college,persona_prompt,style,bound_folder_ids,bound_categories,visibility,is_default,deleted_at,created_at,updated_at,avatar
+  索引 11 条: idx_chunks_doc,idx_conversations_persona,idx_conversations_user,idx_documents_audience,idx_documents_folder,idx_folders_owner,idx_messages_user,idx_personas_one_default,idx_personas_owner,sqlite_autoindex_sessions_1,sqlite_autoindex_users_1
+  计数: personas=56 documents=65 chunks=487 avatar_is_null=0
+
+三遍读数完全一致(表/列/索引/计数四向) = True
+avatar 列存在 = True
+幂等判定 = PASS

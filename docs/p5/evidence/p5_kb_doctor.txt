@@ -1,0 +1,5 @@
+[kb_doctor] documents=65 chunks=487 danger=0 warn=2
+  [warn]   short_body doc=10 《EVAL-学生请假管理办法》正文仅 153 字
+  [warn]   short_body doc=11 《EVAL-辅导员内部工作备忘》正文仅 138 字
+[report] E:\AILearn\NovaCampus\reports\kb_doctor_20261002_010227.json
+[PASS] 0 高危项

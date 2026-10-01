@@ -1,0 +1,48 @@
+P5 第 2 回④:前进/后退/刷新回位 + 后端行为零变化 —— 真浏览器走查
+时间: 2026-10-02 02:24:54
+服务: http://127.0.0.1:8986  (库副本 NOVA_DATA_DIR=/tmp/nova_p5r2_data, 假 key 护身符, 零额度)
+浏览器: 本机 Chrome + playwright-core (headless, --no-proxy-server)
+
+=== 1) 前进/后退/刷新回位(真浏览器 back/forward/reload) ===
+ role = counselor
+   goto #/personas  hash=#/personas   pane=pane-personas  nav=personas
+   back()           hash=#/kb         pane=pane-kb        nav=kb
+   back()           hash=#/chat       pane=pane-chat      nav=chat
+   forward()        hash=#/kb         pane=pane-kb        nav=kb
+   reload()         hash=#/kb         pane=pane-kb        acct=counselor
+ role = student
+   goto #/personas  hash=#/personas   pane=pane-personas  nav=personas
+   back()           hash=#/kb         pane=pane-kb        nav=kb
+   back()           hash=#/chat       pane=pane-chat      nav=chat
+   forward()        hash=#/kb         pane=pane-kb        nav=kb
+   reload()         hash=#/kb         pane=None           acct=student
+
+=== 2) 两档视口 布局体检(20 张截图的汇总读数) ===
+  页面数=20  元素重叠=0  文字截断=0  JS 运行时错误=0
+  1440x900/counselor 上传行 file=240 三个下拉=96/96/92  账户卡 y=837 列表底部=827
+  1440x900/student   上传行 file=0 三个下拉=0/0/0  账户卡 y=837 列表底部=827
+  1280x800/counselor 上传行 file=240 三个下拉=96/96/92  账户卡 y=737 列表底部=727
+  1280x800/student   上传行 file=0 三个下拉=0/0/0  账户卡 y=737 列表底部=727
+  学生侧 hidden 入口(两档一致): [('weekly', 'records')]
+  学生手敲 #/weekly、#/records 落点: ['pane-chat']
+
+=== 3) 【重要·新发现】/api/conversations 在服务进程里挂起 —— sqlite 共享连接跨线程 ===
+  现象(curl 独立复现,非浏览器问题):
+    counselor  http=200 time=2.021553s
+    student    http=000 time=10.005842s
+  定位过程(每一步都排除了一种可能):
+    ① SQL 层直跑正常  -> 学生 user_id=3 返回 200 行,耗时 <0.1s(非慢查询)
+    ② token/会话数据正常 -> sessions 318 条 student's token 长度均 32,JOIN 可命中
+    ③ 换干净进程仍复现   -> :8985 杀净后起 :8986,单发即挂(排除"连接被污染后不自愈")
+    ④ 并发不是必要条件 -> 单发也挂;但**必须有并发在服务里发生过**(见下)
+    ⑤ 服务端栈顶        -> main.py:48 current_user -> db.py:424 user_by_token
+                            sqlite3.InterfaceError: bad parameter or other API misuse
+  根因: db.py 用单例 _conn + check_same_thread=False,而 FastAPI 的 Depends
+        经 anyio run_in_threadpool 在**多个工作线程**里调用它;读函数一律不加 _lock
+        (实测 31 个读 _conn 的函数全部无锁,含 user_by_token / list_conversations)。
+        同一 sqlite3.Connection 被多线程同时 execute 即抛 InterfaceError。,
+        且该异常把连接打入持久错误态 -> 之后所有请求都挂起(前端表现为 enter() 卡死)。
+  影响面: 与 P5 无关的**既有架构缺陷**,第 1 回未记录(当时只有单请求 curl,没并发)。
+  为什么本单不修: 开单「禁改」明确含 novaagent/novaagent/**,db.py 正在其中;
+        且这是架构级改动(连接池/线程局部连接),不该混进一个前端单。
+  处置: 记入 docs/TASKS.md 技术债 + 本证据,如实交回,由 Qoder 决定是否开单。

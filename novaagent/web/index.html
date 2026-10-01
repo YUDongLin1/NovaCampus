@@ -10,6 +10,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Noto+Serif+SC:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/theme.css">
 <link rel="stylesheet" href="/css/persona.css">
+<link rel="stylesheet" href="/css/shell.css">
+<link rel="stylesheet" href="/css/persona-page.css">
 </head>
 <body>
 
@@ -36,13 +38,52 @@
   <button onclick="logout()">退出</button>
 </header>
 
-<main>
+<!--
+  P5-1 外壳重构:左栏 = 入口 + 历史列表 + 账户卡;右主区 = 按入口**整页切换**。
+  ⚠ 三个 id 是**故意保留旧名**的(不是忘了改):
+    · `conv-sidebar` —— 左栏从「会话栏」升级为「导航轨」,但 P4f 的契约自测按这个 id
+      断言「账户入口在栏内」。改名会让那条断言失去意义(它会去找一个不存在的 id,
+      然后因为 `if aside:` 短路而**静默不判** —— 静默比红更危险)。
+    · `pane-kb` / `pane-records` / `pane-weekly` —— 内容原样搬进主区,类名仍是
+      `.tabpane`(行的是同一套显示/隐藏 CSS),所以「行为零变化」的那几条不变量
+      **仍然是真的**,不需要因为改版把它们判成过期。
+-->
+<main id="shell">
   <aside id="conv-sidebar">
-    <div class="row"><button class="btn ghost" id="conv-new" onclick="newConversation()">＋ 新会话</button></div>
-    <div id="persona-bar"></div>
-    <div id="persona-hint"></div>
-    <ul id="conv-list"><li class="empty">—</li></ul>
-    <label class="conv-arch"><input type="checkbox" id="conv-show-archived" onchange="loadConversations()"> 显示归档</label>
+    <div class="rail-brand">
+      <div class="seal sm">智</div>
+      <div class="rail-title">智枢 <span>NOVA</span></div>
+    </div>
+
+    <ul id="nav-entries">
+      <li class="nav-item" data-page="chat">
+        <a href="#/chat" onclick="newConversation()"><span class="ni">⊕</span>新会话</a>
+      </li>
+      <li class="nav-item" data-page="chat" data-no-switch="1">
+        <a href="#/chat"><span class="ni">▤</span>历史对话</a>
+      </li>
+      <li class="nav-item" data-page="kb">
+        <a href="#/kb"><span class="ni">⚙</span>知识库</a>
+      </li>
+      <li class="nav-item" data-page="personas">
+        <a href="#/personas"><span class="ni">☺</span>辅导员</a>
+      </li>
+      <li class="nav-item" data-page="weekly" data-staff="1">
+        <a href="#/weekly"><span class="ni">▦</span>周报</a>
+      </li>
+      <li class="nav-item" data-page="records" data-staff="1">
+        <a href="#/records"><span class="ni">✎</span>工作记录</a>
+      </li>
+    </ul>
+
+    <div class="rail-history">
+      <div class="rail-sec">
+        <span>历史对话</span><span class="rail-n" id="conv-count">0</span>
+      </div>
+      <label class="conv-arch"><input type="checkbox" id="conv-show-archived" onchange="loadConversations()"> 显示归档</label>
+      <ul id="conv-list"><li class="empty">—</li></ul>
+    </div>
+
     <div id="acct-entry">
       <div class="avatar" id="acct-avatar">?</div>
       <div class="acct-info">
@@ -53,89 +94,120 @@
     </div>
   </aside>
 
-  <div id="chat-pane">
-    <div id="ctx-bar" style="display:none"><div id="ctx-fill"></div><span id="ctx-text"></span></div>
-    <div id="messages">
-      <div class="hint">知识库问答自动检索并标注引用 [n]；「记一条碎片…」「生成本周周报」会触发周报工具；右下角可切换模型与账户设置。</div>
-    </div>
-    <div id="at-picker"></div>
-    <div id="composer">
-      <div id="scope-chips"></div>
-      <!-- P4e M-B: 联网开关(默认关闭、当前状态可见) -->
-      <div id="web-toggle" title="默认关闭。开启后，仅在知识库查不到时才发起一次公网检索；出网内容只有你当前的问题文本，库内资料与会话历史不出网。">
-        <label><input type="checkbox" id="web-search" onchange="onWebToggle()"> 联网检索</label>
-        <span id="web-state">关</span>
-        <span class="web-hint">（仅在知识库无据时补充；出网只有当前问题）</span>
-      </div>
-      <div class="composer-row">
-      <input id="q" placeholder="输入问题，例如：休学需要哪些材料？输入 @ 可指定检索范围" onkeydown="composerKey(event)">
-      <button id="send" onclick="send()">发送</button>
-      </div>
-    </div>
-  </div>
+  <section id="stage">
 
-  <div id="side">
-    <div id="tabs">
-      <button class="active" data-tab="kb" onclick="switchTab('kb')">知识库</button>
-      <button data-tab="records" id="tab-records" onclick="switchTab('records')">工作记录</button>
-      <button data-tab="weekly" id="tab-weekly" onclick="switchTab('weekly')">周报</button>
+    <div class="tabpane page" id="pane-chat">
+      <div id="chat-pane">
+        <!-- P5: 人设选择器从「左栏一行」搬到会话页顶部 —— 它管的是**这一轮对话用谁**,
+             放在导航轨里会让人以为它是全局设置。 -->
+        <div id="chat-persona-row">
+          <div id="persona-bar"></div>
+          <div id="persona-hint"></div>
+        </div>
+        <div id="ctx-bar" style="display:none"><div id="ctx-fill"></div><span id="ctx-text"></span></div>
+        <div id="messages">
+          <div class="hint">知识库问答自动检索并标注引用 [n]；左侧可切换会话、知识库、辅导员人设与周报；「记一条碎片…」「生成本周周报」会触发周报工具。</div>
+        </div>
+        <div id="at-picker"></div>
+        <div id="composer">
+          <div id="scope-chips"></div>
+          <!-- P4e M-B: 联网开关(默认关闭、当前状态可见) -->
+          <div id="web-toggle" title="默认关闭。开启后，仅在知识库查不到时才发起一次公网检索；出网内容只有你当前的问题文本，库内资料与会话历史不出网。">
+            <label><input type="checkbox" id="web-search" onchange="onWebToggle()"> 联网检索</label>
+            <span id="web-state">关</span>
+            <span class="web-hint">（仅在知识库无据时补充；出网只有当前问题）</span>
+          </div>
+          <div class="composer-row">
+          <input id="q" placeholder="输入问题，例如：休学需要哪些材料？输入 @ 可指定检索范围" onkeydown="composerKey(event)">
+          <button id="send" onclick="send()">发送</button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="tabpane active" id="pane-kb">
-      <div class="row" id="upload-row" style="display:none">
-        <input type="file" id="f">
-        <select id="vis">
-          <option value="student">全体可见</option>
-          <option value="counselor">辅导员+</option>
-          <option value="admin">仅管理员</option>
-        </select>
-        <select id="up-cat">
-          <option>政策文件</option><option>学生事务</option><option>奖助学金</option>
-          <option>工作制度</option><option>运维手册</option><option selected>其他</option>
-        </select>
-        <select id="up-audience" title="适用学段">
-          <option value="common">通用</option>
-          <option value="undergrad">本科生</option>
-          <option value="postgrad">研究生</option>
-        </select>
-        <select id="up-folder" title="存入文件夹"><option value="">根目录</option></select>
-        <button class="btn" onclick="upload()">上传解析</button>
+    <div class="tabpane page" id="pane-kb">
+      <div class="page-head">
+        <h2>知识库</h2>
+        <span class="page-sub">上传、分类与检索范围；可见性按角色分级</span>
       </div>
-      <div class="row" id="import-row" style="display:none">
-        <input id="page-url" placeholder="粘贴网页链接，如 https://xxx.swjtu.edu.cn/xx.htm">
-        <button class="btn ghost" onclick="importUrl()">导入网页</button>
+      <div class="kb-layout">
+        <div class="kb-side">
+          <div class="row" id="upload-row" style="display:none">
+            <input type="file" id="f">
+            <select id="vis">
+              <option value="student">全体可见</option>
+              <option value="counselor">辅导员+</option>
+              <option value="admin">仅管理员</option>
+            </select>
+            <select id="up-cat">
+              <option>政策文件</option><option>学生事务</option><option>奖助学金</option>
+              <option>工作制度</option><option>运维手册</option><option selected>其他</option>
+            </select>
+            <select id="up-audience" title="适用学段">
+              <option value="common">通用</option>
+              <option value="undergrad">本科生</option>
+              <option value="postgrad">研究生</option>
+            </select>
+            <select id="up-folder" title="存入文件夹"><option value="">根目录</option></select>
+            <button class="btn" onclick="upload()">上传解析</button>
+          </div>
+          <div class="row" id="import-row" style="display:none">
+            <input id="page-url" placeholder="粘贴网页链接，如 https://xxx.swjtu.edu.cn/xx.htm">
+            <button class="btn ghost" onclick="importUrl()">导入网页</button>
+          </div>
+          <div class="row">
+            <button class="btn ghost" id="kb-new-folder" style="display:none" onclick="newFolder()">＋ 新建文件夹</button>
+          </div>
+          <div id="folder-tree"></div>
+        </div>
+        <div class="kb-main">
+          <div class="row" id="kb-toolbar">
+            <select id="kb-folder-filter" onchange="loadDocs()">
+              <option value="">全部位置</option>
+            </select>
+            <select id="kb-cat-filter" onchange="loadDocs()">
+              <option value="">全部分类</option>
+            </select>
+            <select id="kb-audience-filter" onchange="loadDocs()">
+              <option value="">全部学段</option>
+              <option value="undergrad">本科</option>
+              <option value="postgrad">研究生</option>
+              <option value="common">通用</option>
+            </select>
+          </div>
+          <div id="batch-bar" style="display:none">
+            <span>已选 <b id="batch-n">0</b> 篇</span>
+            <button class="link" onclick="moveDocModal(checkedIds())">移动到…</button>
+            <button class="link" onclick="batchAudience('undergrad')">标为本科</button>
+            <button class="link" onclick="batchAudience('postgrad')">标为研究生</button>
+            <button class="link" onclick="batchAudience('common')">标为通用</button>
+          </div>
+          <table>
+            <thead><tr><th>文档</th><th>可见</th><th>分块</th><th>操作</th></tr></thead>
+            <tbody id="docs"><tr><td colspan="4" class="empty">加载中…</td></tr></tbody>
+          </table>
+        </div>
       </div>
-      <div class="row" id="kb-toolbar">
-        <select id="kb-folder-filter" onchange="loadDocs()">
-          <option value="">全部位置</option>
-        </select>
-        <select id="kb-cat-filter" onchange="loadDocs()">
-          <option value="">全部分类</option>
-        </select>
-        <select id="kb-audience-filter" onchange="loadDocs()">
-          <option value="">全部学段</option>
-          <option value="undergrad">本科</option>
-          <option value="postgrad">研究生</option>
-          <option value="common">通用</option>
-        </select>
+    </div>
+
+    <div class="tabpane page" id="pane-personas">
+      <div class="page-head">
+        <h2>辅导员人设</h2>
+        <span class="page-sub" id="personas-sub">—</span>
+      </div>
+      <div class="row" id="personas-toolbar">
+        <input id="persona-search" placeholder="搜索名称或学院（纯前端过滤）" oninput="renderPersonaCards()">
         <span class="spacer"></span>
-        <button class="btn ghost" id="kb-new-folder" style="display:none" onclick="newFolder()">＋ 新建文件夹</button>
+        <button class="btn ghost" id="personas-new" onclick="openPersonaEditor()">＋ 新建人设</button>
       </div>
-      <div id="folder-tree"></div>
-      <div id="batch-bar" style="display:none">
-        <span>已选 <b id="batch-n">0</b> 篇</span>
-        <button class="link" onclick="moveDocModal(checkedIds())">移动到…</button>
-        <button class="link" onclick="batchAudience('undergrad')">标为本科</button>
-        <button class="link" onclick="batchAudience('postgrad')">标为研究生</button>
-        <button class="link" onclick="batchAudience('common')">标为通用</button>
-      </div>
-      <table>
-        <thead><tr><th>文档</th><th>可见</th><th>分块</th><th>操作</th></tr></thead>
-        <tbody id="docs"><tr><td colspan="4" class="empty">加载中…</td></tr></tbody>
-      </table>
+      <div id="persona-grid"></div>
     </div>
 
-    <div class="tabpane" id="pane-records">
+    <div class="tabpane page" id="pane-records">
+      <div class="page-head">
+        <h2>工作记录</h2>
+        <span class="page-sub">碎片记录与分类统计</span>
+      </div>
       <div class="panel">
         <h2>筛选</h2>
         <div class="row">
@@ -156,7 +228,11 @@
       </table>
     </div>
 
-    <div class="tabpane" id="pane-weekly">
+    <div class="tabpane page" id="pane-weekly">
+      <div class="page-head">
+        <h2>周报</h2>
+        <span class="page-sub">碎片扩充、生成与归档</span>
+      </div>
       <div class="panel">
         <h2>记录碎片（可先 AI 扩充再保存）</h2>
         <div class="row">
@@ -183,7 +259,8 @@
         <ul id="archived" style="list-style:none"><li class="empty">—</li></ul>
       </div>
     </div>
-  </div>
+
+  </section>
 </main>
 
 <div id="modal">
@@ -199,8 +276,11 @@
 
 <script src="/js/api.js"></script>
 <script src="/js/ui.js"></script>
+<script src="/js/avatars.js"></script>
+<script src="/js/shell.js"></script>
 <script src="/js/conversations.js"></script>
 <script src="/js/persona.js"></script>
+<script src="/js/persona-page.js"></script>
 <script src="/js/chat.js"></script>
 <script src="/js/kb.js"></script>
 <script src="/js/weekly.js"></script>

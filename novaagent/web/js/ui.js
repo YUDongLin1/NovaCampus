@@ -4,27 +4,34 @@
 async function enter() {
   $('mask').style.display = 'none';
   $('role-badge').textContent = ME.username + ' · ' + ROLE_ZH[ME.role];
-  if (!isStaff()) {
-    $('tab-records').style.display = 'none'; $('tab-weekly').style.display = 'none';
-  } else {
+  /* P5 第 2 回①【阻塞修复】:这里原先操作的是 `#tab-records` / `#tab-weekly`
+     —— 那两个 id 属于「右侧 tab 抽屉」,已随 P5 一起被删掉。`$()` 取不到返回 null,
+     两条分支都抛 `TypeError` → `enter()` 在 `renderNav()` 与 `loadHistory()` **之前**中断,
+     登录后整个左栏半瘫(历史列表只剩占位、账户卡停在「未登录」、学生侧的
+     周报/工作记录入口没被隐藏、刷新回位的 switchPage() 没执行)。
+     ⚠ 修法是**删干净**,不是 `if ($(x))` 糊过去:存在性判断会让下一次删元素
+     继续静默半瘫(坑 71 的另一面:接线断了所有断言一声不吭)。
+     角色差异现在**只有一处**权威实现 = `renderNav()`(见 js/shell.js)。
+     已加静态闸门:JS 里出现的每个 `$(…)` 字面量 id 都必须**有人声明**
+     (index.html 或 JS 自己渲染的模板),见 test_p4f_frontend_contract.py
+     的「id 不变量」断言。 */
+  if (isStaff()) {
     $('upload-row').style.display = 'flex';
     $('import-row').style.display = 'flex';
-    $('tab-records').style.display = ''; $('tab-weekly').style.display = '';
   }
+  // 学生没有建/改人设的权限 —— 顶部「新建人设」按钮不渲染(P5 第四节矩阵)
+  $('personas-new').style.display = isStaff() ? '' : 'none';
   $('acct-name').textContent = ME.username;
   $('acct-role').textContent = ROLE_ZH[ME.role];
   $('acct-avatar').textContent = (ME.username || '?')[0].toUpperCase();
+  mountAvatarSprite();          // P5-2:头像雪碧图(幂等)
+  renderNav();
   await loadHistory();
-  switchTab('kb');
+  /* 刷新后回到同一页:URL 上带 #/kb 就落在知识库页。
+     默认会话页 —— 改版前默认是知识库,而用户进来第一件事是**提问**,
+     落会话页才不挡路。 */
+  switchPage(hashToPage(location.hash));
   addMsg('bot', '你好，' + ME.username + '（' + ROLE_ZH[ME.role] + '）。可以问学校政策流程，也可以让我记工作碎片、写周报。');
-}
-
-function switchTab(name) {
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
-  if (name === 'kb') loadDocs();
-  if (name === 'records') loadRecords();
-  if (name === 'weekly') loadArchived();
 }
 
 function openModal(title, html) { $('modal-title').textContent = title; $('modal-body').innerHTML = html; $('modal').style.display = 'flex'; }

@@ -2,8 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（**P4f ✅ 已合并 `master` `377f1e8`**，2026-10-02 凌晨，五轮把关。
-> 第 5 回两条我复验成立：⑨ 冒烟在非 DashScope 通道走 `[13][skip]`，**冒烟真机 PASSED 且 KB 65→65**（合并后在 master 上复跑一次同样 PASSED）；
+> **当前持棒：Qoder**（**P5 第 2 回 = ✅ 复核通过，待合并**，2026-10-02；报告 `docs/p5/review_qoder_p5_round2.md`。**负责人已追认 P5 为正式开工**（虽未经我下发指令，流程偏差已记账：两阶段交回被压成一个 commit）。复核实测：八个自测我逐条现跑 **720 条 exit 全 0**（现算合计 == 文档）；① `enter()` 里对已删除元素的操作**删干净**（也没有用 `if ($(x))` 糊）；② `p5_dom_stub.js` 在 node 里**真的调 `enter()`**，我亲手把 `renderNav()` 注释掉 → **146/148 退 1**、复原 → 148/148 退 0；③ 静态 id 闸门我注入一个悬空 id → **111/113 退 1** 并点名引用方；④ 真浏览器走查我自己做：counselor 首屏 156 条会话渲染、学生侧 weekly/records 入口 `display:none`、`#/kb` 刷新复原、前进/后退可用、1440 与 1280 两档**无溢出无重叠**、未知头像 id `av-999` 回落默认不报错、`personas.avatar` 迁移在副本上连跑两遍三向一致。**一条重要更正**：我上一稿按客户端症状开的「F5 学生首屏历史列表不加载」，与 WorkBuddy 按服务端根因开的**技术债 T11（`db` 单例连接跨线程不安全，31 个读函数无锁）**是同一条 —— **撤回我的 JS 侧假设，并入 T11，不另开单、不阻塞 P5**；但我留了一处未对上的读数（我这次两个 fetch 都已完成、卡在 `loadPersonas()` 的 promise 未 settle），修的人先复现再定是否拆第二张。**正在做**：经负责人授权，用 `.env` 的**生产同档 `qwen-flash`** 在 master 独立 worktree 上补跑 v2.5 两档整轮，让 v2.5 与 v2.4 直接可比（**本轮花的是用户额度，已经明确授权**，跑完在 HANDOFF 记账）。**下一步**：基线回填 → 合并 P5 → 下发 T11。上一状态：**P5 第 1 回打回一条阻塞**
 > ⑩ 我**直接构造摘要失败**（假 LLM key）实测 → `HTTP 502 {code:"summary_failed"}` 且 `documents/chunks` **保持 65/487、零残留**。
 > 七个自测现跑 **559 条 exit 全 0**，`_sum_selftest_counts.py` 现算 559 == 文档 559。
 > **v2.5 基线**：canonical **57/59**、R@k 1.0、忠实度 **0.9722(llm)**、拒答 1.0、`env_error=0`、隔离 55/55；
@@ -2169,7 +2168,7 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 
 ---
 
-### P5 应用外壳重构：左侧单栏导航 + 辅导员页（内置头像库）　📐 **设计完成，等 P4f 合并即下发**（2026-10-01 用户提出，参考 WorkBuddy 客户端左栏）
+### P5 应用外壳重构：左侧单栏导航 + 辅导员页（内置头像库）　✅ **第 2 回复核通过，待合并**（2026-10-02；第 1 回 ❌ 一条阻塞 → 第 2 回 ✅；报告 `docs/p5/review_qoder_p5_round2.md`）
 
 - **设计稿**：`docs/P5.md`（信息架构图、逐入口规格、RBAC 矩阵、9 条可验收标准、拆单方案）
 - **负责人四项裁决**：单栏导航 + 历史列表 / 内置头像库（16 个内联 SVG，存逻辑 id 不存路径，禁真实人物与校徽）/ 学生保留「辅导员」**只读位** / 先合并 P4f 再开 P5
@@ -2178,8 +2177,166 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 - **拆单**：P5-1 壳层与页面搬迁 → P5-2 辅导员页 + 头像 + RBAC 矩阵断言（**一张单两阶段交回**，不拆五张）
 - **红线**：全程零额度（假 key 护身符）；走查用库副本 + 独立端口并按属主杀净；`E:\<internal-affairs-dir>\` 不入库；头像不含真实人脸/校徽
 
+#### P5 交回回执（WorkBuddy → Qoder，2026-10-02）—— **IN_REVIEW**，持棒交回 Qoder
+
+**为什么一次交回而不是分两次**：P5-1 与 P5-2 的改动文件**完全不重叠**（壳层 = `index.html` + `css/shell.css` + `js/shell.js`；辅导员页 = personas 相关），而验证成本主要落在「八个自测 + 现算合计」上，分两次就要付两轮集中验证（用户定的纪律）。
+
+**① 壳层（P5-1）**
+- `<main id="shell">` = 左栏 `#conv-sidebar`（品牌 + 6 入口 + 历史对话 + 账户卡）+ 主区 `#stage`（5 个整页）。
+- **hash 路由**：入口是真实 `href="#/kb"` 链接 + `hashchange` 驱动 → 刷新回同一页、前进/后退原生可用
+  （自己存 `window._page` 也能刷新复原，但前进/后退得自己接管 popstate 并重建历史栈 —— 少一整套容易错的状态机）。
+- 知识库从右侧抽屉提升为主区一页，改**左树右表**两栏（P4f 走查实测窄视口下三个下拉被压到 51px）。
+- 学生不渲染周报/工作记录入口（`data-staff` + `renderNav()` 整条隐藏）；后端 `require_role` 仍在。
+
+**② 辅导员页 + 头像库（P5-2）**
+- 卡片网格 / 纯前端搜索 / 选用 / 只读详情；`personas.avatar` 幂等加列 + `normalize_avatar()` 清洗。
+- 16 个内联 SVG（**逻辑 id**，不存路径不存 base64；`avatarId()` 未知 id 回落默认，**不报错** = 前向兼容）。
+- ⚠ `normalize_avatar` **故意不做白名单校验**：按当前 16 个 id 校验会把「将来加第 17 个」变成 500/静默清空。
+
+**③ 读数（全部零额度，命令不接管道，坑 55；cwd = `E:/AILearn/NovaCampus/novaagent`）**
+
+| 项 | 命令 | 退出码 | 读数 |
+|---|---|---|---|
+| 八个自测 | `.venv/Scripts/python.exe tests/{probe_port_check.py --selftest, test_p4f_persona.py, test_p4f_persona_eval.py, test_p4f_persona_eval_wiring.py, test_p4f_c0.py, test_p4f_frontend_contract.py, probe_health_keysource.py, test_p5_shell.py}` | **全 0** | 33 / 158 / 92 / 66 / 91 / **107** / 20 / **109** |
+| 现算合计 | `.venv/Scripts/python.exe tests/_sum_selftest_counts.py` | **0** | **676 == 文档 676**（P4f 的 559 是**七个**自测时的数） |
+| 真机 `:8981` | 库副本 `NOVA_DATA_DIR` + 假 key 护身符 | — | 页面 + 4 css + 10 js 全 200；既有 8 端点仍 200；学生 `/api/weekly/fragments`=403 |
+| avatar 往返 | POST `av-07` → PATCH `av-12` → PATCH `av-99-future` | 200 | 未知 id **存得进**（前端回落默认头像） |
+| RBAC 绕过 UI | 学生 POST/PATCH/DELETE `/api/personas` | **403 / 403 / 403** | GET=200 且 `persona_prompt=''`（P4f 投影不退步） |
+| 语料 | `python evals/kb_doctor.py` | 0 | 前后 `documents=65 chunks=487 danger=0`（原库零写入） |
+
+**④ 反向闭环（三条原文在 `docs/p5/evidence/`）**
+1. `p5_reverse_avatar_fallback_removed.txt`：`avatarId()` 去掉回落 → 4 条当场红，exit 1（81/85）。
+2. `p5_reverse_nav_all_visible.txt`：入口改成「恒全部可见」→ 学生可见性 2 条当场红，exit 1（107/109）。
+3. `p5_reverse_migration_removed.txt`：注释掉加列 → 2 条当场红，exit 1（107/109）。
+   ⚠ **这条第一版是假绿**：迁移用例复制的是当前库，而它已被迁移过 → 列本来就在 → 「列存在」恒绿、
+   **加列逻辑根本没跑就被判通过**。已改为每次先把列 `DROP` 掉造一个旧库再跑 —— 记下来是因为
+   「被测的东西没被测到」比「假绿」更隐蔽(坑 45 的镜像形态)。
+
+**⑤ 我自己踩到并当场修的两条**
+1. **直调端点函数测不了 RBAC**：第一版写 `personas_create(body, user=student)` 想验 403，
+   结果它**真的把人设建出来了**(Depends 被绕过)，而我那条「应该 403」的断言是拿 `require_role` 单独判的、
+   自然绿 —— 断言绿了但**被测的东西根本没被测到**。改成 `TestClient` 走真实路由 + 依赖链
+   （不带 context manager 就不会触发 lifespan，也就不会去连 weekly MCP）。
+2. **头像库的 http 检查自己先假红**：把 `xmlns="http://www.w3.org/2000/svg"` 当成外链判红了。
+   命名空间是**声明**不是取数 —— 改判据（加命名空间白名单），不改实现。
+
+**⑥ 未做 / 待人工（如实列出，别当已验）**
+1. **真浏览器截图 1440×900 / 1280×800**（验收标准第 1 条）：环境没有 playwright
+   （`playwright-cli` 不在 PATH，`npm i -g @playwright/cli` 还要另下浏览器包）。
+   补做命令见 `docs/P5.md` §八·5。**已做的替代自查**：静态资源全 200（漏引 = 404 且页面**静默半瘫**，这条风险已排除）。
+2. **交互时序**（点「用这个人设开会话」、前进/后退的实际表现）只验了纯函数与接线，未做真点击。
+3. `personas.avatar` 的迁移在开发过程中**已在真实库上以 additive ALTER 落过一次**（只加列不改数据，
+   `kb_doctor` 65/487 未变）—— 它本就是本单要发的迁移，记录在此以示不隐瞒。
+
+**⑦ 端口与进程（坑 61）**：只起过 `:8981` 一个实例（库副本 + 假 key 护身符），
+用完按**端口反查属主 PID** 杀掉并 `netstat` 复查 `closed=True`；临时语料副本已删。未用 Git Bash `kill <Windows PID>`。
+
+**⑧ 口径变更已写进 `docs/P4B0.md` 第九节（追加，不改旧基线）**：「前端行为零变化」→「**后端行为零变化**」；
+`theme.css` 设计令牌仍不动。P5 还**故意保留三个旧 id**（`aside#conv-sidebar`、`pane-*` 三个、`switchTab()`），
+以免把 P4f 的既有断言变成「因为 id 找不到而静默不判」。
+
+#### P5 第 2 回答回执（WorkBuddy → Qoder，2026-10-02）—— **IN_REVIEW**，持棒交回 Qoder
+
+**状态**：`IN_REVIEW`｜**当前持棒 = Qoder**｜分支 **`task/P5-shell`**｜commit **`cbf836d`**（41 文件，+2765/−20）｜**未合并 `master`**
+
+开单 `docs/p5/workbuddy-order-p5-round2.md`；分支 `task/P5-shell` 继续，未新建。全程零额度。
+
+**①【阻塞已修】`enter()` 引用已被删元素**
+`ui.js` 对 `#tab-records` / `#tab-weekly` 的两处操作**删干净**。
+⚠ 按开单要求**没有**用 `if ($(x))` 存在性判断糊 —— 那等于给下一次删元素留静默半瘫的口子。
+角色差异现在**只有一处**权威实现 = `renderNav()`。
+
+**②【必须】补上真执行 `enter()` 的断言（+39 条）**
+新增 `novaagent/tests/p5_dom_stub.js`：node `vm` 按 index.html 的 `<script src>` 顺序加载 10 个 js，
+配一套**从 index.html 真解析**的 DOM 桩，然后 `await enter()`。
+桩唯一需要"忠实"的点：`getElementById(<不存在的 id>)` 必须返回 `null` ——
+桩若什么都返回对象，这个文件就成了自欺。
+覆盖开单点名的四条（双角色不抛错 / 历史列表非占位 / 学生两条入口 hidden / 账户卡）+
+我加的两条（hash 回位、学生越权回落）。反向：注释掉 `renderNav()` → 2 条当场红，exit 1。
+
+**③【强烈建议】静态 id 不变量（+5 条）**
+扫 `web/js/*.js` 里所有 `$('xxx')` / `getElementById('xxx')` 字面量，断言每个 id 有人声明
+（index.html 里，或 JS 自己渲染的模板里）。**装在 `test_p4f_frontend_contract.py`**——
+开单要求「别两处各写一份」，它是前端 id 契约的自然归属。
+反向：注入一个不存在的 id → 静态闸门 2 条红 **且** ②的 enter() 用例也红，两条闸门独立抓住同一缺陷。
+
+**④ 第 1 回未做的验收项，本轮全部补齐**
+
+| 项 | 证据 | 读数 |
+|---|---|---|
+| 两档视口截图 | `docs/p5/evidence/shots/` **20 张 PNG** + `p5_shots_report.json` | 1440×900 / 1280×800 × 2 角色 × 5 入口；**元素重叠 0、文字截断 0、JS 错误 0** |
+| 前进/后退/刷新回位 | 同上 `historyNav` | 真浏览器 `back()`→`#/kb`→`#/chat`、`forward()`→`#/kb`、`reload()` 停 `#/kb` 且 `pane-kb` 激活 |
+| 迁移幂等 | `p5r2_migration_idempotent.txt` | 库副本连跑 **3 遍**：表 16 / personas 列 14（含 `avatar`）/ 索引 11 / `personas=56 documents=65 chunks=487 avatar_is_null=0` —— 四向一致 |
+| 后端行为零变化 | 八个自测**原样复跑**（未新写一套） | 33/158/92/66/91/112/20/148 exit 全 0 |
+
+**工具链变了**：第 1 回"环境没有 playwright"是因为**整包**装不上；本轮改装 `playwright-core`
+**驱动本机已装的 Chrome**，不下载浏览器包。两个坑记在脚本注释里：系统代理会带走 `127.0.0.1`
+（须 `--no-proxy-server`）；有资源让 `domcontentloaded` 不触发（改 `commit` + 等可见元素）。
+
+**⑤ 截图暴露并修掉两处真布局缺陷**（`web/**` 在白名单内，`theme.css` 一行未动）
+1. **`#acct-entry` 完全没有 CSS**（与历史列表交集 0.80，两档复现）。根因：theme.css 的账户卡样式
+   挂在 **`#account-card`** 下且是 `position:fixed` 右下角浮层；P5 搬进左栏改名后**一条都不再命中**，
+   `.avatar` 掉进全局 52px 圆形规则糊在列表上。→ 在 `shell.css` 补回布局。
+2. **上传解析行三个下拉被压成 51px 窄条** —— **就是 P4f 走查记的那个坑**，搬进主区后依然存在。
+   → 文件选择器 `flex:0 1 240px`、三个下拉 `min-width:92px`。**实测 51px → 92~96px**。
+
+**⑥ 第 2 回读数（命令不接管道，坑 55）**
+
+| 项 | 退出码 | 读数 |
+|---|---|---|
+| 八个自测 | **全 0** | 33 / 158 / 92 / 66 / 91 / **112** / 20 / **148** |
+| `_sum_selftest_counts.py` | **0** | 现算 **720 == 文档 720**（676 + 5 + 39） |
+| 真浏览器走查 | 0 | 20 张截图；重叠 0 / 截断 0 / JS 错误 0；前进后退与刷新回位全对 |
+| 反向闭环 | **1** | 注释 `renderNav()` → 2 条红；注入悬空 id → 两套自测都红 |
+
+**⑦ 我自己踩到并修掉的四条**
+1. `#conv-list` 的 `li` 与 `#acct-entry` 报 0.97 重叠 —— **是判据缺陷不是布局缺陷**
+   （`overflow-y:auto` 里滚出可视区的元素在文档坐标仍占位）。加 `clippedByScroller()` 排除，
+   **不动已经正确的实现**。
+2. **Git Bash 把 `#/kb` 吃掉**（`/kb` 被当盘符相对路径，实测变成 `#C:/Users/.../kb`），
+   一度让我以为 hash 路由失效。改用 `P5_PAGE=kb`（不带前缀）。
+3. **「刷新回位失效」是我等少了** —— 刷新要走 `boot()`→`/api/me`→`enter()` 两次往返，
+   1.5s 时读出 `pane=None`，3s 时正常。改成 `waitForFunction` 等判据成立，不等拍脑袋的毫秒数。
+4. **「连接被污染后不自愈」的假设被我自己的实验否掉** —— 重启到干净进程仍复现，
+   于是改去查数据层（才找到真因，见下）。
+
+**⑧ 未做**：无。第 1 回「未做清单」里的 1、2 两项本轮全部补齐。
+
+**⑨ 流程偏差（开单 §0 第 2 点）**：设计稿要求两阶段交回，第 1 回一个 commit 全交。不要求重做，
+但**下一单起按阶段交**且 commit message 标 `P5-1` / `P5-2`。第 2 回是**修复单**，不适用。
+
+**⑩ 收尾实测读数**：走查端口 `:8986`（本轮）+ `:8982`（第 1 回遗留，经进程创建时间与
+`nova_p5_preview` 副本创建时间逐秒吻合判定同属 P5）**均按端口属主杀净**，
+`netstat` 复查两者已无 `LISTENING`；`:8900` 是他人常驻实例，**早于本单未动**。
+临时库副本 `nova_p5r2_data` / `nova_p5_preview` **已删**（**删前先只读核验原库**，顺序不反）。
+**`kb_doctor` 原库核验**：`documents=65 chunks=487 danger=0 warn=2`（两条 warn 是
+EVAL 专用短文档《EVAL-学生请假管理办法》153 字 / 《EVAL-辅导员内部工作备忘》138 字，
+**历史遗留，非本轮引入**），exit 0；`reports/kb_doctor_*.json` 对账**只新增 1 个、零丢失**。
+原库 `personas.avatar` 迁移**已在原库生效**（56 条人设，`avatar` 列存在）。
+**禁改项零改动**（`evals/**`、`novaagent/novaagent/db.py`、`theme.css`、`corpus/`、数据目录）；
+**反向闭环临时改动无残留**（注入的悬空 id 与注释掉的 `renderNav()` 均已复原）；
+`tab-records`/`tab-weekly` 在 `web/` 内**只剩注释里的历史说明**，无代码引用。
+commit `cbf836d`，41 文件 +2765/−20，工作区已清零。
+
+---
+
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
+- **T11** ⭐ **db 单例连接跨线程不安全**（**P5 第 2 回真浏览器走查时发现，与 P5 无关**）——
+  `db.py` 用单例 `_conn` + `check_same_thread=False`，而 FastAPI 的 `Depends` 经
+  `anyio.run_in_threadpool` 在**多个工作线程**里调用它；读函数一律不加 `_lock`
+  （实测 **31 个**读 `_conn` 的函数全部无锁，含 `user_by_token` / `list_conversations`）。
+  同一 `Connection` 被多线程同时 `execute` → `sqlite3.InterfaceError`，该请求的
+  依赖链（`main.py:48 current_user` → `db.py:424 user_by_token`）直接炸掉 →
+  之后请求挂起（前端表现为整页半瘫、`enter()` 卡死在 `await loadHistory()`）。
+  **症状**：counselor 刷新约 2s 正常，**student 连续 3 次 20s 超时**；SQL 直跑 <0.1s 正常。
+  **已排除的假设**：~~"一次 `InterfaceError` 把连接打入持久错误态"~~ —— 杀掉旧进程、
+  干净新进程起新端口后**单发请求仍然挂**，故假设作废，根因是**并发/线程使用共享连接**。
+  **为什么 P5 不修**：`db.py` 在开单禁改名单内，且这是架构级改动，不该混进一个前端单。
+  **建议拆法**：先加读路径 `_lock`（最小改动、立刻止血）→ 再评估线程局部连接 / 连接池。
+  证据 `docs/p5/evidence/p5r2_browser_walkthrough.txt` 第 3 节（含完整排除过程）。
+  ⚠ **教训**：第 1 回用「静态资源全 200」替代真浏览器走查，**不足以覆盖它** ——
+  资源都在，是后端连接先坏了。**"资源都在"不等于"页面不半瘫"。**
 - **T6** 关键词检索 LIKE → FTS5/BM25 —— **已提升为活跃任务（见上），含用例措辞加固**
 - **T7** 向量库 sqlite → sqlite-vec（`novaagent/db.py`、`rag.py`）
 - **T8** 流式输出 SSE —— **已提升为活跃任务（T8+T9 合包，见上）**
