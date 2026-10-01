@@ -47,47 +47,46 @@
 **一处视觉 nit（不阻塞）**：卡片 meta 行会**中途换行**（「信息学院 · 详尽」拆成两行、「学工部 · 条理清晰」断成「条 / 理清晰」），
 建议给 `.pcard` 的 meta 加 `white-space: nowrap` + 溢出省略，或把「学院 · 风格」拆成两个字段各占一行。
 
-## 3. ⚠ F5：学生登录后历史列表在启动时永远不加载 —— **早于 P5 就存在**
+## 3. ⚠ 学生首屏历史列表不加载 —— **不是 P5 引入**，且**归因以 WorkBuddy 的 T11 为准**
 
-**症状**（我在 `:8993` 的 P5 版上先看到，随后在 **master 独立 worktree `:8994`** 上复现，**两边一模一样**）：
+**症状**（我在 `:8993` 的 P5 版上先看到，随后在 **master 独立 worktree `:8994`** 上复现，两边一模一样）：
+student 刷新后 `#conv-list` 只有占位「—」，`performance` 资源列表只有 `/api/me` 与 `/api/personas`，
+**`/api/conversations` 根本没发出去**。
 
-```
-student 刷新后：#conv-list 只有占位「—」；performance 资源列表只有 /api/me 与 /api/personas
-—— /api/conversations 根本没发出去。
-```
-
-**定位过程**（都是实测，不是猜）：
+**我实测到的四件事**：
 
 | 实验 | 结果 |
 |---|---|
-| 直接 `await loadConversations()` | ✅ 201 个条目立刻出现 → 数据与渲染函数都是好的 |
-| `Promise.race([loadPersonas(), 3s 超时])` | ⚠ **personas-HUNG** —— `loadHistory()` 里 `await loadPersonas()` 在**启动那一次**不 resolve，于是后面的 `loadConversations()` 永远轮不到 |
-| 稍后再调 `api('/api/personas')` / `loadPersonas()` | ✅ 秒回（该学生 `personas` 为 0 条）→ 不是网络、不是后端 |
-| 手动 `await enter()` | ✅ 列表 201 条 → 说明 enter() 本身没问题，是**启动时序**里第一次卡住 |
-| counselor 同版本 | ✅ 正常（156 条）→ **学生侧特有** |
-| **master（P4f 版）worktree 同样测** | ⚠ **一模一样卡住** → **不是 P5 引入的回归** |
+| 直接 `await loadConversations()` | ✅ 201 条立刻出现 → 数据与渲染函数都是好的 |
+| `Promise.race([loadPersonas(), 3s])` | ⚠ **HUNG**（启动那一次不 resolve） |
+| 稍后再调 `api('/api/personas')` / `loadPersonas()` | ✅ 秒回 → 不是网络、不是后端持续故障 |
+| counselor 同版本 | ✅ 正常（156 条）→ 学生侧更易触发 |
+| **master（P4f 版）同样测** | ⚠ **一模一样卡住** → **不是 P5 的回归** |
 
-**归因**：`chat.js:loadHistory()` 用 `await loadPersonas()` 串在 `await loadConversations()` **前面**，
-而 `loadPersonas()` 在"学生 + 启动首次"这条路径上有一次不 resolve（其内部 `try/catch` 只包了 fetch，
-`renderPersonaBar()` 在 catch 之外 —— 若它同步抛错，`loadPersonas` 的 promise 会以 rejected 结束，
-`loadHistory` 又没 catch，于是**静默吞掉**、后面的加载全断）。
-⚠ 这一段是**假设**，我没有在页面里抓到那条 rejection（console 无记录），第 3 回请按上面表格逐条复现确认，别照抄我的归因。
+**归因更正（重要）**：我上一稿把这条写成 F5，并猜「`loadHistory()` 里 `await loadPersonas()` 的 rejection
+被静默吞掉」，还写了"建议按我的表格复现确认"。**WorkBuddy 在第 2 回回执里已经把同一条症状查到更深一层**，
+并登记为技术债 **T11**：`db.py` 单例 `_conn` + `check_same_thread=False`，而 FastAPI 的 `Depends` 经
+`anyio.run_in_threadpool` 在**多个工作线程**里用它，**31 个读函数全部无锁**（含 `user_by_token`、
+`list_conversations`）→ 同一 `Connection` 被并发 `execute` → `sqlite3.InterfaceError` → 依赖链炸掉 →
+请求挂起，前端表现正是「`enter()` 卡在 `await loadHistory()`」。他们的症状记录是
+「counselor 刷新约 2s 正常，**student 连续 3 次 20s 超时**」。
 
-**为什么 720 条自测全绿看不见它**：② 的 DOM 桩 fetch 桩是"按端点返回预置数据"，
-**桩里的 `/api/personas` 一定 resolve**，所以桩测天然测不到"真后端 + 学生 + 首屏"这个组合。
-这不是要怪桩测 —— 而是说明**还缺一层**：`loadHistory()` 里任何一步失败都**必须留痕**（toast 或 console.error），
-不能静默让后面的加载全断。
+**所以：这条不是新缺陷 F5，是 T11 的客户端可见面；我不另开一张单，并入 T11。**
+⚠ 但有一处**我的读数与 T11 的叙述还没对上**，留给修的人注意：我这次看到的两个 fetch
+**都已完成**（`/api/personas` 5ms 返回 200），卡住的是**它之后** `loadPersonas()` 的 promise 未 settle，
+且 `/api/conversations` **从未发出**。这与"请求在服务端挂住"不完全是同一个形状。
+可能是同一根因的另一种表现（服务端把连接搞坏后，前端 `api()` 的某个 await 永远不返回），
+也可能是**两处独立问题**。**请以 T11 为母单，先复现我上面那张表，再决定要不要拆第二张。**
 
-**修法建议（第 3 回或单独一张小单，零额度）**：
-1. `loadHistory()` 每一步**独立 try/catch 且互不阻塞**（personas 挂了不能连累会话列表）；
-2. 失败必须**可见**（`console.error` + toast），不许静默；
-3. 补一条断言：`loadPersonas` 抛错时 `#conv-list` **仍然有真实条目**（证明解耦真的生效）；
-4. 顺带把这条列进 `docs/TASKS.md` 技术债，**不要塞回 P5**（P5 已经两轮回交，别扩大改动面）。
+**为什么 720 条自测看不见它**：② 的 DOM 桩里 `/api/personas` 一定 resolve，桩测天然测不到
+「真后端 + 并发连接坏掉 + 首屏」这个组合。这不是桩测的错，但推出一条要求：
+**启动链路上任何一步失败/挂起都必须留痕**（`console.error` + toast），
+不能静默让后面的加载全断 —— 这条建议随 T11 一起做。
 
 ## 4. 裁决
 
 **P5 第 2 回 ✅ 通过**：第 1 回那条阻塞已修，两条永久闸门（enter 真执行 + id 静态不变量）都经我亲手复现过红。
-F5 是**改版前就有的老缺陷**，不并入 P5，另开一张小单（或作为 P5-3 / T11 技术债）。
+首屏卡死那条**不是 P5 引入**，且 WorkBuddy 已查到更深一层并登记为 **T11**（`db` 单例连接跨线程不安全）→ 并入 T11，不另开单、不阻塞 P5。
 合并前还需要：① 生产同档（DashScope `qwen-flash`）整轮 —— **正在跑**（负责人已授权用 `.env` 额度，
 在 master 的独立 worktree 上跑两档，跑完把报告拷回主仓并**在 HANDOFF 明记"本轮经授权花用户额度"**）；
 ② 合并后在 master 上复跑一次冒烟。
