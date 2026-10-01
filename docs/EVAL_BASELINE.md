@@ -4,7 +4,7 @@
 > 用例:26 条(qa 13 / refusal 6 / permission_api 4 / kb_hidden 3)
 > 报告:`reports/eval_report_20260929_104502.json`(+ `105019` / `105131`,3 轮完全一致,见第九节);上一版 `eval_report_20260928_165635.json`(T10 收尾验收轮)
 > ⚠ **引用基线必须注明口径**:表内「忠实度」历史行多为 **3 轮中位**,单轮报告的 `faithfulness_avg` 与之不同(如 v1.4.1 中位 0.9615 / 单轮均值 0.9231)
-> 复跑:评测启动 `NO_PROXY="127.0.0.1,localhost" NOVAAGENT_EVAL_TEMPERATURE=0 uvicorn novaagent.main:app --port 8900`(在 novaagent/ 下;**评测必须带 NOVAAGENT_EVAL_TEMPERATURE=0**,产品部署不设该变量)→ `PYTHONIOENCODING=gbk python evals/run_evals.py` → `python evals/extract_badcases.py`
+> 复跑(**P4f 第 2 回复核后更新**:`--base` 自 `9089fe1` 起**必填**,且**不要再起 `:8900`**——那是他人常驻实例,审到旧代码会造出假红,坑 57/61):`bash docs/p4d/run_with_server.sh <自己的端口> ../evals/run_evals.py --base http://127.0.0.1:<自己的端口>` → `python evals/extract_badcases.py`。包装脚本已负责 `NO_PROXY` 与 `NOVAAGENT_EVAL_TEMPERATURE=0`(**评测必须带 temp=0**,产品部署不设该变量)、按端口属主杀进程并复查端口关闭。
 
 ## 一、基线实测 vs 目标
 

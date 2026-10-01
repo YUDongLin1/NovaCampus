@@ -1,0 +1,19 @@
+[selftest] 判据离线自测(纯函数,不联网、不起服务)
+==============================================================================
+[PASS] S0 合规态(session_env)整体判绿
+[PASS] S1 repo_dotenv 判红(该轮不认)
+[PASS] S1 红项确实是额度档位那条(不是别的判据误报)
+[PASS] S1 红项的理由写明「该轮结果一律不认」
+[PASS] S2 session_env 不因额度档位判红(合规跑法被当红=极性反了)
+[PASS] S2 session_env 的额度判据明确判绿
+[PASS] S3 unset 判红(没有可用额度不是'没问题')
+[PASS] S4 llm/embedding 配一半判红
+[PASS] S5 缺 flags 字段判红
+[PASS] S5 红项点名缺了哪个字段(不能只说'缺字段')
+[PASS] S5 响应含 key 形态串判红
+[PASS] S6 极性写反时 repo_dotenv 不再判红 → 证明 S1 真的在守极性
+[PASS] S6 极性写反时 session_env 改判红 → 证明 S2 真的在守极性
+[PASS] S7 判据是纯函数(同输入两次同结论,可离线重放)
+==============================================================================
+[RESULT] 14/14 passed
+[evidence] E:\AILearn\NovaCampus\docs\p4f\evidence\port_probe_selftest_output.txt
