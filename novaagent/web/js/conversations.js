@@ -4,24 +4,67 @@
 window._convId = null;     // 当前会话 id(null = 未持久化的新会话,首问后由后端自动建)
 window._convAbort = null;  // 进行中 SSE 的中止器(P4b C5: 切换会话即中止)
 
+const DAY_MS = 86400000;
+
+/** 「现在」取**服务端时间**(api.js 从 HTTP Date 头记下);拿不到才退回本地。 */
+function serverNowMs() {
+  return window._serverNowMs || Date.now();
+}
+
+/** 按服务端时间把会话分三组(纯函数,自测直接调用;不碰 DOM、不发请求)。
+ *
+ *  ⚠ 边界一律按 **UTC 日历日**算:库里的 `updated_at` 是 `datetime.now(timezone.utc)
+ *  .isoformat()`(带 +00:00),而"现在"用的是服务端 Date 头(也是 UTC)。
+ *  若改用浏览器本地时区取「今天零点」,演示机时区一换,同一份数据会分到不同的组
+ *  —— 飘的是**展示**不是数据,排障时最难查(P5 §3.2 点名这条)。
+ */
+function groupConversations(list, nowMs) {
+  const now = Number(nowMs) || Date.now();
+  const today0 = Math.floor(now / DAY_MS) * DAY_MS;   // UTC 当日零点
+  const out = { today: [], week: [], earlier: [] };
+  for (const c of (list || [])) {
+    const t = Date.parse(c.updated_at || c.created_at || '');
+    if (!t) { out.earlier.push(c); continue; }        // 解析不出就归到最早一组,不丢
+    if (t >= today0) out.today.push(c);
+    else if (t >= today0 - 7 * DAY_MS) out.week.push(c);
+    else out.earlier.push(c);
+  }
+  return out;
+}
+
+function convItem(c) {
+  const n = c.message_count ? `<span class="cn" title="消息数">${c.message_count}</span>` : '';
+  return `<li data-cid="${c.id}" class="${c.id === window._convId ? 'sel' : ''}${c.archived ? ' arch' : ''}">` +
+    `<span class="ct" onclick="switchConversation(${c.id})" title="${esc(c.title)}">${esc(c.title)}</span>` +
+    /* P4f: 人设徽标。已软删除的人设后端给「人设已删除」,这里原样显示,
+       不去判断它到底为什么没了(那是后端的可见性语义,前端不猜)。 */
+    (c.persona_name ? `<span class="cbadge" title="辅导星人设：${esc(c.persona_name)}">${esc(c.persona_name)}</span>` : '') +
+    n +
+    (c.archived ? `<span class="ctag" title="已归档">归档</span>` : '') +
+    `<span class="ops">` +
+    `<a href="javascript:void(0)" onclick="renameConversation(${c.id}, '${esc(c.title)}')">改名</a>` +
+    `<a href="javascript:void(0)" onclick="archiveConversation(${c.id}, ${c.archived ? 0 : 1})">${c.archived ? '恢复' : '归档'}</a>` +
+    `<a href="javascript:void(0)" class="del" onclick="deleteConversation(${c.id})">删</a>` +
+    `</span></li>`;
+}
+
+function renderConversationList(list) {
+  const ul = document.getElementById('conv-list');
+  if (!ul) return;
+  const b = groupConversations(list, serverNowMs());
+  const sections = [['今天', b.today], ['近 7 天', b.week], ['更早', b.earlier]];
+  ul.innerHTML = sections.filter(s => s[1].length)
+    .map(s => `<li class="conv-group">${s[0]}（${s[1].length}）</li>` + s[1].map(convItem).join(''))
+    .join('') || '<li class="empty">—</li>';
+  const n = document.getElementById('conv-count');
+  if (n) n.textContent = String((list || []).length);
+}
+
 async function loadConversations() {
   try {
     const showArch = document.getElementById('conv-show-archived')?.checked;
     const d = await api('/api/conversations' + (showArch ? '?include_archived=true' : ''));
-    const ul = document.getElementById('conv-list');
-    if (!ul) return;
-    ul.innerHTML = (d.conversations || []).map(c =>
-      `<li data-cid="${c.id}" class="${c.id === window._convId ? 'sel' : ''}${c.archived ? ' arch' : ''}">` +
-      `<span class="ct" onclick="switchConversation(${c.id})" title="${esc(c.title)}">${esc(c.title)}</span>` +
-      /* P4f: 人设徽标。已软删除的人设后端给「人设已删除」,这里原样显示,
-         不去判断它到底为什么没了(那是后端的可见性语义,前端不猜)。 */
-      (c.persona_name ? `<span class="cbadge" title="辅导星人设：${esc(c.persona_name)}">${esc(c.persona_name)}</span>` : '') +
-      `<span class="ops">` +
-      `<a href="javascript:void(0)" onclick="renameConversation(${c.id}, '${esc(c.title)}')">改名</a>` +
-      `<a href="javascript:void(0)" onclick="archiveConversation(${c.id}, ${c.archived ? 0 : 1})">${c.archived ? '恢复' : '归档'}</a>` +
-      `<a href="javascript:void(0)" class="del" onclick="deleteConversation(${c.id})">删</a>` +
-      `</span></li>`
-    ).join('') || '<li class="empty">—</li>';
+    renderConversationList(d.conversations || []);
   } catch (e) { toast('会话列表加载失败:' + e.message); }
 }
 
@@ -91,6 +134,10 @@ async function deleteConversation(cid) {
 
 function abortInflight() {
   if (window._convAbort) { try { window._convAbort.abort(); } catch (e) { /* 已结束 */ } window._convAbort = null; }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { groupConversations, DAY_MS };
 }
 
 function updateCtxBar(ev) {

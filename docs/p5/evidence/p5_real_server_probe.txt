@@ -1,0 +1,45 @@
+P5 真机验证(:8981,库副本 NOVA_DATA_DIR=/tmp/nova_p5_data,假 key 护身符,零额度)
+时间: 2026-10-02 01:01:32
+
+--- 1) 页面与静态资源(漏引=404 且页面静默半瘫) ---
+  /                          200
+  /css/theme.css             200
+  /css/persona.css           200
+  /css/shell.css             200
+  /css/persona-page.css      200
+  /js/api.js                 200
+  /js/ui.js                  200
+  /js/avatars.js             200
+  /js/shell.js               200
+  /js/conversations.js       200
+  /js/persona.js             200
+  /js/persona-page.js        200
+  /js/chat.js                200
+  /js/kb.js                  200
+  /js/weekly.js              200
+
+--- 2) 后端行为零变化(既有端点仍 200) ---
+  /api/health                200
+  /api/kb/documents          200
+  /api/kb/folders            200
+  /api/personas              200
+  /api/conversations         200
+  /api/weekly/reports        200
+  /api/weekly/fragments      200
+  /api/me/settings           200
+  学生 /api/weekly/fragments → 403 (期望 403:周报入口对学生隐藏,后端也拦)
+
+--- 3) avatar 读写(真机) ---
+  POST /api/personas -> {"persona":{"id":58,"owner_id":2,"name":"P5真机-头像","college":"信息学院","persona_prompt":"","style":"balanced","bound_folder_ids":[],"bound_categories":[],"visibility":"public","is_default":false,"deleted_at":null,"created_at":"2026-10-01T17:01:44+0
+  PATCH avatar=av-12 -> av-12
+  PATCH avatar=av-99(未知/未来 id) -> 200 (期望 200:前向兼容,前端回落默认头像)
+
+--- 4) RBAC(绕过 UI 直打接口) ---
+  学生 POST   /api/personas      -> 403 (期望 403)
+  学生 PATCH  /api/personas/58 -> 403 (期望 403)
+  学生 DELETE /api/personas/58 -> 403 (期望 403)
+  学生 GET    /api/personas      -> 200 (期望 200:只读位)
+  学生拿到的 persona_prompt      -> '' (期望空:P4f 投影不退步)
+
+--- 5) 语料计数(副本;原库零写入) ---
+  documents=63 chunks=479

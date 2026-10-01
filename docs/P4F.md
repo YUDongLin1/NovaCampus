@@ -309,7 +309,12 @@ Qoder 实测 `NOVA_SMOKE_MODEL='qwen/qwen-plus'` 在 `:8973` / `:8974` 连炸两
 
 ## 三、测试与证据（全部零额度）
 
-### 3.1 自测矩阵（七个自测，**559 条断言**，exit 全 0）
+### 3.1 自测矩阵（**P4f 交付时**七个自测，**559 条断言**，exit 全 0）
+
+> ⚠ **口径提示（2026-10-02 追加，不改写上面的历史读数）**：P5 起自测变成**八个**
+> （新增 `test_p5_shell.py` 109 条），且 `test_p4f_frontend_contract` 因外壳改版
+> 99 → 107（它按 DOM 里的 id/脚本清单展开断言）。当前合计 **676**，
+> 见 `docs/P5.md` §八·3 与 `_sum_selftest_counts.py` 的现算输出。
 
 > 条数以 `_sum_selftest_counts.py` **现跑**为准（2026-10-01 第 5 回重跑，
 > 证据 `docs/p4f/evidence/r5_sum_selftest_counts.txt`）。

@@ -2169,7 +2169,7 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 
 ---
 
-### P5 应用外壳重构：左侧单栏导航 + 辅导员页（内置头像库）　📐 **设计完成，等 P4f 合并即下发**（2026-10-01 用户提出，参考 WorkBuddy 客户端左栏）
+### P5 应用外壳重构：左侧单栏导航 + 辅导员页（内置头像库）　🟢 **已执行（P5-1 + P5-2 一次交回），IN_REVIEW，持棒 = Qoder**（2026-10-01 用户提出，参考 WorkBuddy 客户端左栏；2026-10-02 WorkBuddy 执行，分支 `task/P5-shell`，起点 `master` `ff7c5ce`，**未合并 master**）
 
 - **设计稿**：`docs/P5.md`（信息架构图、逐入口规格、RBAC 矩阵、9 条可验收标准、拆单方案）
 - **负责人四项裁决**：单栏导航 + 历史列表 / 内置头像库（16 个内联 SVG，存逻辑 id 不存路径，禁真实人物与校徽）/ 学生保留「辅导员」**只读位** / 先合并 P4f 再开 P5
@@ -2177,6 +2177,64 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 - **一次后端小改**：`personas.avatar TEXT DEFAULT ''` 走既有幂等加列（库副本连跑两遍验幂等）
 - **拆单**：P5-1 壳层与页面搬迁 → P5-2 辅导员页 + 头像 + RBAC 矩阵断言（**一张单两阶段交回**，不拆五张）
 - **红线**：全程零额度（假 key 护身符）；走查用库副本 + 独立端口并按属主杀净；`E:\<internal-affairs-dir>\` 不入库；头像不含真实人脸/校徽
+
+#### P5 交回回执（WorkBuddy → Qoder，2026-10-02）—— **IN_REVIEW**，持棒交回 Qoder
+
+**为什么一次交回而不是分两次**：P5-1 与 P5-2 的改动文件**完全不重叠**（壳层 = `index.html` + `css/shell.css` + `js/shell.js`；辅导员页 = personas 相关），而验证成本主要落在「八个自测 + 现算合计」上，分两次就要付两轮集中验证（用户定的纪律）。
+
+**① 壳层（P5-1）**
+- `<main id="shell">` = 左栏 `#conv-sidebar`（品牌 + 6 入口 + 历史对话 + 账户卡）+ 主区 `#stage`（5 个整页）。
+- **hash 路由**：入口是真实 `href="#/kb"` 链接 + `hashchange` 驱动 → 刷新回同一页、前进/后退原生可用
+  （自己存 `window._page` 也能刷新复原，但前进/后退得自己接管 popstate 并重建历史栈 —— 少一整套容易错的状态机）。
+- 知识库从右侧抽屉提升为主区一页，改**左树右表**两栏（P4f 走查实测窄视口下三个下拉被压到 51px）。
+- 学生不渲染周报/工作记录入口（`data-staff` + `renderNav()` 整条隐藏）；后端 `require_role` 仍在。
+
+**② 辅导员页 + 头像库（P5-2）**
+- 卡片网格 / 纯前端搜索 / 选用 / 只读详情；`personas.avatar` 幂等加列 + `normalize_avatar()` 清洗。
+- 16 个内联 SVG（**逻辑 id**，不存路径不存 base64；`avatarId()` 未知 id 回落默认，**不报错** = 前向兼容）。
+- ⚠ `normalize_avatar` **故意不做白名单校验**：按当前 16 个 id 校验会把「将来加第 17 个」变成 500/静默清空。
+
+**③ 读数（全部零额度，命令不接管道，坑 55；cwd = `E:/AILearn/NovaCampus/novaagent`）**
+
+| 项 | 命令 | 退出码 | 读数 |
+|---|---|---|---|
+| 八个自测 | `.venv/Scripts/python.exe tests/{probe_port_check.py --selftest, test_p4f_persona.py, test_p4f_persona_eval.py, test_p4f_persona_eval_wiring.py, test_p4f_c0.py, test_p4f_frontend_contract.py, probe_health_keysource.py, test_p5_shell.py}` | **全 0** | 33 / 158 / 92 / 66 / 91 / **107** / 20 / **109** |
+| 现算合计 | `.venv/Scripts/python.exe tests/_sum_selftest_counts.py` | **0** | **676 == 文档 676**（P4f 的 559 是**七个**自测时的数） |
+| 真机 `:8981` | 库副本 `NOVA_DATA_DIR` + 假 key 护身符 | — | 页面 + 4 css + 10 js 全 200；既有 8 端点仍 200；学生 `/api/weekly/fragments`=403 |
+| avatar 往返 | POST `av-07` → PATCH `av-12` → PATCH `av-99-future` | 200 | 未知 id **存得进**（前端回落默认头像） |
+| RBAC 绕过 UI | 学生 POST/PATCH/DELETE `/api/personas` | **403 / 403 / 403** | GET=200 且 `persona_prompt=''`（P4f 投影不退步） |
+| 语料 | `python evals/kb_doctor.py` | 0 | 前后 `documents=65 chunks=487 danger=0`（原库零写入） |
+
+**④ 反向闭环（三条原文在 `docs/p5/evidence/`）**
+1. `p5_reverse_avatar_fallback_removed.txt`：`avatarId()` 去掉回落 → 4 条当场红，exit 1（81/85）。
+2. `p5_reverse_nav_all_visible.txt`：入口改成「恒全部可见」→ 学生可见性 2 条当场红，exit 1（107/109）。
+3. `p5_reverse_migration_removed.txt`：注释掉加列 → 2 条当场红，exit 1（107/109）。
+   ⚠ **这条第一版是假绿**：迁移用例复制的是当前库，而它已被迁移过 → 列本来就在 → 「列存在」恒绿、
+   **加列逻辑根本没跑就被判通过**。已改为每次先把列 `DROP` 掉造一个旧库再跑 —— 记下来是因为
+   「被测的东西没被测到」比「假绿」更隐蔽(坑 45 的镜像形态)。
+
+**⑤ 我自己踩到并当场修的两条**
+1. **直调端点函数测不了 RBAC**：第一版写 `personas_create(body, user=student)` 想验 403，
+   结果它**真的把人设建出来了**(Depends 被绕过)，而我那条「应该 403」的断言是拿 `require_role` 单独判的、
+   自然绿 —— 断言绿了但**被测的东西根本没被测到**。改成 `TestClient` 走真实路由 + 依赖链
+   （不带 context manager 就不会触发 lifespan，也就不会去连 weekly MCP）。
+2. **头像库的 http 检查自己先假红**：把 `xmlns="http://www.w3.org/2000/svg"` 当成外链判红了。
+   命名空间是**声明**不是取数 —— 改判据（加命名空间白名单），不改实现。
+
+**⑥ 未做 / 待人工（如实列出，别当已验）**
+1. **真浏览器截图 1440×900 / 1280×800**（验收标准第 1 条）：环境没有 playwright
+   （`playwright-cli` 不在 PATH，`npm i -g @playwright/cli` 还要另下浏览器包）。
+   补做命令见 `docs/P5.md` §八·5。**已做的替代自查**：静态资源全 200（漏引 = 404 且页面**静默半瘫**，这条风险已排除）。
+2. **交互时序**（点「用这个人设开会话」、前进/后退的实际表现）只验了纯函数与接线，未做真点击。
+3. `personas.avatar` 的迁移在开发过程中**已在真实库上以 additive ALTER 落过一次**（只加列不改数据，
+   `kb_doctor` 65/487 未变）—— 它本就是本单要发的迁移，记录在此以示不隐瞒。
+
+**⑦ 端口与进程（坑 61）**：只起过 `:8981` 一个实例（库副本 + 假 key 护身符），
+用完按**端口反查属主 PID** 杀掉并 `netstat` 复查 `closed=True`；临时语料副本已删。未用 Git Bash `kill <Windows PID>`。
+
+**⑧ 口径变更已写进 `docs/P4B0.md` 第九节（追加，不改旧基线）**：「前端行为零变化」→「**后端行为零变化**」；
+`theme.css` 设计令牌仍不动。P5 还**故意保留三个旧 id**（`aside#conv-sidebar`、`pane-*` 三个、`switchTab()`），
+以免把 P4f 的既有断言变成「因为 id 找不到而静默不判」。
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 

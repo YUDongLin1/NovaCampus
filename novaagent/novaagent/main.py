@@ -1073,10 +1073,11 @@ async def personas_create(body: dict, user=Depends(require_role("counselor"))):
         if bad:
             # 与「不存在」同表现(P4c 硬约束 1)
             raise HTTPException(404, "指定的知识库不存在或无权访问")
+    # P5-2: avatar = 内置头像库的**逻辑 id**(由 db.normalize_avatar 清洗,未知 id 也放行)
     pid = db.create_persona(user["id"], name, body.get("college") or "",
                             body.get("persona_prompt") or "", style, fids,
                             list(body.get("bound_categories") or []), visibility,
-                            bool(body.get("is_default")))
+                            bool(body.get("is_default")), body.get("avatar") or "")
     # 出口统一过投影(与 GET /api/personas 同一个出口函数,坑 45:同一件事一处实现)。
     # 自建人设按作者判据 → 全文照returned,行为与改前一致。
     p = db.get_persona(pid, user["id"], user["role"])
@@ -1085,6 +1086,8 @@ async def personas_create(body: dict, user=Depends(require_role("counselor"))):
 
 @app.patch("/api/personas/{persona_id}")
 async def personas_patch(persona_id: int, body: dict, user=Depends(require_role("counselor"))):
+    # P5-2: `avatar` 与其它字段走同一个 patch 通道(清洗在 db.update_persona 里)。
+    # 学生进不来 —— require_role 已在入口拦掉(403),不靠前端不渲染。
     p = db.update_persona(persona_id, user["id"], user["role"], body)
     if not p:
         raise HTTPException(404, _PERSONA_MISSING_TEXT)

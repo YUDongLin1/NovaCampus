@@ -13,6 +13,14 @@ async function api(path, opts = {}) {
   opts.headers = Object.assign({}, opts.headers, TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {});
   if (opts.json) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
   const resp = await fetch(path, opts);
+  /* P5-1:顺手记下**服务端时间**(HTTP Date 响应头)。
+     历史对话要按「今天 / 近 7 天 / 更早」分组,判据必须是服务端时间 ——
+     用浏览器本地时区的话,演示机时区(或用户改了系统时间)一变分组边界就飘,
+     而飘的是**展示**不是数据,极难归因(验收标准 §3.2 明确点名这条)。 */
+  try {
+    const sv = resp.headers && resp.headers.get ? resp.headers.get('Date') : null;
+    if (sv) { const ms = Date.parse(sv); if (ms) window._serverNowMs = ms; }
+  } catch (e) { /* 拿不到就沿用上次/本地时间,不连坐业务请求 */ }
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok) {
     // 坑 30 消费端同步(P4c): {code,reason,hint} 结构化错误渲染为可读文案

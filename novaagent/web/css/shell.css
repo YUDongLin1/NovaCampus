@@ -1,0 +1,76 @@
+/* P5-1 应用外壳:左栏导航轨 + 右主区整页切换。
+ *
+ * 【为什么不改 theme.css】
+ *   P4b-0 立的基线是「theme.css 的设计令牌(色板/字号/间距变量)**不动**」,
+ *   P5 §5 明确继续沿用:本文件只**新增**布局,不覆盖任何既有规则。
+ *   需要用到的令牌全部走 var(),一处没写死颜色 —— 换肤时本文件不用改。
+ *
+ * 【为什么 pane 仍用 .tabpane】
+ *   显示/隐藏的 CSS 在 theme.css 里已经写好(`.tabpane{display:none}` /
+ *   `.tabpane.active{display:flex}`),搬进主区后语义从「抽屉里的页签」变成
+ *   「主区整页」,但**机制完全一样** —— 复用它比再写一套 display 判据安全:
+ *   两套判据一旦不同步,就会出现「页签亮着、内容没切」这种最难查的半瘫。
+ */
+#shell { flex: 1; display: flex; min-height: 0; }
+
+/* ---------- 左栏:导航轨 ---------- */
+#conv-sidebar {
+  width: 210px; flex: 0 0 210px; gap: 4px;
+  border-right: 1px solid var(--border, #e2d9c6);
+  background: linear-gradient(180deg, rgba(255,253,248,.9), rgba(244,239,228,.7));
+}
+.rail-brand { display: flex; align-items: center; gap: 9px; padding: 12px 10px 10px; }
+.rail-brand .seal.sm { width: 30px; height: 30px; font-size: 15px; border-radius: 9px; }
+.rail-title { font-family: var(--font-display); font-size: 15px; letter-spacing: 1px; color: var(--ink, #16233d); }
+.rail-title span { font-size: 11px; color: var(--muted, #7c7466); letter-spacing: 2px; }
+
+#nav-entries { list-style: none; margin: 4px 0 8px; padding: 0 6px; }
+#nav-entries .nav-item { border-radius: 10px; transition: background .16s; }
+#nav-entries .nav-item a {
+  display: flex; align-items: center; gap: 9px; padding: 9px 10px;
+  font-size: 13.5px; color: var(--ink, #16233d); text-decoration: none; border-radius: 10px;
+}
+#nav-entries .nav-item a .ni { width: 16px; text-align: center; color: var(--muted, #7c7466); font-size: 13px; }
+#nav-entries .nav-item:hover { background: rgba(191,59,43,.07); }
+#nav-entries .nav-item.active { background: rgba(191,59,43,.12); }
+#nav-entries .nav-item.active a { color: var(--cinnabar, #bf3b2b); font-weight: 600; }
+#nav-entries .nav-item.active a .ni { color: var(--cinnabar, #bf3b2b); }
+#nav-entries .nav-item.hidden { display: none; }
+
+/* ---------- 左栏下半:历史对话 ---------- */
+.rail-history { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px 8px 0; border-top: 1px dashed var(--border-soft, #eee7d8); }
+.rail-sec {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 11.5px; letter-spacing: 1px; color: var(--muted, #7c7466); padding: 6px 4px 4px;
+}
+.rail-n { background: rgba(30,42,56,.08); border-radius: 8px; padding: 0 6px; font-size: 10.5px; }
+#conv-list { flex: 1; overflow-y: auto; }
+.conv-group { font-size: 11px; color: var(--muted, #7c7466); padding: 8px 6px 3px; letter-spacing: 1px; }
+
+/* ---------- 右主区 ---------- */
+#stage { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+#stage .page { padding: 18px 22px 22px; gap: 14px; }
+#stage .page#pane-chat { padding: 0; }
+#stage .page-head { display: flex; align-items: baseline; gap: 12px; padding-bottom: 2px; border-bottom: 1px solid var(--border-soft, #eee7d8); }
+#stage .page-head h2 { font-family: var(--font-display); font-size: 19px; margin: 0; letter-spacing: 1px; }
+#stage .page-sub { font-size: 12px; color: var(--muted, #7c7466); }
+
+/* 会话页顶部的人设条:它管的是「这一轮用谁」,不是全局设置 */
+#chat-persona-row { display: flex; align-items: center; gap: 10px; padding: 8px 34px 0; flex-wrap: wrap; }
+#chat-persona-row:empty { display: none; }
+
+/* 知识库页:左树右表两栏(不再挤在 331px 抽屉里 —— P4f 走查实测窄视口下
+   三个下拉被压到 51px 几乎不可读) */
+.kb-layout { flex: 1; min-height: 0; display: flex; gap: 16px; }
+.kb-layout .kb-side { width: 260px; flex: 0 0 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  border-right: 1px solid var(--border-soft, #eee7d8); padding-right: 12px; }
+.kb-layout .kb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+
+@media (max-width: 1180px) {
+  #conv-sidebar { width: 180px; flex-basis: 180px; }
+  .kb-layout .kb-side { width: 210px; flex-basis: 210px; }
+}
+@media (max-width: 980px) {
+  .kb-layout { flex-direction: column; }
+  .kb-layout .kb-side { width: auto; flex: 0 0 auto; border-right: none; border-bottom: 1px solid var(--border-soft, #eee7d8); }
+}

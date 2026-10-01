@@ -4,6 +4,10 @@
 async function enter() {
   $('mask').style.display = 'none';
   $('role-badge').textContent = ME.username + ' · ' + ROLE_ZH[ME.role];
+  /* P5-1:入口可见性由 renderNav() 统一按角色渲染(整条隐藏而不是禁用 ——
+     禁用会让人以为「我有权限、只是暂时不能用」)。
+     ⚠ 这里**只是体验层**:周报/工作记录的真实拦截在后端 require_role,
+     学生绕过 UI 直连接口仍拿 403(P5 第四节:两层都要)。 */
   if (!isStaff()) {
     $('tab-records').style.display = 'none'; $('tab-weekly').style.display = 'none';
   } else {
@@ -11,20 +15,19 @@ async function enter() {
     $('import-row').style.display = 'flex';
     $('tab-records').style.display = ''; $('tab-weekly').style.display = '';
   }
+  // 学生没有建/改人设的权限 —— 顶部「新建人设」按钮不渲染(P5 第四节矩阵)
+  const pn = $('personas-new'); if (pn) pn.style.display = isStaff() ? '' : 'none';
   $('acct-name').textContent = ME.username;
   $('acct-role').textContent = ROLE_ZH[ME.role];
   $('acct-avatar').textContent = (ME.username || '?')[0].toUpperCase();
+  mountAvatarSprite();          // P5-2:头像雪碧图(幂等)
+  renderNav();
   await loadHistory();
-  switchTab('kb');
+  /* 刷新后回到同一页:URL 上带 #/kb 就落在知识库页。
+     默认会话页 —— 改版前默认是知识库,而用户进来第一件事是**提问**,
+     落会话页才不挡路。 */
+  switchPage(hashToPage(location.hash));
   addMsg('bot', '你好，' + ME.username + '（' + ROLE_ZH[ME.role] + '）。可以问学校政策流程，也可以让我记工作碎片、写周报。');
-}
-
-function switchTab(name) {
-  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-  document.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
-  if (name === 'kb') loadDocs();
-  if (name === 'records') loadRecords();
-  if (name === 'weekly') loadArchived();
 }
 
 function openModal(title, html) { $('modal-title').textContent = title; $('modal-body').innerHTML = html; $('modal').style.display = 'flex'; }

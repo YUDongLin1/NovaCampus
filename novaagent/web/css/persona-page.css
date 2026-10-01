@@ -1,0 +1,58 @@
+/* P5-2 辅导员（人设）页:卡片网格 + 头像选择器 + 详情只读块。
+   同 shell.css:只**新增**,不覆盖 theme.css 的任何既有规则,颜色一律走 var()。 */
+
+#personas-toolbar { display: flex; gap: 10px; align-items: center; }
+#personas-toolbar .spacer { flex: 1; }
+#persona-search {
+  flex: 1; max-width: 320px; border: 1px solid var(--border, #e2d9c6); border-radius: 12px;
+  padding: 9px 14px; font-size: 13.5px; outline: none; background: var(--card, #fffdf8);
+}
+#persona-search:focus { border-color: var(--cinnabar, #bf3b2b); }
+
+#persona-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px; align-content: start;
+}
+.pcard {
+  display: flex; gap: 12px; padding: 14px; border-radius: 14px;
+  background: var(--card, #fffdf8); border: 1px solid var(--border-soft, #eee7d8);
+  box-shadow: var(--shadow-sm); transition: .2s cubic-bezier(.2,.7,.3,1);
+}
+.pcard:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.pcard.using { border-color: rgba(191,59,43,.45); background: var(--cinnabar-wash, #f6e7e1); }
+.pcard-av { flex: none; }
+.av-svg { display: block; border-radius: 14px; }
+.pcard-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.pcard-name { font-size: 14.5px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pcard-meta { font-size: 12px; color: var(--muted, #7c7466); overflow: hidden; text-overflow: ellipsis; }
+.pcard-meta.vis { color: var(--ink, #16233d); }
+.pcard-tag {
+  font-size: 10.5px; padding: 1px 7px; border-radius: 8px; font-weight: 400;
+  background: rgba(30,42,56,.08); color: var(--muted, #7c7466);
+}
+.pcard-tag.def { background: var(--cinnabar-wash, #f6e7e1); color: var(--cinnabar, #bf3b2b); }
+.pcard-tag.using { background: var(--ok-bg, #eaf4ef); color: var(--ok-tx, #2e6f5e); }
+.pcard-acts { display: flex; flex-direction: column; gap: 6px; justify-content: center; flex: none; }
+.pcard-acts .sm { font-size: 12px; padding: 5px 9px; }
+
+/* ---------- 编辑弹窗里的头像选择器 ---------- */
+.pf-avatars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; width: 100%; }
+.pf-av {
+  border: 2px solid transparent; background: none; padding: 0; border-radius: 12px;
+  cursor: pointer; line-height: 0; transition: .15s;
+}
+.pf-av:hover { transform: translateY(-2px); }
+.pf-av.sel { border-color: var(--cinnabar, #bf3b2b); }
+
+/* ---------- 详情只读块 ---------- */
+.pd-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.pd-name { font-family: var(--font-display); font-size: 17px; }
+.pd-sub { font-size: 12px; color: var(--muted, #7c7466); }
+.pcard-read {
+  padding: 8px 11px; border-radius: 10px; background: rgba(30,42,56,.04);
+  font-size: 13px; margin-bottom: 8px; white-space: pre-wrap;
+}
+
+@media (max-width: 1180px) {
+  .pf-avatars { grid-template-columns: repeat(6, 1fr); }
+}

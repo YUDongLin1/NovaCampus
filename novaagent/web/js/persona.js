@@ -150,8 +150,15 @@ function openPersonaEditor(pid) {
       <option value="private"${!p || p.visibility === 'private' ? ' selected' : ''}>仅自己</option>
       <option value="public"${p && p.visibility === 'public' ? ' selected' : ''}>学生可见</option>
     </select></div>
+    <label class="radio-line"><input type="checkbox" id="pf-default"${p && p.is_default ? ' checked' : ''}> 设为我的默认人设</label>
+    <!-- P5-2: 头像选择器。存的是**逻辑 id**(av-07),不是路径也不是 base64;
+         渲染走内联雪碧图 <use href="#av-07">,将来换画风不用迁移数据。 -->
+    <div class="detail-label">头像</div>
+    <div class="row"><div id="pf-avatars" class="pf-avatars">加载中…</div></div>
     <div class="detail-label">绑定知识库文件夹（可选，缩小检索范围）</div>
     <div class="row"><div id="pf-folders" class="pf-folders">加载中…</div></div>
+    <div class="detail-label">绑定分类（可选，同上）</div>
+    <div class="row"><div id="pf-cats" class="pf-folders">加载中…</div></div>
     <p class="pf-tip">绑定范围只是"缩小检索范围"，<b>不会扩大权限</b>：实际检索范围永远与你的可见范围取交集。</p>
     <div class="row" style="margin-top:14px">
       <button class="btn" onclick="savePersona()">保存</button>
@@ -159,7 +166,54 @@ function openPersonaEditor(pid) {
       <button class="btn ghost" onclick="closeModal()">取消</button>
     </div>
     <p id="pf-err" class="pf-err"></p>`);
+  loadPersonaAvatars(p ? (p.avatar || '') : '');
   loadPersonaFolders(p ? (p.bound_folder_ids || []) : []);
+  loadPersonaCats(p ? (p.bound_categories || []) : []);
+}
+
+/* ---------- P5-2: 头像选择器(内置库,零外部依赖) ---------- */
+function loadPersonaAvatars(sel) {
+  const box = $('pf-avatars');
+  if (!box) return;
+  if (typeof mountAvatarSprite !== 'function' || typeof AVATAR_IDS === 'undefined') {
+    box.innerHTML = '<span class="pf-err">头像库未加载</span>'; return;
+  }
+  mountAvatarSprite();
+  const cur = avatarId(sel);
+  box.innerHTML = AVATAR_IDS.map(id =>
+    `<button type="button" class="pf-av${id === cur ? ' sel' : ''}" data-av="${id}" ` +
+    `onclick="pickAvatar('${id}')" title="${id}">${avatarSvg(id, 40)}</button>`).join('') +
+    `<input type="hidden" id="pf-avatar" value="${esc(cur)}">`;
+}
+
+function pickAvatar(id) {
+  const h = $('pf-avatar');
+  if (h) h.value = id;
+  document.querySelectorAll('#pf-avatars .pf-av').forEach(b => {
+    b.classList.toggle('sel', b.dataset.av === id);
+  });
+}
+
+function pickedAvatar() {
+  const h = $('pf-avatar');
+  // 未知 id 交给后端 normalize_avatar 清洗;前端这里已经保证只会是库里的 id
+  return h ? h.value : '';
+}
+
+function pickedCats() {
+  return Array.from(document.querySelectorAll('#pf-cats input:checked')).map(x => x.value);
+}
+
+async function loadPersonaCats(sel) {
+  const box = $('pf-cats');
+  if (!box) return;
+  let cats = [];
+  try { cats = (await api('/api/kb/documents')).categories || []; }
+  catch (e) { box.innerHTML = '<span class="pf-err">分类列表加载失败</span>'; return; }
+  if (!cats.length) { box.innerHTML = '<span class="persona-empty">没有可选分类</span>'; return; }
+  box.innerHTML = cats.map(c =>
+    `<label class="pf-folder"><input type="checkbox" value="${esc(c)}"${sel.indexOf(c) >= 0 ? ' checked' : ''}>` +
+    `${esc(c)}</label>`).join('');
 }
 
 async function loadPersonaFolders(sel) {
@@ -185,7 +239,11 @@ async function savePersona() {
     style: $('pf-style').value,
     persona_prompt: $('pf-prompt').value.trim(),
     visibility: $('pf-vis').value,
-    bound_folder_ids: pickedFolders()
+    bound_folder_ids: pickedFolders(),
+    // P5-2: 头像逻辑 id + 绑定分类 + 默认标记
+    avatar: pickedAvatar(),
+    bound_categories: pickedCats(),
+    is_default: !!($('pf-default') && $('pf-default').checked)
   };
   if (!body.name) { $('pf-err').textContent = '显示名必填'; return; }
   try {
@@ -201,6 +259,8 @@ async function savePersona() {
   closeModal();
   await loadPersonas();
   renderPersonaHint();
+  // P5-2: 若当前正停在辅导员页,卡片网格要跟着刷新(否则新建完看不见新卡)
+  if (typeof renderPersonaCards === 'function') renderPersonaCards();
   await applyPersonaToConversation();
 }
 
@@ -213,5 +273,6 @@ async function removePersona(pid) {
   if (window._personaId === +pid) window._personaId = null;
   await loadPersonas();
   renderPersonaHint();
+  if (typeof renderPersonaCards === 'function') renderPersonaCards();
   loadConversations();
 }
