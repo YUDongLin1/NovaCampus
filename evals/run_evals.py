@@ -86,10 +86,77 @@ REFUSAL_MARKS = ("暂无", "没有找到", "未检索", "知识库中未", "无�
 #   而漂移出来的判据会**静默失效**(坑 45 的第三形态:两份权威实现互相冒充)。
 #   故这里**调用真实的 build_refusal 生成模板,再从模板里取标记** ——
 #   改模板 → 标记自动跟着变,不存在"忘了同步"这个失效模式。
+#
+# ⚠⚠ **第 4 回修正:派生必须先过噪声闸,否则「豁免」会变成「放行」**
+#   Qoder 实测发现派生集合里混进了模板的**非声明性噪声**:
+#     ['//www.swjtu.edu.cn/', '0.3', 'https', '相关度达标的来源不足 2 条']
+#   而豁免的语义极性是**放行**(`if has_no_evi and not actions: continue`),
+#   于是「答案里出现一个 URL 或一个小数」就等于「承认没有依据」→
+#   **真编造被稳定放行,评测报 PASS**。他实测两条都假绿:
+#     「调档流程见 https://archives.swjtu.edu.cn/diaodang 即可。」   → 判绿(https 命中)
+#     「饭卡余额 0.3 个工作日内退还,调档直接提档。」              → 判绿(0.3 命中)
+#   **假绿比假红危险**:假红有人会来问,假绿没人知道(与坑 56/59 同族的"看不见的错误")。
+#   根因不是「豁免错了」而是「**标记集不纯**」—— 派生是"按标点切一切 ≥3 字",
+#   它并不知道哪些片段是**声明性**的。修法是在派生**之前**加一道**具名纯函数**闸:
+#   过滤规则写在这里(而不是散在派生循环内),这样它能被单独测(订单要求)。
+#
+# 【为什么不能用"含 URL 就不是标记"这类反向排除】
+#   排除法要枚举"什么算噪声",而模板会改文案 → 排除项永远滞后。
+#   换成**正向准入**(必须是纯中文的声明性措辞)后,新模板里出现新噪声会**默认被拒**,
+#   除非有人显式把它加进准入金 —— 失效模式从"静默放行"翻成"需要一次人工动作"。
+_NO_EVIDENCE_CORE = ("无", "未", "暂无", "无法", "未能", "不足以", "建议", "缺口")
+_NO_EVIDENCE_MIN_FRAG_CHARS = 4
+_CJK_ONLY = re.compile(r"^[\u4e00-\u9fff]+$")
+
+
+def _acceptable_no_evidence_frag(frag: str) -> bool:
+    """这个从模板切出来的片段,**配不配**当「承认无据」的标记?
+
+    准入三条(全部满足才收):
+      ① **纯中文** —— 排除 URL 残片(`//www.swjtu.edu.cn/`)、协议名(`https`)、
+         带数字的度量(`0.3`)。这些是模板里的**出处/阈值/联系方式**,不是声明。
+      ② **≥ 4 字** —— 2~3 字的碎片(`暂无` 之类)由下面的保底字面量表负责,
+         派生路径不收,否则「短到什么程度算词」这条线会随模板改文案而漂移。
+      ③ 含一个**声明性核心词** —— 见 `_NO_EVIDENCE_CORE`。这条是防"切出整句正常中文"。
+    ⚠ 纯函数、可单独测:`test_p4f_persona_eval.py` 对它做正反向断言,
+      并静态体检派生集合里**不存在任何含数字或 http 的片段**(防将来模板一改又漏进来)。
+    """
+    if not frag or not _CJK_ONLY.match(frag):
+        return False
+    if len(frag) < _NO_EVIDENCE_MIN_FRAG_CHARS:
+        return False
+    return any(core in frag for core in _NO_EVIDENCE_CORE)
+
+
+# 第 4 回 ②:同义承认无据(**模型的措辞,不是系统模板的措辞**)
+# ⚠ 为什么这六条**不能**从 `refusal.build_refusal` 派生(与坑 45 的边界要说清):
+#   坑 45 禁止的是「**两份权威实现互相冒充**」—— 即同一个语义有两处各自为政的定义。
+#   而这六条与派生集合**不是同一个语义类的两份副本**,是两个不同的东西:
+#     · `NO_EVIDENCE_MARKS`(派生) = **系统拒答模板**会说的措辞。
+#       权威源 = `refusal.py` 的 `build_refusal` 模板;改了模板它自动跟着变。
+#     · `SYNONYM_NO_EVIDENCE_MARKS`(本常量) = **模型自己**在如实说没有时
+#       会用的同义措辞。权威源 = 实测答案(Qoder 从 DB 捞出的 rind-07 现场答案
+#       「未细化离校手续清单」等),而 `refusal.py` 里**根本没有**这些词(已核实:
+#       `build_refusal` 四个分支的输出全都不含这六个)。
+#   两者是**不同权威源的两个语义类**,不是互相冒充 —— 所以列成显式常量是合规的,
+#   前提是**它的权威落点必须可核验**:`_SYNONYM_AUTHORITY` 指向实测证据,
+#   自测断言「这六条确实不在 build_refusal 模板里」——
+#   **正是这条反向断言证明它们必须另立权威**,而不是抄漏了模板。
+#   混进派生集合才是错的(那会让它们"看起来有权威",实际是凭空补的)。
+SYNONYM_NO_EVIDENCE_MARKS: tuple[str, ...] = (
+    "未细化", "未覆盖", "未列明", "未作规定", "未规定", "未提及",
+)
+# 本组同义词的权威落点(实测素材出处)—— 自测会断言文件确实存在且含这些词,
+# 防止「常量里的词没有出处」和「出处文件被删」两种漂移。
+_SYNONYM_AUTHORITY = "docs/p4f/evidence/review/r3_qoder_rind07_ruler_probe.txt"
+
+
 def _derive_no_evidence_marks() -> tuple[str, ...]:
     """从 `refusal.build_refusal` 的**真实输出**派生无据声明标记。
 
-    取模板里的**固定措辞片段**(不随 reason/contacts 变的那几段),按标点切成短语。
+    取模板里的**固定措辞片段**(不随 reason/contacts 变的那几段),按标点切成短语,
+    再经 `_acceptable_no_evidence_frag` 这道**噪声闸**准入(第 4 回新增,
+    见该函数上方注释:不设闸会让 URL/数字被当成"承认没依据"→ 真编造被放行)。
     这样得到的是「系统自己承认没有依据时会说的词」,而不是我们凭印象列的词。
     """
     try:
@@ -105,11 +172,12 @@ def _derive_no_evidence_marks() -> tuple[str, ...]:
             continue
         for sent in re.split(r"[。；;\n（）()]", txt):
             t = sent.strip().lstrip("：:—-·• ")
-            # 只取**短语级**片段(>=3 字):整句当标记会把「建议咨询出口（来自学校官网…）」
+            # 只取**短语级**片段:整句当标记会把「建议咨询出口（来自学校官网…）」
             # 这种非声明性句子也拖进来,判据就退化成"必须复现整句"。
             for frag in re.split(r"[，,、：:]", t):
                 frag = frag.strip()
-                if len(frag) >= 3:
+                # ⚠ 第 4 回:此处曾只有 `len(frag) >= 3`,噪声(URL/数字)就是这么进来的
+                if _acceptable_no_evidence_frag(frag):
                     marks.add(frag)
     # 已知会出现在模板里的声明性标记保底(这些是 build_refusal 的**字面量**,
     # 上面从模板派生时若因改文案没覆盖到,这里兜住;它们是「代码里的原话」,
@@ -166,6 +234,16 @@ OUTLET_RE = re.compile(r"(咨询|联系|致电|拨打|以.{0,8}为准)")
 def _is_outlet_sentence(sent: str) -> bool:
     """本句是否是「出口指引」—— 把用户推去问外部,而不是陈述库内事实。"""
     return bool(OUTLET_RE.search(sent))
+
+
+def _all_no_evidence_marks() -> tuple[str, ...]:
+    """豁免判据实际使用的**全部**无据标记 = 模板派生集 + 同义承认无据集。
+
+    ⚠ 必须走这个**函数**而不是在判据里直接写 `NO_EVIDENCE_MARKS + SYNONYM_...`:
+      极性自测会临时替换 `NO_EVIDENCE_MARKS` 来验证"如实说没有"那句能翻脸变红,
+      若判据绕过本函数直接引用常量,替换就不生效 → 极性自测**测了个空**。
+    """
+    return tuple(NO_EVIDENCE_MARKS) + tuple(SYNONYM_NO_EVIDENCE_MARKS)
 
 
 def _is_negated_action(sent: str, action: str) -> bool:
@@ -692,8 +770,11 @@ def _check_absent_keywords(case: dict, answer: str) -> list[str]:
             bad.append(k)
             continue
         for s in hit_sents:
-            # 无据声明 = refusal 派生的标记 **或** 出口指引(把用户推去问人=不陈述)
-            has_no_evi = (any(m in s for m in NO_EVIDENCE_MARKS)
+            # 无据声明 = 模板派生的标记 **或** 同义承认无据(第 4 回新增)
+            #          **或** 出口指引(把用户推去问人=不陈述)
+            # ⚠ 必须走 `_all_no_evidence_marks()` 读集合,不能直接引用 NO_EVIDENCE_MARKS:
+            #   极性自测靠临时替换 NO_EVIDENCE_MARKS 验证极性,绕过就测不到。
+            has_no_evi = (any(m in s for m in _all_no_evidence_marks())
                           or _is_outlet_sentence(s))
             # 动作词若在本句里被否定修饰(「未细化…的办理流程」),**不算断言**
             actions = [a for a in ASSERTION_ACTION_MARKS

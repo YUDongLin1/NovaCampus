@@ -377,6 +377,194 @@ HONEST_NO_EVIDENCE = (
     "建议您：调档事宜咨询档案馆；饭卡事宜咨询校园卡中心；图书馆门禁咨询图书馆办公室。"
 )
 
+# ---------- ⑥ 第 4 回:判据的**两个假绿洞**(Qoder 实测复现) ----------
+#
+# ⚠⚠ **假绿比假红危险** —— 假红有人会来问,假绿没人知道。
+#
+# 【洞 1:派生集不纯 → 豁免变成「放行」】
+#   `_derive_no_evidence_marks()` 原先是「按标点切一切 ≥3 字」,不知道哪些片段
+#   是**声明性**的 → 模板里的噪声被一并收进豁免集。Qoder 实测抓到 4 条:
+#     ['//www.swjtu.edu.cn/', '0.3', 'https', '相关度达标的来源不足 2 条']
+#   而豁免的语义极性是**放行**(`if has_no_evi and not actions: continue`),
+#   于是「答案里出现一个 URL 或一个小数」= 「承认没有依据」→ 真编造稳定放行。
+#   下面 H/I 两条就是被它放行的真编造。
+#
+# 【洞 2:同义承认无据只活在 `_NEGATION_MARKS` 里,没进豁免集】
+#   `_NEGATION_MARKS` 管的是「动作词是否被否定修饰」,豁免集管的是「本句是不是
+#   在声明没依据」——**两个不同用途**。`未细化` 只在前者里,于是:
+#   「库内未细化调档与档案转递的办理流程。」
+#     has_no_evi = False(豁免集里没有 `未细化`)
+#     actions    = []  (`办理` 被 `未细化` 否定修饰掉了)
+#     → `if has_no_evi and not actions` 不成立;`if actions or not has_no_evi` 成立
+#     → **判红**。而这正是最想要的正确行为(下面 E)。
+#   我第 3 回注释里承诺的那句能过,是因为它**同时**含 `暂无`;单说 `未细化` 就漏。
+#
+# ⚠ 以下素材**逐字取自 Qoder 的实测探针**
+#   docs/p4f/evidence/review/r3_qoder_rind07_ruler_probe.txt
+# 不改写、不"顺手优化" —— 素材一改就失去"他复现得出、我修得掉"的可比性。
+QODER_FABRICATED_WITH_URL = "调档流程见 https://archives.swjtu.edu.cn/diaodang 即可。"
+QODER_FABRICATED_WITH_NUM = "饭卡余额 0.3 个工作日内退还，调档直接提档。"
+QODER_HONEST_UNREFINED = "库内未细化调档与档案转递的办理流程。"
+
+
+def section_noise_gate():
+    section("⑥ 第4回-洞1:派生集噪声闸 —— URL/数字不得被当成「承认没依据」")
+
+    # (1) ★反向:断言 + URL(无动作词)→ 必须判红
+    case_absent = {
+        "id": "rind-07-selftest",
+        "expect_absent_keywords": ["调档", "饭卡", "档案转递", "图书馆"],
+    }
+    bad = R._check_absent_keywords(case_absent, QODER_FABRICATED_WITH_URL)
+    chk(len(bad) > 0,
+        "⑥④① 断言+URL(无动作词)→ 必须判红"
+        " (修前:`https` 命中豁免集 → 稳定放行真编造,假绿)",
+        f"bad={bad}")
+    chk(any("调档" in b for b in bad),
+        "⑥④① 红项点名「调档」(红在正确这个词上,不是别的判据误报)", f"bad={bad}")
+
+    # (2) ★反向:断言 + 含小数(无动作词)→ 必须判红
+    bad2 = R._check_absent_keywords(case_absent, QODER_FABRICATED_WITH_NUM)
+    chk(len(bad2) > 0,
+        "⑥④② 断言+含小数 0.3(无动作词)→ 必须判红"
+        " (修前:`0.3` 命中豁免集 → 稳定放行真编造,假绿)",
+        f"bad={bad2}")
+
+    # (3) ★反向:只有 `未细化`(无 `暂无`)→ 必须判绿
+    ok3 = R._check_absent_keywords(case_absent, QODER_HONEST_UNREFINED)
+    chk(ok3 == [],
+        "⑥④③ 单说「未细化」(不含暂无)→ 必须判绿"
+        " (修前:`未细化` 只在 NEGATION_MARKS 里、不在豁免集 → 判红)",
+        f"bad={ok3}")
+
+    # (4) 静态体检:派生集合里**不得存在**任何含数字 / http / URL 残片的片段。
+    #     这是"将来模板一改又漏进来"的守门人 —— 必须有,否则本节(1)(2)会悄悄失效。
+    import re as _re
+    noisy = [m for m in R.NO_EVIDENCE_MARKS
+             if _re.search(r"[0-9]|http|www\.|//", m)]
+    chk(not noisy,
+        "⑥④④ 静态体检:派生集合里没有任何含数字/http/URL 残片的片段",
+        f"noisy={noisy}")
+
+    # (5) 噪声闸本身是**具名纯函数**,可单独测(订单要求:不要散在派生循环里)
+    chk(callable(R._acceptable_no_evidence_frag),
+        "⑥④⑤ 噪声闸是具名函数 `_acceptable_no_evidence_frag`(可单独测,"
+        "不是散在派生循环里的 if)")
+    for frag, want, why in (
+        ("知识库中暂无相关内容", True, "纯中文+4字+含「暂无」→ 收"),
+        ("无法就该问题给出有依据", True, "纯中文+4字+含「无法」→ 收"),
+        ("https", False, "协议名(非纯中文)→ 丢"),
+        ("//www.swjtu.edu.cn/", False, "URL 残片(非纯中文)→ 丢"),
+        ("0.3", False, "带数字的度量(非纯中文)→ 丢"),
+        ("相关度达标的来源不足 2 条", False, "带数字(阈值说明非声明)→ 丢"),
+        ("适用的年级学段", False, "纯中文但不含任何声明性核心词 → 丢"),
+        ("本回答由系统模板生成", False, "纯中文但不含任何声明性核心词 → 丢"),
+    ):
+        chk(R._acceptable_no_evidence_frag(frag) is want,
+            f"⑥④⑤ 噪声闸 `{frag}` → {'收' if want else '丢'}", f"({why})")
+
+    # (6) 极性自检:噪声闸**关掉** → 上面两条假编造必须重新被放行(即红消失)。
+    #     证明 (1)(2) 的红**确实**来自噪声闸，而不是别的判据碰巧也红。
+    # ⚠ **finally 里必须恢复"进入本节前捕获的原始值",不能重新派生**——
+    #   第一版写成 `finally: R.NO_EVIDENCE_MARKS = R._derive_no_evidence_marks()`,
+    #   而那时 `saved` 已把真闸放回去了 → 重算得到**干净**的 13 条,等于把整个
+    #   测试环境重置回正常态。后果有二:① 外部若故意注入"坏闸"来验证闭环,
+    #   会被这一行**悄悄吞掉**(实测:子进程注入坏闸后仍92/92 全绿,闭环没红);
+    #   ② 自己也会把"注入前"这个前提丢掉。**根因是「恢复现场」时用重算代替了快照**
+    #   (坑 79同族:恢复动作本身悄悄改变了现场)。
+    saved = R._acceptable_no_evidence_frag
+    saved_marks = R.NO_EVIDENCE_MARKS
+    try:
+        R._acceptable_no_evidence_frag = lambda frag: len(frag) >= 3   # 回到修前口径
+        marks_no_gate = R._derive_no_evidence_marks()
+        chk(any("0.3" in m or "https" in m for m in marks_no_gate),
+            "⑥④⑥ 极性自检:关掉噪声闸 → 噪声片段重新进入派生集"
+            " (证明 ⑥④①② 的红确实靠噪声闸)", f"marks={marks_no_gate}")
+        R.NO_EVIDENCE_MARKS = marks_no_gate
+        leaked = R._check_absent_keywords(case_absent, QODER_FABRICATED_WITH_NUM)
+        chk(not leaked,
+            "⑥④⑥ 关掉噪声闸后,含小数的真编造**重新被放行**"
+            " → 证明该闸就是判红的原因(反向可复现)",
+            f"leaked_bad={leaked}（修前正是这样:假绿)")
+    finally:
+        # ★ 恢复**快照**,不重算
+        R._acceptable_no_evidence_frag = saved
+        R.NO_EVIDENCE_MARKS = saved_marks
+
+    # (7) 修完必须复原:派生集里不含噪声(防止 (6) 的临时替换残留)
+    chk(not [m for m in R.NO_EVIDENCE_MARKS if _re.search(r"[0-9]|http", m)],
+        "⑥④⑦ 复原后派生集合干净(⑥④⑥ 的临时替换没残留)",
+        f"marks={R.NO_EVIDENCE_MARKS}")
+
+
+def section_synonym_exemption():
+    section("⑥ 第4回-洞2:同义承认无据 —— 「未细化」类措辞也须进豁免集")
+
+    case_absent = {
+        "id": "rind-07-selftest",
+        "expect_absent_keywords": ["调档", "饭卡", "档案转递", "图书馆"],
+    }
+
+    # (1) 极性自检:把**同义集**清空 → 「未细化」那句必须翻脸变红。
+    #     证明 ⑥④③ 的绿确实靠"同义集进了豁免集"，不是断言宽松(坑 52/70 同源)。
+    saved = R.SYNONYM_NO_EVIDENCE_MARKS
+    try:
+        R.SYNONYM_NO_EVIDENCE_MARKS = ()
+        flipped = R._check_absent_keywords(case_absent, QODER_HONEST_UNREFINED)
+        chk(len(flipped) > 0,
+            "⑥⑤① 极性自检:拿掉同义集后,「未细化」那句也判红"
+            " → 证明 ⑥④③ 的绿靠的是同义集而非断言宽松", f"bad={flipped}")
+    finally:
+        R.SYNONYM_NO_EVIDENCE_MARKS = saved
+    chk(R._check_absent_keywords(case_absent, QODER_HONEST_UNREFINED) == [],
+        "⑥⑤② 复原后「未细化」那句仍判绿(临时替换没残留)")
+
+    # (2) 同义词必须**有权威落点**且落点可核验 —— 否则它就是"凭印象补的词表"。
+    auth = ROOT / R._SYNONYM_AUTHORITY
+    chk(auth.exists(),
+        f"⑥⑤③ 同义词的权威落点文件在位: {R._SYNONYM_AUTHORITY}", f"缺 {auth}")
+    if auth.exists():
+        txt = auth.read_text(encoding="utf-8", errors="replace")
+        missing = [w for w in R.SYNONYM_NO_EVIDENCE_MARKS if w not in txt]
+        # `未覆盖` 等未必逐字出现在该探针文件里 —— 权威是「实测答案」这一整体来源,
+        # 故只在"一个都找不到"时才判红(全空 = 落点无效),而不是逐词强求。
+        chk(not missing or len(missing) < len(R.SYNONYM_NO_EVIDENCE_MARKS),
+            "⑥⑤③ 权威落点文件里能找到这些同义词(至少不是全空 → 落点有效)",
+            f"missing={missing}")
+
+    # (3) ⚠ **反向断言**:这六条**必须不在** `refusal.build_refusal` 的模板里。
+    #     这条是本节的地基:它证明同义集是**另一个语义类**(模型措辞),
+    #     而非"派生漏了这些词"。若哪天它们出现在模板里了,说明应该改用派生,
+    #     本断言会红,提醒收口。
+    try:
+        from novaagent import refusal as _rf
+        tpl = "".join(
+            _rf.build_refusal("退学调档怎么办", r)
+            for r in ("empty_sources", "low_top_score", "insufficient_evidence", "")
+        )
+        in_tpl = [w for w in R.SYNONYM_NO_EVIDENCE_MARKS if w in tpl]
+        chk(not in_tpl,
+            "⑥⑤④ 反向断言:同义词确实**不在** refusal.build_refusal 模板里"
+            " → 证明它们是「模型措辞」这个另一语义类,不是派生漏抄",
+            f"竟出现在模板里: {in_tpl}（若模板已改,应改用派生并删除本常量）")
+    except Exception as e:  # noqa: BLE001
+        chk(False, "⑥⑤④ 模板反向断言执行失败", f"{type(e).__name__}: {e}")
+
+    # (4) 同义集**不能**混进派生集(否则会"看起来有权威"，实际是凭空补的)
+    from_refusal = set(R._derive_no_evidence_marks())
+    overlap = sorted(set(R.SYNONYM_NO_EVIDENCE_MARKS) & from_refusal)
+    chk(not overlap,
+        "⑥⑤⑤ 同义集与派生集零重叠(两套权威源不许互相冒充,坑 45)", f"overlap={overlap}")
+
+    # (5) 豁免集的实际使用点必须走 `_all_no_evidence_marks()` 单一出口。
+    #     若判据直接引用 NO_EVIDENCE_MARKS，本节的极性自测就**测了个空**
+    #     (临时替换 NO_EVIDENCE_MARKS 不生效)—— 这正是 ⑥③ 极性自检的同源陷阱。
+    merged = R._all_no_evidence_marks()
+    chk(all(w in merged for w in R.SYNONYM_NO_EVIDENCE_MARKS)
+        and all(w in merged for w in R.NO_EVIDENCE_MARKS),
+        "⑥⑤⑥ 豁免集 = 派生集 + 同义集(单一出口 `_all_no_evidence_marks`)",
+        f"missing={set(R.SYNONYM_NO_EVIDENCE_MARKS) - set(merged)}")
+
 
 def section_absent_polarity():
     section("⑥ absent 判据 —— 只有出现在**断言句式**里才判红")
@@ -400,15 +588,20 @@ def section_absent_polarity():
 
     # (3) 判据集的**极性自检**:把「声明无据」标记表清空 → 如实那句必须翻脸变红。
     #     没有这一条,⑥② 的 PASS 可能只是因为断言写得太宽松(坑 52/70 同源)。
-    saved = R.NO_EVIDENCE_MARKS
+    # ⚠ 第 4 回修:豁免集已扩成「派生集 + 同义集」两套(见 `section_synonym_exemption`),
+    #   豁免读数走 `_all_no_evidence_marks()` 单一出口。只清 `NO_EVIDENCE_MARKS`
+    #   会留下同义集继续放行 → 这条自测会**测到残缺状态**(实测就是这么红的:
+    #   91/92,红项正是本条)。极性自检必须**两套一起清**才算清空。
+    saved_derived, saved_syn = R.NO_EVIDENCE_MARKS, R.SYNONYM_NO_EVIDENCE_MARKS
     try:
         R.NO_EVIDENCE_MARKS = ()
+        R.SYNONYM_NO_EVIDENCE_MARKS = ()
         flipped = R._check_absent_keywords(case_absent, HONEST_NO_EVIDENCE)
         chk(len(flipped) > 0,
             "⑥③ 极性自检:拿掉无据标记后,如实那句也判红"
             " → 证明 ⑥② 的绿确实靠「识别声明无据」而非断言宽松", f"bad={flipped}")
     finally:
-        R.NO_EVIDENCE_MARKS = saved
+        R.NO_EVIDENCE_MARKS, R.SYNONYM_NO_EVIDENCE_MARKS = saved_derived, saved_syn
 
     # (4) 无据标记必须**从代码里派生**,不是判据里抄的一份(坑 45)
     try:
@@ -555,7 +748,9 @@ def section_no_side_effect():
 
 def main() -> int:
     for fn in (section_pair, section_inject, section_directionless,
-               section_absent_polarity, section_env_error_split,
+               section_absent_polarity, section_noise_gate,
+               section_synonym_exemption,
+               section_env_error_split,
                section_report_selfproof, section_no_side_effect):
         try:
             fn()
