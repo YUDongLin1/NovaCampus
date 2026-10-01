@@ -1,0 +1,168 @@
+INFO:httpx2:HTTP Request: POST http://testserver/api/login "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/login "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/login "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/login "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 403 Forbidden"
+INFO:httpx2:HTTP Request: DELETE http://testserver/api/personas/2 "HTTP/1.1 403 Forbidden"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/personas/2 "HTTP/1.1 403 Forbidden"
+INFO:httpx2:HTTP Request: GET http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/personas/1 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/personas/1 "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: DELETE http://testserver/api/personas/1 "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 400 Bad Request"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 400 Bad Request"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 400 Bad Request"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 400 Bad Request"
+INFO:httpx2:HTTP Request: GET http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: DELETE http://testserver/api/personas/2 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: GET http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/conversations "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/conversations/1800 "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/conversations "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: PATCH http://testserver/api/conversations/1800 "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/login "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/login "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/kb/folders "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/kb/folders "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/personas "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 200 OK"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat "HTTP/1.1 404 Not Found"
+INFO:httpx2:HTTP Request: POST http://testserver/api/chat/stream "HTTP/1.1 200 OK"
+==============================================================================
+[PASS] C1 前置:三个演示账号都存在(防空集假通过)
+[PASS] C1 create_persona 返回 id
+[PASS] C1 前置:读回了 persona(防空集假通过)
+[PASS] C1 读回字段正确
+[PASS] C1 绑定范围默认为空数组(不是 None/字符串)
+[PASS] C1 同一用户只允许一个默认人设
+[PASS] C1 默认人设确实落在刚设置的那个上(不是清零后为空)
+[PASS] C1 会话创建带 persona_id
+[PASS] C1 会话在列表里
+[PASS] C1 会话带出 persona_id
+[PASS] C1 会话带出人设名(未删除时)
+[PASS] C1 delete_persona 返回 True
+[PASS] C1 软删除:personas 行**保留**(persona_id 永不断链)
+[PASS] C1 软删除后历史会话仍保留
+[PASS] C1 软删除后历史会话标记「人设已删除」(规格硬要求)
+[PASS] C1 persona_display_name 对已删除返回固定文案
+[PASS] C1 已删除 persona 对 get_persona 返回 None(不可再用)
+[PASS] C1 已删除 persona 不出现在列表里
+[PASS] C1 反向:未删除 persona 的显示名不是「人设已删除」(防空集假通过)
+[PASS] C1 set_conversation_persona 成功
+[PASS] C1 会话人设已切换
+[PASS] C1 可清空会话人设
+[PASS] C1 清空后 persona_id 为 NULL
+[PASS] C1 反向:学生改不了别人的会话人设
+[PASS] C2 前置:P4e 快照里取到了模板(防空集假通过)
+[PASS] C2 零回归:无 persona 时与 P4e 逐字等价(有资料)
+[PASS] C2 零回归:无 persona 时与 P4e 逐字等价(空上下文)
+[PASS] C2 零回归:无 persona 时与 P4e 逐字等价(未检索到)
+[PASS] C2 规则段恰好 1–9 条且编号连续(逐条计数,防少一条/重编号)
+[PASS] C2 规则段在 persona 段**之前**(顺序不可调)
+[PASS] C2 有 persona 时注入防御段存在
+[PASS] C2 规则段在 persona prompt 里**逐字完整**出现(没有被截断/改写)
+[PASS] C2 persona 原文确实进了 prompt(如实,不静默丢弃)
+[PASS] C2 前置:能定位到 persona 段(防空集假通过)
+[PASS] C2 persona 段以不可信标注**开头**(原文被框成被引用文本,不是新指令)
+[PASS] C2 persona 原文在 persona 段内
+[PASS] C2 反向:persona 段整体在第 9 条之后(不是靠 prompt 文案约束,是结构顺序)
+[PASS] C2 风格枚举与 db 层 CHECK 约束一致
+[PASS] C2 风格 concise 生效
+[PASS] C2 风格 balanced 生效
+[PASS] C2 风格 detailed 生效
+[PASS] C2 风格 warm 生效
+[PASS] C2 风格 formal 生效
+[PASS] C2 未知 style 回落 balanced
+[PASS] C2 persona={} 等价于 None
+[PASS] C2 ctx_web 分区在 persona 路径可用
+[PASS] C2 绑定文件夹时给出范围提示
+[PASS] C2 范围提示里带「不得越界引用」
+[PASS] C2 注入#1:规则段逐字未被攻击文本影响
+[PASS] C2 注入#1:攻击文本落在 persona 段内(如实,不静默丢弃)
+[PASS] C2 注入#1:攻击文本**未进入规则段**(硬约束区不被污染)
+[PASS] C2 注入#1:persona 段排在全部 9 条规则之后
+[PASS] C2 注入#1:注入防御段在场
+[PASS] C2 注入#2:规则段逐字未被攻击文本影响
+[PASS] C2 注入#2:攻击文本落在 persona 段内(如实,不静默丢弃)
+[PASS] C2 注入#2:攻击文本**未进入规则段**(硬约束区不被污染)
+[PASS] C2 注入#2:persona 段排在全部 9 条规则之后
+[PASS] C2 注入#2:注入防御段在场
+[PASS] C2 注入#3:规则段逐字未被攻击文本影响
+[PASS] C2 注入#3:攻击文本落在 persona 段内(如实,不静默丢弃)
+[PASS] C2 注入#3:攻击文本**未进入规则段**(硬约束区不被污染)
+[PASS] C2 注入#3:persona 段排在全部 9 条规则之后
+[PASS] C2 注入#3:注入防御段在场
+[PASS] C2 注入#4:规则段逐字未被攻击文本影响
+[PASS] C2 注入#4:攻击文本落在 persona 段内(如实,不静默丢弃)
+[PASS] C2 注入#4:攻击文本**未进入规则段**(硬约束区不被污染)
+[PASS] C2 注入#4:persona 段排在全部 9 条规则之后
+[PASS] C2 注入#4:注入防御段在场
+[PASS] C2 注入#5:规则段逐字未被攻击文本影响
+[PASS] C2 注入#5:攻击文本落在 persona 段内(如实,不静默丢弃)
+[PASS] C2 注入#5:攻击文本**未进入规则段**(硬约束区不被污染)
+[PASS] C2 注入#5:persona 段排在全部 9 条规则之后
+[PASS] C2 注入#5:注入防御段在场
+[PASS] C2 反向:persona 段位置固定在规则段之后(段级断言,顺序被改就会红)
+[PASS] C3 辅导员可创建 persona
+[PASS] C3 辅导员可创建 public persona
+[PASS] C3 学生创建 persona 被拒(403)
+[PASS] C3 学生删除 persona 被拒(403)
+[PASS] C3 学生改 persona 被拒(403)
+[PASS] C3 非空前置:学生列表确有内容(防空集假通过)
+[PASS] C3 学生能看到 public persona
+[PASS] C3 学生看不到 private persona
+[PASS] C3 辅导员列表非空(防空集假通过)
+[PASS] C3 辅导员既看到自己的 private 也看到 public
+[PASS] C3 越权 persona 与不存在 persona 同为 404
+[PASS] C3 越权 persona 与不存在 persona 响应体**逐字节一致**(不泄露存在性)
+[PASS] C3 404 文案指向「不存在或无权使用」
+[PASS] C3 反向:状态码就是 404 本身
+[PASS] C3 admin 可改任何 persona
+[PASS] C3 另一个辅导员改他人 persona → 404
+[PASS] C3 另一个辅导员用他人 private persona → 404
+[PASS] C3 另一个辅导员删他人 persona → 404
+[PASS] C3 绑定不可见夹 → 404(不静默接受)
+[PASS] C3 非法 style → 400
+[PASS] C3 非法 visibility → 400
+[PASS] C3 反向:旧的 folders 档位名 'student' 不被接受(防两套档位名混用)
+[PASS] C3 空 name → 400
+[PASS] C3 admin 可见他人 persona
+[PASS] C3 反向:软删除后 admin 列表也不再出现(不是恒等于'能看见')
+[PASS] C3 新建会话可带 persona_id
+[PASS] C3 建会话响应带出人设名(与库中真名一致)
+[PASS] C3 对话中可清空人设
+[PASS] C3 学生建会话引用不可见 persona → 404
+[PASS] C3 会话切到不存在 persona → 404
+[PASS] C4 前置:两个私有夹建成功
+[PASS] C4 前置:拿到两个不同的夹 id(防空集假通过)
+[PASS] C4 建 public+绑定私有夹的人设成功(建的人可见,故建得成)
+[PASS] C4 前置:学生确实能取到这个 public persona(否则下面测的不是提权)
+[PASS] C4 前置:库层仍存着越权的绑定(提权尝试真实存在)
+[PASS] C4 硬约束2:学生用绑定其不可见夹的 persona → 404
+[PASS] C4 前置:学生直接请求该夹也是 404(P4c 既有)
+[PASS] C4 经 persona 与直接请求夹,响应体逐字节一致(persona 不泄露夹存在性)
+[PASS] C4 404 文案是「不存在或无权」式(不区分哪种原因)
+[PASS] C4 硬约束3:本人请求、人设绑定不相交 → 走确定性空范围响应
+[PASS] C4 硬约束3:响应标记 persona_scope_empty
+[PASS] C4 硬约束3:零来源(没有悄悄做全库检索)
+[PASS] C4 硬约束3:答案明确告知未做全库检索
+[PASS] C4 交集非空时不返回空范围响应
+[PASS] C4 交集非空时 persona_scope_empty 不被置位
+[PASS] C4 请求不存在的夹 → 404(P4c 既有行为未被改写)
+[PASS] C4 交集逻辑:只保留人设范围内的夹
+[PASS] C4 反向:交集为空时结果是空(必须走不回落分支)
+[PASS] C4 流式路径同样标记 persona_scope_empty(与 chat 同一套解析)
+[PASS] C4 流式空范围同样零来源
+==============================================================================
+[RESULT] 124/124 passed
+[evidence] E:\AILearn\NovaCampus\docs\p4f\evidence\persona_selftest_output.txt
