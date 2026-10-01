@@ -51,23 +51,49 @@ SRV=$!
 #   **代码版本不对**的服务 → 造出"代码改了但评测没生效"的假红(坑 57)。
 #   所以收尾必须**以端口是否关闭为准**,并在没关掉时以非 0 退出——让调用方看见。
 #
-# 终止方式按平台分叉:
-#   · Git Bash / MSYS → `taskkill //PID x //F`(双斜杠是 Git Bash 的转义要求)
-#   · 其它           → 退化到 `kill`(Linux/macOS 语义正常)
-# 之后**轮询复查端口**最多 ~10s,每次打印一行,最终给出一句 [port-check] 结论。
+# 终止方式按优先级三段(2026-09-03 真机验证后重排,见下方「实测记录」):
+#   ① `taskkill //PID <端口上的 Windows PID> //F` —— 最权威。
+#      ⚠ **不能用 `$SRV`**:`$!` 是 **MSYS PID 命名空间**里的编号,Windows 的 taskkill
+#        拿着它找不到进程(实测 taskkill 静默失败,脚本一路退化到 shell kill)。
+#        端口上那个 PID 才是 Windows PID —— 而端口才是事实(坑 57 同源:
+#        "命令返回 0" 与 "进程真死了" 是两件事,坑 37)。
+#   ② `taskkill //PID $SRV //F` —— 兜底,万一 netstat 拿不到。
+#   ③ shell 内建 `kill $SRV` —— 最后手段(仅保证 MSYS 侧父子关系被拆掉)。
+#
+# 【实测记录(2026-09-03,:8941)】第一版只用 ②③,结果:
+#   [server] taskkill 静默失败 → [server] shell kill issued → 端口确实关了,
+#   但**主流程在进程尚未被终止时就查了端口**,恒判 `closed=False` → `exit 4`,
+#   随后 trap 才真正终止并打印 `closed=True`。退出码与事实**相反**,比不报错更坏。
+#   故必须:① 用 Windows PID;② 先终止、等端口关,再据端口状态定退出码。
 port_closed() {
   # 端口无监听者 → 0(closed)。Git Bash 下用 curl 探一次最省事、不依赖额外工具。
   ! curl -s -m 2 "http://127.0.0.1:$PORT/api/health" >/dev/null 2>&1
 }
 
+# 该端口当前监听者的 **Windows PID**(取不到则空)。LISTENING 行才有 PID。
+port_win_pid() {
+  netstat -ano 2>/dev/null \
+    | grep -E "127\.0\.0\.1:$PORT[[:space:]]+0\.0\.0\.0:0[[:space:]]+LISTENING" \
+    | awk '{print $NF}' | head -1
+}
+
 terminate_server() {
-  echo "[server] terminating pid=$SRV (port $PORT)"
-  if taskkill //PID "$SRV" //F >/dev/null 2>&1; then
-    echo "[server] taskkill issued"
+  local wpid
+  wpid="$(port_win_pid)"
+  if [ -n "$wpid" ]; then
+    echo "[server] taskkill //PID $wpid //F (端口 $PORT 上的 Windows PID)"
+    taskkill //PID "$wpid" //F >/dev/null 2>&1 \
+      && echo "[server] taskkill issued" \
+      || echo "[server] taskkill failed(rc=$?)"
   else
-    # 兜底:非 Git Bash 环境或 taskkill 不可用 → 用 shell 内建 kill
+    echo "[server] 端口 $PORT 上没查到 LISTENING PID,退到 SRV=$SRV"
+    taskkill //PID "$SRV" //F >/dev/null 2>&1 \
+      && echo "[server] taskkill(SRV) issued" || true
+  fi
+  # 兜底:taskkill 都不可用时用 shell 内建 kill 拆掉 MSYS 父子关系
+  if ! port_closed; then
     kill "$SRV" 2>/dev/null && echo "[server] shell kill issued" \
-      || echo "[server] kill failed (rc=$?)"
+      || echo "[server] shell kill failed(rc=$?)"
   fi
   # 轮询等待端口真正关闭(进程被杀到 socket 释放通常 <2s,留 10s 余量)
   local n=0
@@ -79,7 +105,11 @@ terminate_server() {
   return 1
 }
 
+CLEANED=0
 cleanup() {
+  # 幂等:主流程已经收尾过就别再跑一遍(否则打印两套 [port-check],读的人会懵)
+  [ "$CLEANED" = "1" ] && return 0
+  CLEANED=1
   terminate_server
   if port_closed; then
     echo "[port-check] :$PORT closed=True"
@@ -106,9 +136,14 @@ echo "[server] ready on $PORT (pid=$SRV), running: $REL $*"
 .venv/Scripts/python.exe "$REL" "$@"
 RC=$?
 echo "[server] done rc=$RC, shutting down $PORT"
-# 端口没关掉 → 退出码非 0(哪怕被跑的脚本本身 rc=0):
-# 「实例没关掉」本身就是本脚本的失败,不能让调用方以为一切正常(坑 55 的精神:
-# 退出码必须反映真实状态,不能只反映被调脚本的状态)。
+# 收尾 + 端口复查**在主流程里做**,不是只靠 EXIT trap。
+# ⚠ 第一版把端口判定写在 `exit $RC` 前、终止动作只发生在 trap 里 ——
+#   于是判定那一刻进程还活着、端口必然在听 → **恒 exit 4**;
+#   紧接着 trap 才真正杀掉并打印 closed=True。退出码与事实相反(2026-09-03 :8941 实测)。
+#   端口没关掉 → 退出码非 0(哪怕被跑的脚本本身 rc=0):
+#   「实例没关掉」本身就是本脚本的失败,不能让调用方以为一切正常
+#   (坑 55 的精神:退出码必须反映真实状态,不能只反映被调脚本的状态)。
+cleanup
 if ! port_closed; then
   exit 4
 fi

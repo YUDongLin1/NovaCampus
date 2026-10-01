@@ -1,0 +1,62 @@
+# C0-⑤ 端口复查真机验证(两次运行,端口 8941 → 8942)
+# 生成方式: bash docs/p4d/run_with_server.sh <port> tests/probe_port_check.py --base http://127.0.0.1:<port>
+# 探针只打 /api/health,不调 LLM/embedding —— 零额度。
+# ⚠ llm_key_source=repo_dotenv 是**故意**的:本机未注入会话环境变量,
+#   该读数正是「repo_dotenv 的整轮结果一律不认」这条规则会命中的那一档。
+
+==================== 第 1 次(:8941,修复前)== ====================
+
+[server] ready on 8941 (pid=7152), running: tests/probe_port_check.py --base http://127.0.0.1:8941
+[probe] base=http://127.0.0.1:8941
+[probe] status=ok weekly_mcp=True
+[PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
+[probe]   llm_key_source = 'repo_dotenv'
+[probe]   embedding_key_source = 'repo_dotenv'
+[probe]   grounding_gate_scope_mode = 'factual_turns'
+[probe]   web_search_idle_timeout_s = 20.0
+[probe]   web_search_total_timeout_s = 45.0
+[RESULT] 5/5 passed
+[server] done rc=0, shutting down 8941
+[server] terminating pid=7152 (port 8941)
+[server] shell kill issued
+[port-check] :8941 closed=True
+EXIT=4   <-- ❌ 假红:退出码与事实相反(端口确实关了却退 4)
+
+### 第 1 次暴露的两个真缺陷(修复依据):
+  ① taskkill //PID $SRV 用的是 **MSYS PID**,Windows 侧找不到该进程 → 静默失败,
+     脚本一路退化到 shell kill(坑 61:kill 返回成功不等于进程真死)。
+  ② 更严重:主流程的 `if ! port_closed; then exit 4; fi` 写在终止动作**之前** ——
+     那一刻进程还活着、端口必然在听 → **恒 exit 4**;紧接着 EXIT trap 才真正
+     杀掉进程并打印 closed=True。退出码与事实相反,比不报错更坏。
+
+==================== 第 2 次(:8942,修复后)== ====================
+
+[server] ready on 8942 (pid=7180), running: tests/probe_port_check.py --base http://127.0.0.1:8942
+[probe] base=http://127.0.0.1:8942
+[probe] status=ok weekly_mcp=True
+[PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
+[probe]   llm_key_source = 'repo_dotenv'
+[probe]   embedding_key_source = 'repo_dotenv'
+[probe]   grounding_gate_scope_mode = 'factual_turns'
+[probe]   web_search_idle_timeout_s = 20.0
+[probe]   web_search_total_timeout_s = 45.0
+[probe] llm_key_source='repo_dotenv' (repo_dotenv = 本次用的是仓库 .env,按 C0-⑥ 规则该轮结果不认)
+[RESULT] 5/5 passed
+[server] done rc=0, shutting down 8942
+[server] taskkill //PID 38724 //F (端口 8942 上的 Windows PID)
+[server] taskkill issued
+[port-check] :8942 closed=True
+EXIT=0
+
+### 修复内容
+  ① terminate_server 改为**按端口反查 Windows PID** 再 taskkill(:8942 实测命中 PID 38724),
+     拿不到才退 SRV,再退 shell kill —— 三段降级,权威依据是端口而非 PID 变量。
+  ② 收尾与端口复查移到主流程显式执行(cleanup 幂等,CLEANED 标志防重复打印),
+     判定发生在终止**之后**。
+
+==================== 复核方自查 ====================
+  · 端口 :8941 / :8942 均已关闭(仅剩 TIME_WAIT,无 LISTENING)。
+  · 全局 :89xx 无本单遗留的监听实例。
+  · ⚠ :8900 上有一个**早于本单**启动的常驻实例(PID 41956),不是本单起的 ——
+     保留未动。它正是 run_with_server.sh 强制 --base 自检要防的那个陷阱(坑 57):
+     评测若漏 --base 就会连上它,拿到代码版本不对的服务,造出假红。
