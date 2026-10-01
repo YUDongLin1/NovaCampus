@@ -56,7 +56,10 @@ except (AttributeError, ValueError, OSError):
 
 import faithfulness  # LLM-as-judge:复用 novaagent 模型配置(只读导入)
 
-BASE = "http://127.0.0.1:8900"
+# ⚠ 不留可用的默认端口(坑 57 的同源陷阱)::8900 上长期有别人的常驻实例,
+#   漏--base 就会去审那个进程 —— 拿到代码版本不对的服务,造出假红。
+#   run_with_server.sh 已在包装层强制 --base,这里再做一道,双保险。
+BASE = ""
 HERE = Path(__file__).parent
 SEED_ROLES = {
     "EVAL-研究生学籍管理规定.md": "student",
@@ -1332,9 +1335,15 @@ def collect_gate(case_id: str, last_ctx: dict, turn_ctxs: list) -> dict:
 def run() -> int:
     global BASE
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default=BASE)
+    ap.add_argument("--base", required=True,
+                    help="被测服务 base URL(如 http://127.0.0.1:8954)。"
+                         "**必填**:不留默认值是为了不去审别人的进程(坑 57)")
     args = ap.parse_args()
     BASE = args.base.rstrip("/")
+    # 双保险:模块级 BASE 已是空串,若将来有人绕过 argparse 直接调 run(),
+    # 这里会立刻炸出「打到了空 baseURL」,而不是静默去请求 /api/login(相对 URL)。
+    if not BASE:
+        raise SystemExit("[FATAL] BASE 为空 —— 必须显式 --base http://127.0.0.1:<port>")
 
     spec = json.loads((HERE / "cases.json").read_text(encoding="utf-8"))
     cases = spec["cases"]

@@ -19,10 +19,12 @@
 """
 from __future__ import annotations
 
+import asyncio
 import shutil
 import sys
 import tempfile
 from pathlib import Path
+from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "novaagent"))
@@ -87,13 +89,42 @@ def login(client, u: str, p: str) -> dict:
     return {"Authorization": "Bearer " + r.json()["token"]}
 
 
-def install_llm_probe(main) -> None:
-    """把 `chat_for` 换成会炸的探针 —— 证明 persona 的权限/范围判定全在 LLM 之前完成。"""
+def install_llm_probe(main) -> Callable[[], None]:
+    """把 `chat_for` 与 `chat_stream_for` **两条路径**都换成会炸的探针。
+
+    ⚠ 为什么要两条(Qoder 第 1 回 Review 打回的第 2 条):
+      第一版只换了 `chat_for`,而 `POST /api/chat/stream` 走的是 `chat_stream_for`。
+      当时没烧钱**不是因为有拦截**,而是因为 `persona_scope_empty` 短路恰好在 LLM 之前返回 ——
+      一旦短路回归,这条自测会去刷用户的 key 而不是当场测试红。
+      「今天恰好没走到」不等于「有拦截力」(坑 68)。
+
+    返回一个复位函数:炸点必须能撤,否则装一次就污染整个进程,
+    后面的用例想真跑也跑不了(也会让"炸点生效"变得无法证伪)。
+    """
 
     async def _boom(*a, **kw):
         raise LlmCalled("persona 自测不允许发起真 LLM 请求(硬约束第 7 条)")
 
+    async def _boom_stream(*a, **kw):
+        # 异步生成器版本:必须是一个 async generator,`async for` 会在取到第一个
+        # 元素时才执行到这里 —— 这正是真实流式路径第一次真正调 LLM 的时刻。
+        # 用 raise 不用 yield:一旦 yield 出去一个假 token,后面的断言就会在假数据上通过,
+        # 拦截就等于没有。
+        raise LlmCalled("persona 自测不允许发起真流式 LLM 请求(硬约束第 7 条)")
+        yield  # pragma: no cover —— 让函数被识别为 async generator,永不可达
+
+    saved_for = getattr(main.agent, "chat_for", None)
+    saved_stream = getattr(main.agent, "chat_stream_for", None)
     main.agent.chat_for = _boom
+    main.agent.chat_stream_for = _boom_stream
+
+    def restore() -> None:
+        if saved_for is not None:
+            main.agent.chat_for = saved_for
+        if saved_stream is not None:
+            main.agent.chat_stream_for = saved_stream
+
+    return restore
 
 
 def segments(prompt: str) -> list[str]:
@@ -295,7 +326,7 @@ def test_c3_permissions() -> None:
     try:
         import novaagent.main as main
         main.db = db
-        install_llm_probe(main)
+        restore_llm = install_llm_probe(main)
         client = make_client(main)
         H_c = login(client, "counselor", "counselor123")
         H_s = login(client, "student", "student123")
@@ -400,17 +431,18 @@ def test_c3_permissions() -> None:
         rxb = client.patch(f"/api/conversations/{cid}", json={"persona_id": 999999}, headers=H_c)
         check(rxb.status_code == 404, "C3 会话切到不存在 persona → 404", f"{rxb.status_code}")
     finally:
+        restore_llm()
         restore_db(db, config, src, tmp)
 
 
 # ============================ C4 绑定库不得提权 ============================
 def test_c4_no_privilege_escalation() -> None:
-    """**全走确定性路径,零 LLM 调用**(`chat_for` 已被换成会炸的探针)。"""
+    """**全走确定性路径,零 LLM 调用**(`chat_for` / `chat_stream_for` 均被换成会炸的探针)。"""
     tmp, src, db, config = setup_db_copy()
     try:
         import novaagent.main as main
         main.db = db
-        install_llm_probe(main)
+        restore_llm = install_llm_probe(main)
         client = make_client(main)
         H_c = login(client, "counselor", "counselor123")
         H_s = login(client, "student", "student123")
@@ -508,12 +540,171 @@ def test_c4_no_privilege_escalation() -> None:
         done = next((_json.loads(l[6:]) for l in evs if '"done"' in l), {})
         check(done.get("sources") == [], "C4 流式空范围同样零来源", f"done={done}")
     finally:
+        restore_llm()
+        restore_db(db, config, src, tmp)
+
+
+# ============================ C5 炸点覆盖完整性(元测试) ============================
+def test_c5_llm_tripwire_covers_both_paths() -> None:
+    """**这一组测的是「自测本身靠不靠得住」**,不是被测代码。
+
+    Qoder 第1 回 Review 的第 2 条:第一版 `install_llm_probe` 只换了 `chat_for`,
+    而 `POST /api/chat/stream` 走 `chat_stream_for` —— 那时没烧钱**不是因为有拦截**,
+    而是 `persona_scope_empty` 短路恰好在 LLM 之前返回。一旦短路回归,这条自测会去
+    刷用户的 key 而不是当场测试红。「今天恰好没走到」不等于「有拦截力」(坑 68)。
+
+    本组把「没走到」与「有拦截」拆成两件独立可验的事:
+      · A流式炸点在位 —— 直接调 `chat_stream_for`,必须抛 `LlmCalled`;
+      · B 短路拆掉后走 HTTP 流式端点 —— 必须撞上炸点(错误流里出现炸点文案),
+        而不是安静地发一次真请求出去;
+      · C 反向:短路**完好**时同一条请求不得出现炸点文案(否则 C组 124 条的"零 LLM"
+        结论就是假的),也不得出现任何 error 事件;
+      · D `install_llm_probe` 的复位函数真的能撤掉炸点(否则装一次就污染全进程,
+        后面想真跑也跑不了,「炸点生效」也就无法证伪)。
+    """
+    tmp, src, db, config = setup_db_copy()
+    try:
+        import novaagent.main as main
+        main.db = db
+        # ⚠ 记下**装炸点之前**的原件，后面 D 组要拿它当复位基准。
+        #   名字不能与后面 C 组那个局部 saved_stream 重名 —— 遮蔽会让 D 组
+        #   拿"被替换过的替身"当基准,红得莫名其妙(第一版就踩了这个)。
+        pristine = getattr(main.agent, "chat_stream_for", None)
+        restore_llm = install_llm_probe(main)
+        client = make_client(main)
+        H_c = login(client, "counselor", "counselor123")
+
+        fa = client.post("/api/kb/folders", json={"name": "C5夹A", "visibility": "private"},
+                         headers=H_c)
+        fid_a = fa.json()["folder_id"]
+        check(isinstance(fid_a, int), "C5 前置:夹建成功(防空集假通过)",
+              f"{fa.status_code} {fa.text[:120]}")
+
+        # ---- A:流式炸点在位(不经 HTTP,直接打被测函数) ----
+        async def _drive_stream():
+            agen = main.agent.chat_stream_for(
+                0, "counselor", "counselor", "测试", None,
+                scope={"folder_ids": [fid_a]})
+            async for _ev in agen:      # 真实流式路径第一次取元素就在这里炸
+                return "yielded"        # 若炸点失效,这里会真的产出事件
+            return "empty"
+
+        try:
+            got = f"未拦截:{asyncio.run(_drive_stream())}"
+        except LlmCalled as e:
+            got = f"已拦截:{e}"
+        check(got.startswith("已拦截:"),
+              "C5 A:流式炸点在位 —— chat_stream_for 第一次取元素就抛 LlmCalled",
+              f"返回={got}(若为'未拦截'说明炸点没装上,这条自测会开始烧额度)")
+
+        # ---- B:把短路拆掉,流式端点必须撞炸点而不是发真请求 ----
+        # 短路来自 _persona_scope_empty_response / _audience_clarify / _scope_empty_response
+        # 三者之一。这里逐个换成"不存在"的替身,逼端点走到 async for 那一行。
+        import novaagent.main as _m
+        stubs = {}
+        for attr in ("_persona_scope_empty_response", "_audience_clarify",
+                     "_scope_empty_response"):
+            stubs[attr] = getattr(_m, attr)
+            setattr(_m, attr, lambda *a, **kw: None)
+        try:
+            # 无 persona、不指定 scope → 正常必走 LLM;炸点应该把它拦成 error 事件
+            cs = client.post("/api/chat/stream", json={"question": "测试"}, headers=H_c)
+            text = cs.text
+        finally:
+            for attr, orig in stubs.items():
+                setattr(_m, attr, orig)
+
+        check("不允许发起真流式 LLM 请求" in text,
+              "C5 B:短路被拆掉后,流式端点当场撞上炸点(而不是安静地发一次真请求)",
+              f"{cs.status_code} {text[:300]}")
+        check('"type": "error"' in text or '"type":"error"' in text,
+              "C5 B:炸点异常被流式端点如实转成 error 事件(前端可见,不是静默)",
+              f"{text[:300]}")
+        # 反向:这里绝不能出现任何"看起来像正常答案"的增量 —— 一旦出现,说明绕过了炸点
+        check('"type": "done"' not in text,
+              "C5 B 反向:短路拆掉后不得产出 done 事件(说明真的没跑完一次 LLM)",
+              f"{text[:300]}")
+
+        # ---- C:短路完好时,同样的请求不得出现炸点文案 ----
+        # ⚠ 这里的请求**必须**是 C4 那种「带 persona + 请求夹与绑定夹不相交」的形状。
+        #   一开始我用的是「无 persona、不指定 scope」,结果两条断言当场红 —— 那不是
+        #   炸点的错,而是**前提写错了**:库里没有文档,`pre` 三个来源全部为 None,
+        #   端点本来就该走 LLM。换句话说「短路完好时零 LLM」**不是全局成立的**,
+        #   它成立的范围仅限 C4 走过的那几条确定性分支。这条记在这里,免得下次
+        #   又把它当成全局性质来断言。
+        fb = client.post("/api/kb/folders", json={"name": "C5夹B", "visibility": "private"},
+                         headers=H_c)
+        fid_b = fb.json()["folder_id"]
+        rp = client.post("/api/personas",
+                         json={"name": "C5人设", "visibility": "public",
+                               "bound_folder_ids": [fid_a]}, headers=H_c)
+        pid_c5 = rp.json()["persona"]["id"]
+        check(isinstance(fid_b, int) and isinstance(pid_c5, int),
+              "C5 C 前置:第二个夹与人设建成功(防空集假通过)",
+              f"{fid_b},{pid_c5} {fb.text[:100]} {rp.text[:100]}")
+
+        cs2 = client.post("/api/chat/stream",
+                          json={"question": "测试", "persona_id": pid_c5,
+                                "scope": {"folder_ids": [fid_b]}}, headers=H_c)
+        check("不允许发起真流式 LLM 请求" not in cs2.text,
+              "C5 C:persona 空交集短路完好时零 LLM(这是 C4 全部断言「零额度」的前提)",
+              f"{cs2.status_code} {cs2.text[:300]}")
+        check('"type": "error"' not in cs2.text,
+              "C5 C:短路完好时无 error 事件", f"{cs2.text[:300]}")
+        check("persona_scope_empty" in cs2.text,
+              "C5 C:确实是被短路接住的(证明上面两条绿是因为短路,不是因为端点不调 LLM)",
+              f"{cs2.text[:300]}")
+        # ⚠ 反向对照:若上面三条是因为「端点根本不调 chat_stream_for」而绿,
+        #   那它们与 A 组就是同一条证据在重复计数。把被测函数换成一个**会产事件**的替身,
+        #   并同样拆掉短路,证明流式端点确实会走到 chat_stream_for 且事件会透传 ——
+        #   也就是 A/B 两组测的确实是同一条代码路径。
+        calls: list[int] = []
+
+        async def _fake_stream(*a, **kw):
+            calls.append(1)
+            yield {"type": "done", "answer": "替身产出", "sources": [],
+                   "tool_trace": [], "conversation_id": None, "context": {}}
+
+        saved_fake = main.agent.chat_stream_for
+        main.agent.chat_stream_for = _fake_stream
+        stubs2 = {}
+        for attr in ("_persona_scope_empty_response", "_audience_clarify",
+                     "_scope_empty_response"):
+            stubs2[attr] = getattr(_m, attr)
+            setattr(_m, attr, lambda *a, **kw: None)
+        try:
+            cs3 = client.post("/api/chat/stream", json={"question": "测试"}, headers=H_c)
+        finally:
+            main.agent.chat_stream_for = saved_fake
+            for attr, orig in stubs2.items():
+                setattr(_m, attr, orig)
+        check(bool(calls), "C5 C 反向对照:流式端点确实会调用 chat_stream_for"
+                           "(证明 C 组不是靠'端点没调它'假绿)", f"calls={len(calls)}")
+        check('"type": "done"' in cs3.text and "替身产出" in cs3.text,
+              "C5 C 反向对照:替身的事件确实透传给了客户端(A/B 组测的是同一条路径)",
+              f"{cs3.text[:300]}")
+
+        # ---- D:复位函数有效 ----
+        # ⚠ 比较**底层函数**而不是 bound method:`agent.chat_stream_for` 每次访问
+        #   都会新建一个 bound method 对象,`is` 恒为 False —— 第一版用 `is` 判红,
+        #   是尺子自身的缺陷,不是复位失效。
+        #   基准用 `pristine`(装炸点前的原件),不用后面 C 组的局部变量。
+        restore_llm()
+        now = main.agent.chat_stream_for
+        check(getattr(now, "__func__", None) is getattr(pristine, "__func__", None)
+              and getattr(now, "__self__", None) is getattr(pristine, "__self__", None),
+              "C5 D:复位函数把 chat_stream_for 还原了(装一次不能污染全进程)",
+              f"now={now!r} pristine={pristine!r}")
+        restore_llm = install_llm_probe(main)   # 后续若还要用,重新装回
+    finally:
+        restore_llm()
         restore_db(db, config, src, tmp)
 
 
 def main() -> int:
     for fn in (test_c1_data_layer, test_c2_prompt, test_c3_permissions,
-               test_c4_no_privilege_escalation):
+               test_c4_no_privilege_escalation,
+               test_c5_llm_tripwire_covers_both_paths):
         try:
             fn()
         except Exception as e:  # noqa: BLE001

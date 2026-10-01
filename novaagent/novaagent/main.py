@@ -990,8 +990,11 @@ async def chat_stream(body: dict, user=Depends(current_user)):
 
 
 # ---------- P4f C1: persona(AI 辅导员人设)API ----------
-# 权限(硬约束): 辅导员只管自己的;学生**只能列/用** visibility='student' 的(不能建改删);
+# 权限(硬约束): 辅导员只管自己的;学生**只能列/用** visibility='public' 的(不能建改删);
 # admin 管全部。不可见 → 404 且与「不存在」同文案(不泄露存在性)。
+# ⚠ personas.visibility 的 CHECK **只有 ('private','public')** 两档 ——
+#   写 'student'/'counselor' 会被 CHECK 当场拦下(复核方造 'counselor' 时实测到)。
+#   那三档是 **kb_folders.visibility** 的档位,两张表各有一套,别混用(坑 69)。
 
 @app.get("/api/personas")
 async def personas_list(user=Depends(current_user)):

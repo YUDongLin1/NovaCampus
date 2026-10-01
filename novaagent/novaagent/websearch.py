@@ -106,7 +106,9 @@ async def search(question: str, model: str = "", base_url: str = "", api_key: st
 
     ⚠ 任何失败都**不抛**给调用方,而是把 `error` 写进返回(调用方据此降级并提示用户)——
        但**必须**记录日志(坑 46:静默兜底等于把 bug 藏起来)。
-    ⚠ 合规:payload 只有 model / input / tools 三个键,`input` 恒为**当前问题文本**。
+    ⚠ 合规:payload 只有 model / input / tools / **tool_choice** 四个键,`input` 恒为**当前问题文本**。
+      (第三版 `tool_choice` 是 P4f实测后加的,注释曾长期停在"三个键" ——
+       而合规自查引用的正是这句注释,措辞必须与payload 构造逐键对上。)
 
     ## 超时是**双层**的(P4f C0-④,修「名实不符」)
     旧实现是 `httpx.AsyncClient(timeout=60)`,而 httpx 的 timeout 语义是

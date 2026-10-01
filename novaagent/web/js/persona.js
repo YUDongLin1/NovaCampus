@@ -62,7 +62,7 @@ function renderPersonaBar() {
   }
   box.innerHTML =
     `<select id="persona-select" onchange="onPersonaPick(this.value)">` +
-      `<option value="">默认助手（无 人设）</option>` +
+      `<option value="">默认助手（无人设）</option>` +
       list.map(p =>
         `<option value="${p.id}"${p.id === window._personaId ? ' selected' : ''}>` +
         `${esc(p.name)}${p.is_default ? '（默认）' : ''}${p.college ? ' · ' + esc(p.college) : ''}` +

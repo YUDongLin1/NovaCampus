@@ -24,6 +24,7 @@
 [PASS] C0-⑥ key_source 不返回值本身
 [PASS] C0-⑥ 未注入时读数为 repo_dotenv/unset
 [PASS] C0-⑥ key_source 取值域封闭(只有三个标签)
+[PASS] C0-⑥ 反向:返回值 != 真实 key 值
 [PASS] C0-⑥ /api/health flags 含 llm_key_source
 [PASS] C0-⑥ /api/health flags 含 embedding_key_source
 [PASS] C0-③ 种植轮判为不期待事实回答
@@ -63,4 +64,4 @@
 [PASS] P4f 迁移幂等:schema(列/索引)两遍一致
 [PASS] P4f 迁移自测非空前置:副本里有真实数据(防空集假通过)
 ==============================================================================
-[RESULT] 63/63 passed
+[RESULT] 64/64 passed

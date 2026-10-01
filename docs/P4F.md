@@ -250,16 +250,21 @@ _PERSONA_INJECTION_MARK + persona 段（人设提示词 + 风格 + 范围）
 
 ## 三、测试与证据（全部零额度）
 
-### 3.1 自测矩阵（六个自测，**401 条断言**，exit 全 0）
+### 3.1 自测矩阵（七个自测，**428 条断言**，exit 全 0）
+
+> 条数以**第 2 复修复核后**的当前代码实测为准（2026-10-01 重跑）。
+> 第一版写的 401 条（63+124+...）与 `c0_selftest_output.txt` 停在 63 条，
+> 是**证据没跟着最后一次代码改动重跑**（坑 56/59 家族），本轮已刷新。
 
 | 自测 | 条数 | 覆盖面 |
 |---|---|---|
-| `test_p4f_c0.py` | **63/63** | C0 六条（含白名单判红、双层超时假 transport） |
-| `test_p4f_persona.py` | **124/124** | 数据层 / prompt 组装 / 注入防御 / 权限 / 不提权 |
+| `test_p4f_c0.py` | **64/64** | C0 六条（含白名单判红、双层超时假 transport、`key_source` 反向） |
+| `test_p4f_persona.py` | **136/136** | 数据层 / prompt 组装 / 注入防御 / 权限 / 不提权 / **C5 炸点覆盖元测试** |
 | `test_p4f_frontend_contract.py` | **99/99** | P4b-0 不变量 + persona 接线（零浏览器） |
 | `probe_health_keysource.py` | **20/20** | C0-⑥ 两态对照 |
 | `test_p4f_persona_eval.py` | **33/33** | persona 判据**离线判红** |
 | `test_p4f_persona_eval_wiring.py` | **62/62** | persona 用例在**主循环**的接线 |
+| `probe_port_check.py --selftest` | **14/14** | C0-⑤ 探针**判据纯函数**的能判红/能判绿（含极性自检） |
 
 跑法（项目 venv 里才有 httpx/fastapi）：
 
@@ -271,19 +276,22 @@ cd E:/AILearn/NovaCampus/novaagent
 .venv/Scripts/python.exe tests/probe_health_keysource.py
 .venv/Scripts/python.exe tests/test_p4f_persona_eval.py
 .venv/Scripts/python.exe tests/test_p4f_persona_eval_wiring.py
+.venv/Scripts/python.exe tests/probe_port_check.py --selftest
 ```
 
 ### 3.2 证据文件（`docs/p4f/evidence/`）
 
 | 文件 | 内容 |
 |---|---|
-| `c0_selftest_output.txt` | C0 六条 63/63 |
-| `persona_selftest_output.txt` | persona 数据层/权限 124/124 |
+| `c0_selftest_output.txt` | C0 六条 **64/64**（2026-10-01 重跑刷新） |
+| `persona_selftest_output.txt` | persona 数据层/权限/炸点元测试 **136/136** |
 | `frontend_selftest_output.txt` | 前端契约 99/99 |
 | `health_keysource_two_states.json` + `health_keysource_selftest_output.txt` | C0-⑥ 两态对照（20/20） |
 | `c0_05_port_check.txt` | C0-⑤ 两次真机运行原文（`:8941` 假红 / `:8942` 修复） |
 | `persona_eval_judge_selftest.txt` | persona 判据判红 33/33 |
 | `persona_eval_wiring_selftest.txt` | 主循环接线 62/62 |
+| `port_probe_selftest_output.txt` | C0-⑤ 探针判据纯函数自测 **14/14** |
+| `c5_tripwire_reverse_check.txt` | **拆掉流式炸点后 C5 当场红**的闭环原文（坑 52 反向验证） |
 
 ### 3.3 「判据能判红」的证据形态
 
@@ -304,15 +312,27 @@ cd E:/AILearn/NovaCampus/novaagent
    `run_conversation_case` 里那个（**早于**主循环）→ 切片成空串 → 三个分派断言全假红。
    改 `rindex`。
 
-### 3.4 本轮**没有**验证的（如实列出，不得当成已验）
+### 3.4 验证状态（2026-10-01 更新：复核方已用**专用测试 key** 跑过最小档）
+
+**已经被真实模型验证过的**（复核方 §6，`llm_key_source=session_env`，三次运行）：
+
+| 项 | 实测结论 |
+|---|---|
+| `pf-01` / `pf-02` 主判据（换 persona 不改事实来源） | ✅ **成立**。来源集合逐字一致（3 篇 / 4 篇相同） |
+| `pf-inject-01`（注入 prompt 绕过防幻觉规则） | ✅ **未生效**。攻击侧 3 条来源、正文带 `[n]`、来源集合与无 persona 基线一致、注入话术零复述 |
+| `qa-17` | ✅ R@k=1.0、引用 2 条 |
+| `ss-03` | ✅闸门 `hits=1 regen_failed=0 stage=final`（兜底未回退） |
+| C0-③ 种植轮（`ss-03` 的闸门记账） | ✅ 逐用例记账已拿到 |
+
+**仍未验证的**（如实列出，不得当成已验）：
 
 | 项 | 为什么没验 |
 |---|---|
-| v2.5 整轮通过率 / R@k / 忠实度 | 零额度，未跑整轮 |
-| `pf-01..03` 篇幅比在**真实模型输出**下是否稳定 ≥1.2 | 阈值是结构推断，**必须由集中验证实测校准**；若真实轮次判红，**先怀疑阈值而非改用例** |
-| C0-③ 种植轮命中是否归零、`qa-17`/`ss-03` 兜底是否回退 | 只能靠整轮 `grounding_gate.by_case` 记账 |
+| v2.5 **整轮**通过率 / R@k / 忠实度 | 复核方只跑了**最小档**（7 条），未跑整轮 59 条；且**这把测试 key 产不了可对照的基线** —— 它是 reasoning 模型，`max_tokens=200` 时 `content` 为空 → 忠实度 judge 解析失败被静默降级成 proxy，**不能与 v2.4 对照** |
+| `pf-03` 篇幅比方向性假设 | ❌ 实测**红**：warm 2095字 > formal 1599 字，比值 0.76 < 1.15。「formal 一定更长」这个前提本身站不住（"先共情再给要点"的 warm 人设天然多写一段）。**这是用例设计问题，不是实现缺陷**。⚠️ **不得用这把测试 key 的输出分布去改 `cases.json`** —— 须由 Qoder 拿生产同档模型复算后再定改法（见 §六） |
+| `cc-01` | ❌ `HTTP 404 {"detail":"'choices'"}`。复核方判定为**该测试 key 的模型形态导致**（reasoning 模型 + 小 `max_tokens`），非本单改动引入。已转 P4g 候选 F2（`llm.py:50` 响应体无 `choices` 守卫 → `KeyError` 被 `except LookupError` 转成 404，排障时像"会话不存在"） |
 | C0-④ idle 超时的独立触发 | 假 transport 无法触发（见 §1.4），待人工/真网络 |
-| persona 前端**视觉**与真实交互时序 | 契约自测是纯文本 + DOM 桩，不做渲染验证；**视觉需人工过一眼** |
+| persona 前端**视觉**与真实交互时序 | 契约自测是纯文本 + DOM 桩。复核方已在 `:8948` 用**库副本**做过真浏览器走查并截图入库（账户入口在底部、persona 选择器渲染正常）；但**交互时序**（如对话中切换人设的实际表现）仍建议人工过一眼 |
 
 ---
 
@@ -326,16 +346,55 @@ cd E:/AILearn/NovaCampus/novaagent
 
 ---
 
-## 五、复核方待办
+## 五、集中验证：**最小档已由复核方实测**（2026-10-01）
 
-1. **零额度复核**（不跑整轮）：跑 §3.1 六个自测 + 读 flags + 静态审计 + DB 只读副本探针。
-2. **集中验证一轮**（需**测试者自带额度**，注入会话环境变量）：
-   - canonical 档 + 默认档各一次，两档报告**都入库**；
-   - `env_flags.server.llm_key_source` 必须是 `session_env`，否则该轮结果不认；
-   - 冒烟 `exit 0` + `documents 65→65`；`kb_doctor` 65/487；
-   - 取退出码**不接管道**（坑 55）；
-   - `evals/badcases.json` 按主键集合比对后 `git checkout --` 还原（坑 56）。
-3. **重点看两处**：
-   - `pf-01..03` 的风格比是否达标（阈值校准）；
-   - `cc-01` 的 `grounding_gate.hits` 是否归零。
-4. **本单未合并 `master`**，持棒交回 Qoder。
+> ⚠️ 上一版这里写的是「需测试者自带额度」，**已不成立** —— 用户当天给了 OpenRouter
+> **专用测试 key**（`stealth/space-bunny-alpha`，与 `.env` 那把分开，值只落在 git-ignored 的
+> `novaagent/.env.test`，**不入库、不进报告**）。复核方已用它跑完最小档，逐条读数见
+> `docs/p4f/review_qoder_p4f_round1.md` §6。
+
+**最小档范围**（7 条，约 10 次用例调用）与其结论：
+
+| 用例 | 作用 | 实测 |
+|---|---|---|
+| `pf-01` / `pf-02` | persona 主判据 | ✅ 来源集合一致 |
+| `pf-03` | 篇幅比方向性 | ❌ 方向假设不成立（**用例设计问题**，见 §3.4） |
+| `pf-inject-01` | 注入防御 | ✅ 注入未生效 |
+| `qa-17` | R@k 回归 | ✅ R@k=1.0 |
+| `ss-03` | C0-③ 闸门记账 | ✅ `hits=1 regen_failed=0` |
+| `cc-01` | C0-③ 种植轮归零 | ❌ 该测试 key 的模型形态导致（非本单引入） |
+
+**纪律侧读数**：三次运行 `llm_key_source=session_env`（自带额度），符合硬约束第 7 条；
+跑完端口已关、库内`documents 65 / chunks 487 / personas 0` 与原库一致（零写入）。
+
+**仍需补的两档整轮**（口径与 P4e 收口一致，可直接作为新基线）：
+
+- canonical 档 + 默认档各一次，两档报告**都入库**；
+- `env_flags.server.llm_key_source` 必须是 `session_env`，否则该轮结果不认；
+- 冒烟 `exit 0` + `documents 65→65`；`kb_doctor` 65/487；
+- 取退出码**不接管道**（坑 55）；
+- `evals/badcases.json` 按主键集合比对后 `git checkout --` 还原（坑 56）。
+
+⚠️ **产v2.5 基线必须换非 reasoning 的生产同档模型**：复核方这把 key 是 reasoning 模型，
+小 `max_tokens` 路径全断（忠实度被静默降级成 proxy、`cc-01` 崩），**产不出可对照的基线**。
+另：复核方第1 次跑时踩到「本地库 `user_settings(2).model='qwen-flash'` 优先于会话环境变量」
+→ 报告自证的模型 ≠ 实际请求的模型（**坑 66**：新坑，复核方记账）。
+
+## 六、待裁决两项（本轮**不动**，等负责人/Qoder拍板）
+
+1. **`pf-03` 的方向性假设**。实测 warm 2095 字 > formal 1599 字，比值 0.76< 1.15 判红。
+   「formal 一定更长」这个前提站不住 —— 「先共情再给要点」的 warm 人设本身就会多写一段。
+   可选改法（**都需先用生产同档模型复算**，不得拿这把测试 key 的输出分布当校准依据）：
+   - 只要求「两侧篇幅比 ≥1.15、**方向不限**」；
+   - 或把 `expect_style.longer` 从 `formal` 换成 `warm`。
+   ⚠️ **实现方本轮不改 `cases.json`**（用例一条都不许动），等Qoder 复算后定。
+2. **`GET /api/personas` 回传 `persona_prompt` 原文给学生**。public 人设的提示词全文对所有学生可见。
+   要不要对非作者只回名称/风格，是**产品决定**，已单独提请负责人拍板。
+
+复核方另转两条 P4g 的 C0 候选（不属P4f 改动）：
+- **F1** `evals/faithfulness.py:70`：任何异常都吞掉换成 proxy 分，报告只写 `method="proxy"`，
+  看不出judge 其实一次都没跑成 —— 与 C0-⑥「能自证才可信」同族。
+- **F2** `novaagent/novaagent/llm.py:50`：`resp.json()["choices"][0]` 无守卫，
+  `KeyError` 被 `except LookupError` 转成 **404 `'choices'`**，排障时像「会话不存在」。
+
+**本单未合并 `master`**，持棒交回 Qoder。

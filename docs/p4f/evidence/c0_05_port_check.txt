@@ -1,62 +1,78 @@
-# C0-⑤ 端口复查真机验证(两次运行,端口 8941 → 8942)
-# 生成方式: bash docs/p4d/run_with_server.sh <port> tests/probe_port_check.py --base http://127.0.0.1:<port>
-# 探针只打 /api/health,不调 LLM/embedding —— 零额度。
-# ⚠ llm_key_source=repo_dotenv 是**故意**的:本机未注入会话环境变量,
-#   该读数正是「repo_dotenv 的整轮结果一律不认」这条规则会命中的那一档。
+# C0-⑤ 端口复查真机验证
+#
+# ⚠ 本文件含**两段历史**:第 1 部分是 P4f 第一版(修 C0-⑤ 缺陷)的两轮运行;
+#   第 2 部分是第 2 复修复核(Qoder 打回必修①)后的**两档极性对照**。
+#   两段都必须留:第 1 段的 `[RESULT] 5/5 + EXIT=4` 是「退出码与事实相反」那个
+#   严重缺陷的原始证据,删掉就看不出那个坑存在过。
+#
+# 跑法: bash docs/p4d/run_with_server.sh <port> tests/probe_port_check.py --base http://127.0.0.1:<port>
+# 探针只打 /api/health,不调 LLM/embedding —— 全程零额度。
 
-==================== 第 1 次(:8941,修复前)== ====================
+════════════════ 第一部分:P4f 第一版(修 C0-⑤ 的两个真缺陷)════════════════
 
-[server] ready on 8941 (pid=7152), running: tests/probe_port_check.py --base http://127.0.0.1:8941
-[probe] base=http://127.0.0.1:8941
-[probe] status=ok weekly_mcp=True
-[PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
-[probe]   llm_key_source = 'repo_dotenv'
-[probe]   embedding_key_source = 'repo_dotenv'
-[probe]   grounding_gate_scope_mode = 'factual_turns'
-[probe]   web_search_idle_timeout_s = 20.0
-[probe]   web_search_total_timeout_s = 45.0
-[RESULT] 5/5 passed
-[server] done rc=0, shutting down 8941
-[server] terminating pid=7152 (port 8941)
-[server] shell kill issued
-[port-check] :8941 closed=True
-EXIT=4   <-- ❌ 假红:退出码与事实相反(端口确实关了却退 4)
+【第 1 次 :8941,修复前】
+  [probe] llm_key_source = 'repo_dotenv'
+  [RESULT] 5/5 passed
+  [port-check] :8941 closed=True
+  EXIT=4   <-- ❌ 假红:退出码与事实相反(端口确实关了却退 4)
 
-### 第 1 次暴露的两个真缺陷(修复依据):
-  ① taskkill //PID $SRV 用的是 **MSYS PID**,Windows 侧找不到该进程 → 静默失败,
-     脚本一路退化到 shell kill(坑 61:kill 返回成功不等于进程真死)。
-  ② 更严重:主流程的 `if ! port_closed; then exit 4; fi` 写在终止动作**之前** ——
-     那一刻进程还活着、端口必然在听 → **恒 exit 4**;紧接着 EXIT trap 才真正
-     杀掉进程并打印 closed=True。退出码与事实相反,比不报错更坏。
+  暴露的两个真缺陷:
+    ① taskkill //PID $SRV 用的是 MSYS PID,Windows 侧找不到该进程 → 静默失败,
+       脚本一路退化到 shell kill(坑 61:kill 返回成功不等于进程真死)。
+    ② 更严重:主流程 `if ! port_closed; then exit 4; fi` 写在终止动作**之前** ——
+       那一刻进程还活着、端口必然在听 → **恒 exit 4**;紧接着 EXIT trap 才真正
+       杀掉进程并打印 closed=True。退出码与事实相反,比不报错更坏。
 
-==================== 第 2 次(:8942,修复后)== ====================
+【第 2 次 :8942,修复后】
+  [server] taskkill //PID 38724 //F (端口 8942 上的 Windows PID)
+  [port-check] :8942 closed=True
+  EXIT=0
 
-[server] ready on 8942 (pid=7180), running: tests/probe_port_check.py --base http://127.0.0.1:8942
-[probe] base=http://127.0.0.1:8942
-[probe] status=ok weekly_mcp=True
-[PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
-[probe]   llm_key_source = 'repo_dotenv'
-[probe]   embedding_key_source = 'repo_dotenv'
-[probe]   grounding_gate_scope_mode = 'factual_turns'
-[probe]   web_search_idle_timeout_s = 20.0
-[probe]   web_search_total_timeout_s = 45.0
-[probe] llm_key_source='repo_dotenv' (repo_dotenv = 本次用的是仓库 .env,按 C0-⑥ 规则该轮结果不认)
-[RESULT] 5/5 passed
-[server] done rc=0, shutting down 8942
-[server] taskkill //PID 38724 //F (端口 8942 上的 Windows PID)
-[server] taskkill issued
-[port-check] :8942 closed=True
-EXIT=0
+  修复内容:
+    ① terminate_server 改为**按端口反查 Windows PID** 再 taskkill,拿不到才退 SRV,
+       再退 shell kill —— 三段降级,权威依据是端口而非 PID 变量。
+    ② 收尾与端口复查移到主流程显式执行(cleanup 幂等,CLEANED 标志防重复打印),
+       判定发生在终止**之后**。
 
-### 修复内容
-  ① terminate_server 改为**按端口反查 Windows PID** 再 taskkill(:8942 实测命中 PID 38724),
-     拿不到才退 SRV,再退 shell kill —— 三段降级,权威依据是端口而非 PID 变量。
-  ② 收尾与端口复查移到主流程显式执行(cleanup 幂等,CLEANED 标志防重复打印),
-     判定发生在终止**之后**。
+════════ 第 2 部分:第 2 复修复核后的两档极性对照(必修①)════════
 
-==================== 复核方自查 ====================
-  · 端口 :8941 / :8942 均已关闭(仅剩 TIME_WAIT,无 LISTENING)。
-  · 全局 :89xx 无本单遗留的监听实例。
-  · ⚠ :8900 上有一个**早于本单**启动的常驻实例(PID 41956),不是本单起的 ——
-     保留未动。它正是 run_with_server.sh 强制 --base 自检要防的那个陷阱(坑 57):
-     评测若漏 --base 就会连上它,拿到代码版本不对的服务,造出假红。
+【背景】Qoder 第1 回 Review 指出:第一版探针第 66-67 行把额度断言**极性写反了** ——
+  `if src == "session_env": failed.append(...)` 判的是「注入了会话环境变量 = 失败」,
+  也就是把**合规**跑法判红、把**花用户额度**的跑法判绿,与硬约束第 7 条正好相反。
+  他的实测证据:evidence/review/run_c0_05_with_session_keys.txt —— 注入会话 key 跑 :8947,
+  health 五项齐全、closed=True,却被这一行打成 [RESULT] 4/5 + 退出码 1。
+
+【修复后 · 档A:注入会话 key(合规跑法)】端口 :8954
+  [probe]   llm_key_source = 'session_env'
+  [probe]   embedding_key_source = 'session_env'
+  [PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
+  [PASS] llm_key_source 取值域封闭(session_env/repo_dotenv/unset)
+  [PASS] embedding_key_source 取值域封闭(session_env/repo_dotenv/unset)
+  [PASS] llm_key_source 额度档位[session_env] → 合规
+  [PASS] embedding_key_source 额度档位[session_env] → 合规
+  [PASS] 两项额度档位同档(llm 与 embedding 不能配一半)
+  [PASS] health 响应不含疑似 key 形态串
+  [RESULT] 7/7 passed
+  [server] taskkill //PID 32888 //F (端口 8954 上的 Windows PID)
+  [port-check] :8954 closed=True
+  EXIT=0        <-- ✅ 与第一版同一场景(注入会话 key)从 4/5+EXIT=1 变成 7/7+EXIT=0
+
+【修复后 · 档 B:不注入(读仓库 .env = 花用户额度)】端口 :8955
+  [probe]   llm_key_source = 'repo_dotenv'
+  [FAIL] llm_key_source 额度档位[repo_dotenv] → 该轮不认
+          detail: 读的是仓库 novaagent/.env = 用户的额度;按 C0-⑥ 该轮结果一律不认,证据链须重走
+  [FAIL] embedding_key_source 额度档位[repo_dotenv] → 该轮不认
+  [RESULT] 5/7 passed
+  [port-check] :8955 closed=True
+  EXIT=1        <-- ✅ 用用户额度的跑法**确实**被拦下
+
+★ 两档必须**成对**出现:单看档 A 的全绿说明不了极性对(第一版也是「全绿」,
+  但它绿在错的另一侧);单看档 B 的判红也说明不了判据有方向性。
+  探针的判据已抽成纯函数 judge_payload(),极性自检(S6:把QUOTA_JUDGE 反过来,
+  断言自测会红)在 --selftest 里离线可复算,14/14。
+
+════════════════ 端口与库状态 ════════════════
+  · :8954 / :8955 均已关闭(收尾由 run_with_server.sh 按端口属主 taskkill 完成)。
+  · 全局 :89xx 只剩 :8900(PID 41956)—— **早于本单**启动的常驻实例,不是本单起的,
+    保留未动。它正是 --base 强制必填要防的陷阱(坑 57)。
+  · 探针只打 /api/health,未发任何 LLM / embedding / 联网请求(源码可查)。
