@@ -798,6 +798,75 @@ def _resolve_scope(body: dict, user, question_text: str = "") -> dict | None:
     return scope if any(scope.values()) else None
 
 
+_PERSONA_MISSING_TEXT = "指定的人设不存在或无权使用"
+
+
+def _resolve_persona(body: dict, user, conversation_id: int | None) -> tuple:
+    """P4f C3: 解析本轮使用的 persona,并把它的绑定范围与请求 scope 求交。
+
+    返回 `(persona, effective_body)`:后者是**并入了 persona 范围**的请求体,调用方拿它
+    去走 P4c 的 `_resolve_scope` —— **唯一解析入口,不在 persona 层另写一套**
+    (另写一套就是绕过;坑 45:同一件事只应有一个权威实现)。
+
+    优先级:**请求里显式传的 persona_id > 会话上绑定的 persona**(对话中可切换人设)。
+
+    ## 硬约束:persona **不得提权**(逐条对应 P4c 的同类约束)
+    1. **不可见 = 不存在**:`db.get_persona` 对不可见 persona 返回 None,这里抛 404,
+       文案与「不存在」完全一致 → 不泄露存在性(同 P4c 硬约束 1)。
+    2. **绑定范围必须与调用者 RBAC 可见范围求交**:`db.visible_folder_ids` 过滤一遍,
+       越权夹**静默丢弃**(同 P4c);全部不可见 → 404,同样不区分。
+    3. **空 scope 不回落**:persona 范围与请求范围交集为空时,给 effective_body 打
+       `__persona_scope_empty` 标记,调用方走既有「未做全库检索」提示路径
+       (同 P4c 硬约束 3),**绝**不把范围悄悄放大成全库。
+    """
+    eff = dict(body)
+    pid = body.get("persona_id")
+    if pid is None and conversation_id:
+        conv = db.get_conversation(conversation_id, user["id"])
+        if conv:
+            pid = conv.get("persona_id")
+    if pid in (None, "", 0, "0"):
+        return None, eff
+    try:
+        pid_int = int(pid)
+    except (TypeError, ValueError):
+        raise HTTPException(404, _PERSONA_MISSING_TEXT)
+    persona = db.get_persona(pid_int, user["id"], user["role"])
+    if not persona:
+        raise HTTPException(404, _PERSONA_MISSING_TEXT)
+    # ---- 硬约束 2:绑定范围 ∩ RBAC 可见范围(越权静默丢弃) ----
+    bound = list(persona.get("bound_folder_ids") or [])
+    if bound:
+        visible = set(db.visible_folder_ids(user["id"], user["role"]))
+        kept = [f for f in bound if int(f) in visible]
+        if not kept:
+            # 与「不存在」同表现,不区分「夹存在但无权限」与「夹不存在」
+            raise HTTPException(404, _SCOPE_MISSING_TEXT)
+        persona = dict(persona, bound_folder_ids=kept)
+    # ---- 把 persona 范围并入请求 scope,交由 _resolve_scope 统一解析 ----
+    merged = dict(body.get("scope") or {}) if isinstance(body.get("scope"), dict) else {}
+    if persona.get("bound_folder_ids"):
+        req_folders = [f for f in (merged.get("folder_ids") or [])]
+        if req_folders:
+            inter = [f for f in req_folders if f in persona["bound_folder_ids"]]
+            if not inter:
+                eff["__persona_scope_empty"] = True   # 硬约束 3
+            merged["folder_ids"] = inter or req_folders
+        else:
+            merged["folder_ids"] = list(persona["bound_folder_ids"])
+    if persona.get("bound_categories") and not merged.get("categories"):
+        merged["categories"] = list(persona["bound_categories"])
+    eff["scope"] = merged
+    return persona, eff
+
+
+def _persona_scope_empty_response() -> dict:
+    """硬约束 3 的确定性响应:**明确提示未做全库检索**,与 P4c 空 scope 同一语义。"""
+    return {"answer": _SCOPE_EMPTY_TEXT + "（该范围来自您选择的辅导星人设绑定）",
+            "sources": [], "tool_trace": [],
+            "context": {"scope_empty": True, "persona_scope_empty": True}}
+
+
 def _audience_stage_of(question: str) -> str | None:
     for word, aud in _STAGE_WORDS:
         if word in question:
@@ -847,9 +916,12 @@ async def chat(body: dict, user=Depends(current_user)):
         raise HTTPException(400, "问题文本不能以 @ 开头：请用 @ 选择器指定知识库（scope 参数）")
     cid = _resolve_conversation(body, user["id"]) or None
     try:
-        scope = _resolve_scope(body, user, question)
+        persona, eff_body = _resolve_persona(body, user, cid)
+        scope = _resolve_scope(eff_body, user, question)
     except HTTPException:
         raise
+    if eff_body.get("__persona_scope_empty"):
+        return _persona_scope_empty_response()
     rank = ROLE_RANK[user["role"]]
     clarify = _audience_clarify(question, rank, scope)
     if clarify:
@@ -859,7 +931,8 @@ async def chat(body: dict, user=Depends(current_user)):
         return empty
     try:
         d = await agent.chat_for(user["id"], user["username"], user["role"], question, cid,
-                                 scope=scope, web_search=_web_search_override(body))
+                                 scope=scope, web_search=_web_search_override(eff_body),
+                                 persona=persona)
     except LookupError as e:
         raise HTTPException(404, str(e))
     return d
@@ -874,9 +947,13 @@ async def chat_stream(body: dict, user=Depends(current_user)):
     if question.startswith("@"):
         raise HTTPException(400, "问题文本不能以 @ 开头：请用 @ 选择器指定知识库（scope 参数）")
     cid = _resolve_conversation(body, user["id"]) or None
-    scope = _resolve_scope(body, user, question)
+    # P4f: persona 与 chat 路径**同一套解析**(不另写一份,坑 45)
+    persona, eff_body = _resolve_persona(body, user, cid)
+    scope = _resolve_scope(eff_body, user, question)
     rank = ROLE_RANK[user["role"]]
-    pre = _audience_clarify(question, rank, scope) or _scope_empty_response(scope, rank)
+    pre = (_persona_scope_empty_response() if eff_body.get("__persona_scope_empty")
+           else None) or _audience_clarify(question, rank, scope) \
+        or _scope_empty_response(scope, rank)
 
     async def gen():
         answer_parts: list[str] = []
@@ -893,7 +970,8 @@ async def chat_stream(body: dict, user=Depends(current_user)):
             else:
                 async for ev in agent.chat_stream_for(user["id"], user["username"], user["role"],
                                                       question, cid, scope=scope,
-                                                      web_search=_web_search_override(body)):
+                                                      web_search=_web_search_override(eff_body),
+                                                      persona=persona):
                     if ev["type"] == "delta":
                         answer_parts.append(ev["content"])
                     yield f"data: {json.dumps(ev, ensure_ascii=False)}\n\n"
@@ -911,6 +989,58 @@ async def chat_stream(body: dict, user=Depends(current_user)):
     )
 
 
+# ---------- P4f C1: persona(AI 辅导员人设)API ----------
+# 权限(硬约束): 辅导员只管自己的;学生**只能列/用** visibility='student' 的(不能建改删);
+# admin 管全部。不可见 → 404 且与「不存在」同文案(不泄露存在性)。
+
+@app.get("/api/personas")
+async def personas_list(user=Depends(current_user)):
+    return {"personas": db.list_personas(user["id"], user["role"])}
+
+
+@app.post("/api/personas")
+async def personas_create(body: dict, user=Depends(require_role("counselor"))):
+    """学生不得创建人设(require_role 拦截)。演示口令等敏感内容不落 KB,人设文本只进本表。"""
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "name 不能为空")
+    style = body.get("style") or "balanced"
+    if style not in db._STYLE_VALUES:
+        raise HTTPException(400, f"style 必须是 {list(db._STYLE_VALUES)}")
+    visibility = body.get("visibility") or "private"
+    if visibility not in db._PERSONA_VISIBILITY_VALUES:
+        raise HTTPException(400, f"visibility 必须是 {list(db._PERSONA_VISIBILITY_VALUES)}")
+    # 绑定夹必须是自己可见的(与检索时的 RBAC 交集同源;越权夹此刻就拒,不留到运行时)
+    fids = [int(f) for f in (body.get("bound_folder_ids") or []) if str(f).strip().lstrip("-").isdigit()]
+    if fids:
+        visible = set(db.visible_folder_ids(user["id"], user["role"]))
+        bad = [f for f in fids if f not in visible]
+        if bad:
+            # 与「不存在」同表现(P4c 硬约束 1)
+            raise HTTPException(404, "指定的知识库不存在或无权访问")
+    pid = db.create_persona(user["id"], name, body.get("college") or "",
+                            body.get("persona_prompt") or "", style, fids,
+                            list(body.get("bound_categories") or []), visibility,
+                            bool(body.get("is_default")))
+    return {"persona": db.get_persona(pid, user["id"], user["role"])}
+
+
+@app.patch("/api/personas/{persona_id}")
+async def personas_patch(persona_id: int, body: dict, user=Depends(require_role("counselor"))):
+    p = db.update_persona(persona_id, user["id"], user["role"], body)
+    if not p:
+        raise HTTPException(404, _PERSONA_MISSING_TEXT)
+    return {"persona": p}
+
+
+@app.delete("/api/personas/{persona_id}")
+async def personas_delete(persona_id: int, user=Depends(require_role("counselor"))):
+    """**软删除**:历史会话保留并标记「人设已删除」(见 db.persona_display_name)。"""
+    if not db.delete_persona(persona_id, user["id"], user["role"]):
+        raise HTTPException(404, _PERSONA_MISSING_TEXT)
+    return {"ok": True, "soft_deleted": True}
+
+
 # ---------- P4b C6: 会话 CRUD ----------
 
 @app.get("/api/conversations")
@@ -923,10 +1053,16 @@ async def conversations(include_archived: bool = False, limit: int = 200, user=D
 
 @app.post("/api/conversations")
 async def conversations_create(body: dict, user=Depends(current_user)):
-    cid = db.create_conversation(user["id"], (body.get("title") or "新会话"))
+    # P4f: 新建会话时可指定 persona(对话中切换人设的落点)。可见性由 _resolve_persona 保证。
+    persona_id = None
+    if body.get("persona_id") not in (None, "", 0, "0"):
+        _p, _eff = _resolve_persona({"persona_id": body.get("persona_id")}, user, None)
+        persona_id = int(body["persona_id"])
+    cid = db.create_conversation(user["id"], (body.get("title") or "新会话"), persona_id=persona_id)
     conv = db.get_conversation(cid, user["id"])
     return {"id": cid, "title": conv["title"], "archived": conv["archived"],
-            "updated_at": conv["updated_at"]}
+            "updated_at": conv["updated_at"], "persona_id": conv.get("persona_id"),
+            "persona_name": db.persona_display_name(conv.get("persona_id"))}
 
 
 @app.get("/api/conversations/{conversation_id}/messages")
@@ -941,16 +1077,26 @@ async def conversation_messages(conversation_id: int, limit: int = 50, offset: i
 
 @app.patch("/api/conversations/{conversation_id}")
 async def conversation_patch(conversation_id: int, body: dict, user=Depends(current_user)):
-    """重命名(title)与归档/恢复(archived)。"""
+    """重命名(title)与归档/恢复(archived);P4f 增加切换人设(persona_id)。"""
     ok = False
     if "title" in body:
         ok = db.rename_conversation(conversation_id, user["id"], str(body.get("title") or ""))
     if "archived" in body:
         ok = db.set_conversation_archived(conversation_id, user["id"], bool(body.get("archived"))) or ok
+    if "persona_id" in body:
+        # 切换人设:先过可见性(不可见 → 404,与不存在同表现),再落库
+        raw = body.get("persona_id")
+        if raw in (None, "", 0, "0"):
+            ok = db.set_conversation_persona(conversation_id, user["id"], None) or ok
+        else:
+            _p, _eff = _resolve_persona({"persona_id": raw}, user, None)
+            ok = db.set_conversation_persona(conversation_id, user["id"], int(raw)) or ok
     if not ok:
         raise HTTPException(404, "会话不存在")
     conv = db.get_conversation(conversation_id, user["id"])
-    return {"id": conversation_id, "title": conv["title"], "archived": conv["archived"]}
+    return {"id": conversation_id, "title": conv["title"], "archived": conv["archived"],
+            "persona_id": conv.get("persona_id"),
+            "persona_name": db.persona_display_name(conv.get("persona_id"))}
 
 
 @app.delete("/api/conversations/{conversation_id}")
