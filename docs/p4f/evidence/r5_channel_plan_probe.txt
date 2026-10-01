@@ -1,0 +1,6 @@
+=== A: 伪造 LLM_BASE_URL=OpenRouter(NOVA_SMOKE_MODEL=qwen/qwen-plus) ===
+LLM_BASE_URL = https://openrouter.ai/api/v1
+plan = {'action': 'skip', 'model': 'qwen/qwen-plus', 'valid': None, 'reason': '内置模型切换不适用于自定义通道(base_url=https://openrouter.ai/api/v1)'}
+=== B: 默认 DashScope 域 ===
+LLM_BASE_URL = https://dashscope.aliyuncs.com/compatible-mode/v1
+plan = {'action': 'switch', 'model': 'qwen-flash', 'valid': True, 'reason': '内置通道(base_url=https://dashscope.aliyuncs.com/compatible-mode/v1)'}

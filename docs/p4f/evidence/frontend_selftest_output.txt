@@ -1,0 +1,102 @@
+==============================================================================
+[PASS] F 前置:index.html 用 /js/{name} 路由加载脚本(非内联)
+[PASS] F 没有重复加载同一个脚本
+[PASS] F api.js 最先加载(其余文件顶层依赖它的 TOKEN/$/esc)
+[PASS] F 引用的 api.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 ui.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 conversations.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 persona.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 chat.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 kb.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 weekly.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 theme.css 真实存在
+[PASS] F 引用的 persona.css 真实存在
+[PASS] F 后端 /js/{name} 路由在(新增 js 无需改 main.py)
+[PASS] F 后端 /css/{name} 路由在(新增 css 无需改 main.py)
+[PASS] F 静态路由有目录穿越防护(root 前缀校验)
+[PASS] F 不变量:会话栏函数 loadConversations() 仍在
+[PASS] F 不变量:会话栏函数 newConversation() 仍在
+[PASS] F 不变量:会话栏函数 switchConversation() 仍在
+[PASS] F 不变量:会话栏函数 renameConversation() 仍在
+[PASS] F 不变量:会话栏函数 archiveConversation() 仍在
+[PASS] F 不变量:会话栏函数 deleteConversation() 仍在
+[PASS] F 不变量:会话栏函数 abortInflight() 仍在
+[PASS] F 不变量:会话栏函数 updateCtxBar() 仍在
+[PASS] F 不变量:send 仍挂 AbortController(切会话中止)
+[PASS] F 不变量:AbortError 分支仍在(不留残影)
+[PASS] F 不变量:首问后回填自动建的会话 id
+[PASS] F 不变量:@ 选择器仍把范围与问句分离传参
+[PASS] F 不变量:@ 仍只作唤起符号(从问句里移除)
+[PASS] F 不变量:联网默认关闭
+[PASS] F 不变量:联网开关单次请求显式覆盖
+[PASS] F 不变量:应用外壳函数 enter() 仍在
+[PASS] F 不变量:应用外壳函数 switchTab() 仍在
+[PASS] F 不变量:应用外壳函数 openSettings() 仍在
+[PASS] F 不变量:应用外壳函数 addMsg() 仍在
+[PASS] F 不变量:应用外壳函数 renderMeta() 仍在
+[PASS] F 不变量:应用外壳函数 loadDocs() 仍在
+[PASS] F 不变量:联网来源仍单独分区渲染
+[PASS] F 不变量:pane-kb 面板仍在
+[PASS] F 不变量:pane-records 面板仍在
+[PASS] F 不变量:pane-weekly 面板仍在
+[PASS] F persona 容器 #persona-bar 在 DOM 里
+[PASS] F persona 容器 #persona-hint 在 DOM 里
+[PASS] F persona.js 已加载
+[PASS] F 渲染出的 #persona-select 有被消费
+[PASS] F onPersonaPick 存在
+[PASS] F 下拉 onchange 接到 onPersonaPick
+[PASS] F 每轮请求显式带 persona_id(首问前选人设也生效)
+[PASS] F 未选人设时不带该字段(而不是带 null 覆盖后端解析)
+[PASS] F 切会话时对齐 persona 选择器
+[PASS] F syncPersonaFromConversation 已实现
+[PASS] F 会话列表渲染人设徽标
+[PASS] F 会话栏 <aside> 存在
+[PASS] F 账户入口已移入会话栏内
+[PASS] F 旧的 body 级 #account-card 浮层已移除(两套 position 会打架)
+[PASS] F #acct-entry 有自己的样式定义
+[PASS] F 账户入口不参与滚动(长列表不会把它挤走)
+[PASS] F persona.js 不做角色可见性判断(判据只在后端)
+[PASS] F 只用 isStaff() 决定**是否提供管理入口**,不判断谁能看到谁
+[PASS] F 前置:找得到 openPersonaEditor 的模板
+[PASS] F 模板里确实声明了表单 id(防空集假通过)
+[PASS] F 模板声明的 #pf-college 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-err 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-folders 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-name 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-prompt 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-style 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 模板声明的 #pf-vis 在 JS 里有对应的读取(拼错=静默 null)
+[PASS] F 必填字段 #pf-name 被读取
+[PASS] F 必填字段 #pf-style 被读取
+[PASS] F 必填字段 #pf-vis 被读取
+[PASS] F 必填字段 #pf-err 被读取
+[PASS] F persona 端点 /api/personas 在后端存在(拼错=404)
+[PASS] F persona 端点 /api/personas/{} 在后端存在(拼错=404)
+[PASS] F persona 端点 /api/personas 在后端存在(拼错=404)
+[PASS] F persona 端点 /api/personas/{} 在后端存在(拼错=404)
+[PASS] F 选择器数据源是 GET /api/personas
+[PASS] F 拉人设列表未带多余参数(后端无分页,加了会被忽略)
+[PASS] F 前端用到了 persona 字段 id
+[PASS] F 前端用到了 persona 字段 name
+[PASS] F 前端用到了 persona 字段 college
+[PASS] F 前端用到了 persona 字段 style
+[PASS] F 前端用到了 persona 字段 persona_prompt
+[PASS] F 前端用到了 persona 字段 bound_folder_ids
+[PASS] F 前端用到了 persona 字段 bound_categories
+[PASS] F 前端用到了 persona 字段 visibility
+[PASS] F 前端用到了 persona 字段 is_default
+[PASS] F bound_* 在后端被解析成数组(否则前端 .length 会炸或恒为 undefined)
+[PASS] F list_conversations 带出 persona_name(LEFT JOIN)
+[PASS] F 用 LEFT JOIN(软删除后仍要带出会话)
+[PASS] F 前置:解析到了后端 _STYLE_VALUES(防空集假通过)
+[PASS] F 风格枚举前后端一致(不一致=某些风格静默回落 balanced)
+[PASS] F 前端用规格档位名 public
+[PASS] F 后端可见性档位是 private/public(规格原文)
+[PASS] F p.name 渲染前经 esc()
+[PASS] F p.college 渲染前经 esc()
+[PASS] F persona_prompt 回填经 esc()
+[PASS] F name 回填经 esc()
+[PASS] F 会话列表人设徽标经 esc()
+[PASS] F textarea 回填已转义(</textarea> 截断攻击)
+==============================================================================
+[RESULT] 99/99 passed

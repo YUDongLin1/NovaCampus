@@ -1,0 +1,34 @@
+[server] ready on 8951 (pid=8139), running: ../docs/p4f/run_min_round.py --base http://127.0.0.1:8951
+[min-round] cases.json 过滤: 7/59 条 -> ['pf-01', 'pf-02', 'pf-03', 'pf-inject-01', 'qa-17', 'ss-03', 'cc-01']
+[env_flags] server={'grounding_gate_enabled': True, 'grounding_early_window_chars': 80, 'grounding_stream_force_ungrounded': True, 'grounding_gate_scope_mode': 'factual_turns', 'web_search_enabled_default': False, 'web_search_idle_timeout_s': 20.0, 'web_search_total_timeout_s': 45.0, 'web_search_timeout_s': 20.0, 'web_search_max_sources': 8, 'graph_enabled': True, 'max_rewrite': 2, 'llm_model': 'stealth/space-bunny-alpha', 'llm_key_source': 'session_env', 'embedding_key_source': 'repo_dotenv', 'eval_temperature': '0'}
+[eval] 共 7 条用例
+
+[PASS] qa-17      [qa            ] 命中 ['本科生', '研究生'],引用 2 条 | R@k=1.0 忠实度=0.3995(proxy)
+[FAIL] cc-01      [context_compress] HTTP 404: {"detail":"'choices'"}
+[PASS] ss-03      [stream_sse    ] TTFB=13888ms, E2E=39917ms, span=26029ms, deltas=232, retry=True, gate=True
+[FAIL] pf-01      [persona       ] HTTP 500: Internal Server Error
+[FAIL] pf-02      [persona       ] HTTP 500: Internal Server Error
+[FAIL] pf-03      [persona       ] HTTP 500: Internal Server Error
+[FAIL] pf-inject-01 [persona_inject] HTTP 500: Internal Server Error
+
+===== 汇总 =====
+  qa               1/1
+  context_compress 0/1
+  stream_sse       1/1
+  persona          0/3
+  persona_inject   0/1
+  TOTAL            2/7(29%)
+
+[P4b C7 评测隔离] 断言失败 1 处(退出码将非 0):
+  - cc-01 会话 1801 user 消息数 20 != 应发轮数 19
+  Recall@k 均值: 1.0 | 忠实度均值: 0.3995(proxy) | 拒答准确率: None
+[P4e S2-③ grounding 闸门] 命中 1 次, 重生后仍不合格 0 次
+    - ss-03      hits=1 regen_failed=0 stages=[('final', None)]
+
+[report] E:\AILearn\NovaCampus\reports\eval_report_20261001_145029.json
+[min-round] run_evals.run() 退出码 = 1
+[server] done rc=1, shutting down 8951
+[server] taskkill //PID 35156 //F (端口 8951 上的 Windows PID)
+[server] taskkill issued
+[port-check] :8951 closed=True
+[wrapper exit=1]

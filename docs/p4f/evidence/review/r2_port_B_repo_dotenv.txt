@@ -1,0 +1,24 @@
+[server] ready on 8962 (pid=8512), running: tests/probe_port_check.py --base http://127.0.0.1:8962
+[probe] base=http://127.0.0.1:8962
+[probe] status=ok weekly_mcp=True
+[probe]   llm_key_source = 'repo_dotenv'
+[probe]   embedding_key_source = 'repo_dotenv'
+[probe]   grounding_gate_scope_mode = 'factual_turns'
+[probe]   web_search_idle_timeout_s = 20.0
+[probe]   web_search_total_timeout_s = 45.0
+==============================================================================
+[PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
+[PASS] llm_key_source 取值域封闭(session_env/repo_dotenv/unset)
+[PASS] embedding_key_source 取值域封闭(session_env/repo_dotenv/unset)
+[FAIL] llm_key_source 额度档位[repo_dotenv] → 该轮不认
+        detail: 读的是仓库 novaagent/.env = 用户的额度;按 C0-⑥ 该轮结果一律不认,证据链须重走
+[FAIL] embedding_key_source 额度档位[repo_dotenv] → 该轮不认
+        detail: 读的是仓库 novaagent/.env = 用户的额度;按 C0-⑥ 该轮结果一律不认,证据链须重走
+[PASS] 两项额度档位同档(llm 与 embedding 不能配一半)
+[PASS] health 响应不含疑似 key 形态串
+==============================================================================
+[RESULT] 5/7 passed
+[server] done rc=1, shutting down 8962
+[server] taskkill //PID 36304 //F (端口 8962 上的 Windows PID)
+[server] taskkill issued
+[port-check] :8962 closed=True

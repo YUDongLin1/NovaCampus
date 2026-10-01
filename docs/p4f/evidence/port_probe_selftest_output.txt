@@ -1,0 +1,37 @@
+[selftest] 判据离线自测(纯函数,不联网、不起服务)
+==============================================================================
+[PASS] S0 合规态(session_env)整体判绿
+[PASS] S1 repo_dotenv 判红(该轮不认)
+[PASS] S1 红项确实是额度档位那条(不是别的判据误报)
+[PASS] S1 红项的理由写明「该轮结果一律不认」
+[PASS] S2 session_env 不因额度档位判红(合规跑法被当红=极性反了)
+[PASS] S2 session_env 的额度判据明确判绿
+[PASS] S3 unset 判红(没有可用额度不是'没问题')
+[PASS] S4 混合档(session_env+repo_dotenv)额度判绿 —— 唯一可用跑法不再被堵死
+[PASS] S4 混合档必须出现且仅出现一条披露项(不能靠红项暗示)
+[PASS] S4 披露项的名字就写明「须计入报告」,不能只藏在 detail 里
+[PASS] S4 披露项点明消耗的是哪一份额度(EMBEDDING_API_KEY)
+[PASS] S4b llm=repo_dotenv 仍判红(放宽 embedding 不能把 llm 一起放过)
+[PASS] S4b 红项落在「该轮不认」上 —— 证据链仍须重走
+[PASS] S4c embedding=unset 仍判红(披露放宽只对 repo_dotenv 生效,不含 unset)
+[PASS] S4d 拿不到调用次数时披露写 unknown
+[PASS] S4d 拿不到次数**不许写 0**(0 会被读成「一次都没调」)
+[PASS] S4d 调用方给了次数就如实写进去
+[PASS] S4e 披露行在渲染输出里可见(不只是判据层存在)
+[PASS] S4e 反向:非披露的绿项不打印 detail(披露可见 ≠ 全部都打印)
+[PASS] S5 缺 flags 字段判红
+[PASS] S5 红项点名缺了哪个字段(不能只说'缺字段')
+[PASS] S5 响应含 key 形态串判红
+[PASS] S6a llm 极性写反时 repo_dotenv 不再判红 → 证明 S1/S4b 真的在守极性
+[PASS] S6b llm 极性写反时 session_env 改判红 → 证明 S2 真的在守极性
+[PASS] S6c embedding 极性写反时混合档被判红 → 证明 S4 的判绿依赖极性本身
+[PASS] S6d embedding 极性写反时 unset 不再判红 → 证明 S4c 真的在守极性
+[PASS] S6e 同一输入(embedding=unset)在正表判红、反表判绿 → 极性被真实读取
+[PASS] S7 判据是纯函数(同输入两次同结论,可离线重放)
+[PASS] S8 collect_disclosure 抽出调用次数(42)
+[PASS] S8 披露 dict 点明档位与额度来源(报告要靠这两个字段归因)
+[PASS] S8 拿不到次数时 dict 里是 None/unknown,**不是 0**
+[PASS] S8 embedding 也在自带额度时返回 None(无需披露)
+[PASS] S8 反向:llm=repo_dotenv 仍判红,披露不吞掉违规
+==============================================================================
+[RESULT] 33/33 passed

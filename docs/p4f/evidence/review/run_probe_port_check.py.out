@@ -1,0 +1,5 @@
+[FAIL] health flags 缺字段: ['llm_key_source', 'embedding_key_source', 'grounding_gate_scope_mode', 'web_search_idle_timeout_s', 'web_search_total_timeout_s']
+[probe] base=http://127.0.0.1:8900
+[probe] status=ok weekly_mcp=True
+[probe] llm_key_source=None (repo_dotenv = 本次用的是仓库 .env,按 C0-⑥ 规则该轮结果不认)
+[RESULT] 4/5 passed

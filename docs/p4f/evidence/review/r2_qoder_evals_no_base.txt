@@ -1,0 +1,2 @@
+usage: run_evals.py [-h] --base BASE
+run_evals.py: error: the following arguments are required: --base

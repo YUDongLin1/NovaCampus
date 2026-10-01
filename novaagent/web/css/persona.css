@@ -1,0 +1,75 @@
+/* P4f: 辅导星人设(左侧会话栏内的选择器 + 底部账户入口)的样式。
+   独立成文件而不是塞进 theme.css:theme.css 是 P4b-0 从 index.html 原样迁出来的
+   「零行为变化」基线,本单改动它会让"那一步没改行为"这句话再也核不了(坑 45 同源)。 */
+
+#persona-bar { display: flex; align-items: center; gap: 4px; }
+#persona-bar select {
+  flex: 1; min-width: 0; font-size: 12.5px; padding: 5px 6px;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--card); color: var(--text);
+}
+#persona-bar .icon-btn {
+  width: 24px; height: 24px; flex: 0 0 24px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border); background: #faf6ec; color: var(--muted);
+  font-size: 12px; line-height: 1; transition: .15s;
+}
+#persona-bar .icon-btn:hover { color: var(--cinnabar); border-color: var(--cinnabar); }
+#persona-bar .btn.sm { padding: 4px 8px; font-size: 12px; }
+#persona-bar .persona-empty {
+  flex: 1; font-size: 12px; color: var(--muted); line-height: 1.5;
+}
+#persona-bar .persona-lock { font-size: 12px; opacity: .6; }
+
+#persona-hint {
+  font-size: 11px; color: var(--muted); line-height: 1.5;
+  padding: 0 2px; display: none; word-break: break-all;
+}
+
+/* 账户入口:P4f 从右下角浮层移进会话栏最底部。
+   ⚠ 子元素 id(acct-avatar/acct-name/acct-role/gear)全部保持不变 → `ui.js` 的 `enter()`
+     那一处**零改动**,P4b-0「拆分后行为零变化」的不变量不会被本单破掉。
+   容器 id 从 account-card 改成 acct-entry:旧 id 对应的是 fixed 浮层样式,
+   留着会让两套 position 规则打架(坑 45:同名不同义是最难查的一类静默失效)。
+   ⚠ 侧栏本身是 `overflow-y:auto`,长列表会把入口推到滚动区外 ——
+     所以让**列表**自己滚(#conv-list),侧栏保持不滚,入口恒在底部可见。 */
+#conv-sidebar { overflow-y: hidden; }
+#conv-list { overflow-y: auto; min-height: 0; }
+/* 会话列表里的人设徽标(P4f) */
+#conv-list li { flex-wrap: wrap; }
+#conv-list li .cbadge {
+  font-size: 10px; line-height: 1.6; padding: 0 5px; border-radius: 99px;
+  background: rgba(191,59,43,.10); color: var(--cinnabar); white-space: nowrap;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+#conv-list li .ct { flex: 1 1 100%; min-width: 0; }
+
+#acct-entry {
+  display: flex; align-items: center; gap: 9px; flex: 0 0 auto;
+  padding: 9px 6px 2px; border-top: 1px solid var(--border-soft);
+}
+#acct-entry .avatar {
+  width: 30px; height: 30px; border-radius: 9px; font-family: var(--font-display);
+  background: linear-gradient(150deg, var(--ink-500), var(--ink)); color: #f7f3ea;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--cinnabar);
+}
+#acct-entry .acct-info { min-width: 0; flex: 1; }
+#acct-entry .name { font-size: 12.5px; font-weight: 600; }
+#acct-entry .role { font-size: 10.5px; color: var(--muted); }
+#acct-entry .gear {
+  width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--border);
+  background: #faf6ec; color: var(--muted); font-size: 14px; cursor: pointer; transition: .2s;
+}
+#acct-entry .gear:hover { color: var(--cinnabar); border-color: var(--cinnabar); transform: rotate(35deg); }
+
+/* 人设编辑弹窗 */
+.pf-folders {
+  display: flex; flex-direction: column; gap: 4px; max-height: 190px; overflow-y: auto;
+  border: 1px solid var(--border-soft); border-radius: 9px; padding: 8px 10px; background: #fbf8f0;
+}
+.pf-folder { display: flex; align-items: center; gap: 7px; font-size: 12.5px; cursor: pointer; }
+.pf-folder input { accent-color: var(--cinnabar); }
+.pf-folder-n { margin-left: auto; color: var(--muted); font-size: 11px; }
+.pf-tip { font-size: 11.5px; color: var(--muted); line-height: 1.7; margin-top: 9px; }
+.pf-err { color: var(--danger); font-size: 12px; margin-top: 9px; }
+.req { color: var(--cinnabar); margin-left: 2px; }
+#pf-prompt { min-height: 78px; resize: vertical; }

@@ -57,7 +57,8 @@
 ## 五、Review 闸门（我合并前必做）
 
 1. `git diff master..task/...` 通读，确认**没越界改禁改文件**。
-2. 跑该任务验收命令 + `python novaagent/tests/smoke_test.py` + `python evals/run_evals.py`。
+2. 跑该任务验收命令 + 冒烟与评测（**两者都必须显式 `--base`**，自 `9089fe1` 起`run_evals.py` 缺 `--base` 直接退出码 2；不要再用 `:8900`，那是他人常驻实例，会审到旧代码造出假红 —— 坑 57/61）：
+   `bash docs/p4d/run_with_server.sh <端口> tests/smoke_test.py --base http://127.0.0.1:<端口>`、`bash docs/p4d/run_with_server.sh <端口> ../evals/run_evals.py --base http://127.0.0.1:<端口>`。
 3. 逐条核对完成标准。
 4. 任一不过 → 打回，写清具体原因和期望。
 5. 全过 → `git checkout master && git merge --no-ff task/...` → 冒烟复跑 → `git branch -d task/...`。

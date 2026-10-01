@@ -32,6 +32,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any
@@ -42,6 +43,23 @@ import httpx
 from . import config
 
 logger = logging.getLogger("novaagent.websearch")
+
+
+async def _post_with_idle_timeout(url: str, *, headers: dict, json: dict,
+                                 idle_s: float) -> httpx.Response:
+    """发一次 POST,只设**空闲超时**(httpx 的 timeout 语义)。
+
+    抽成独立函数有两个原因:
+      1. 让「空闲层」与「总时限层」在代码上物理分开——C0-④ 的核心是把名实对上,
+         混在一个 `AsyncClient(timeout=...)` 里就看不出 60 到底是什么;
+      2. 便于单测用**假 transport** 注入慢响应(不打真实网络、不烧额度,见
+         `novaagent/tests/test_p4f_c0.py`)。
+
+    ⚠ `idle_s <= 0` → 不设空闲超时(交给总时限兜底)。
+    """
+    timeout = httpx.Timeout(idle_s) if idle_s and idle_s > 0 else None
+    async with httpx.AsyncClient(timeout=timeout) as c:
+        return await c.post(url, headers=headers, json=json)
 
 
 def responses_url(base_url: str = "") -> str:
@@ -83,16 +101,35 @@ def build_web_sources(urls: list[str]) -> list[dict]:
 
 
 async def search(question: str, model: str = "", base_url: str = "", api_key: str = "",
-                 timeout_s: float | None = None) -> dict[str, Any]:
+                 timeout_s: float | None = None, total_timeout_s: float | None = None) -> dict[str, Any]:
     """一次联网检索。返回 {called, ms, n_sources, error, urls, text}。
 
     ⚠ 任何失败都**不抛**给调用方,而是把 `error` 写进返回(调用方据此降级并提示用户)——
        但**必须**记录日志(坑 46:静默兜底等于把 bug 藏起来)。
-    ⚠ 合规:payload 只有 model / input / tools 三个键,`input` 恒为**当前问题文本**。
+    ⚠ 合规:payload 只有 model / input / tools / **tool_choice** 四个键,`input` 恒为**当前问题文本**。
+      (第三版 `tool_choice` 是 P4f实测后加的,注释曾长期停在"三个键" ——
+       而合规自查引用的正是这句注释,措辞必须与payload 构造逐键对上。)
+
+    ## 超时是**双层**的(P4f C0-④,修「名实不符」)
+    旧实现是 `httpx.AsyncClient(timeout=60)`,而 httpx 的 timeout 语义是
+    **空闲超时(inactivity)**——只要上游持续吐字节,连接可以无限期挂着。
+    实测同一问句 12.3s / **79.4s**,`60` 一次都没截断过(证据见 config 注释),
+    所以「超时 60s」这个说法是错的,排障时也拿不到任何超时痕迹。
+
+    现在两层各司其职:
+      * **idle**(`timeout_s` 或 `WEB_SEARCH_IDLE_TIMEOUT_S`=20s)→ 传给 httpx,
+        管「上游卡住不动」;
+      * **total**(`total_timeout_s` 或 `WEB_SEARCH_TOTAL_TIMEOUT_S`=45s)→
+        用 `asyncio.wait_for` 包住**整个请求**,管「上游一直有数据但整体太慢」。
+        到点抛 `asyncio.TimeoutError`,在下面的 except 里被归一成可见降级。
     """
     t0 = time.time()
+    idle_s = timeout_s if timeout_s is not None else config.WEB_SEARCH_IDLE_TIMEOUT_S
+    total_s = (total_timeout_s if total_timeout_s is not None
+               else config.WEB_SEARCH_TOTAL_TIMEOUT_S)
     out: dict[str, Any] = {"called": True, "ms": 0, "n_sources": 0, "error": "",
-                           "urls": [], "text": ""}
+                           "urls": [], "text": "", "idle_timeout_s": idle_s,
+                           "total_timeout_s": total_s}
     payload = {
         "model": model or config.LLM_MODEL,
         "input": question or "",          # ← 出网唯一的内容字段:当前问题文本
@@ -106,19 +143,29 @@ async def search(question: str, model: str = "", base_url: str = "", api_key: st
         "tool_choice": {"type": "web_search"},
     }
     try:
-        async with httpx.AsyncClient(timeout=timeout_s or config.WEB_SEARCH_TIMEOUT_S) as c:
-            resp = await c.post(
-                responses_url(base_url),
-                headers={"Authorization": f"Bearer {api_key or config.LLM_API_KEY}",
-                         "Content-Type": "application/json"},
-                json=payload,
-            )
+        # ⚠ 注意 total_s <= 0 表示"不设总时限",用于显式关掉该层(便于对照测试)。
+        coro = _post_with_idle_timeout(responses_url(base_url),
+                                       headers={"Authorization": f"Bearer {api_key or config.LLM_API_KEY}",
+                                                "Content-Type": "application/json"},
+                                       json=payload, idle_s=idle_s)
+        resp = await (asyncio.wait_for(coro, timeout=total_s) if total_s and total_s > 0 else coro)
         out["http"] = resp.status_code
         resp.raise_for_status()
         j = resp.json()
+    except asyncio.TimeoutError:
+        # 总时限到点。**必须**与 httpx 的空闲超时区分开,否则排障分不清是哪一层兜的
+        out["error"] = (f"TotalTimeout: 联网检索超过总时限 {total_s:g}s"
+                        f"(空闲超时 {idle_s:g}s 未触发,说明上游仍在持续返回数据)")
+        out["ms"] = round((time.time() - t0) * 1000)
+        logger.warning("联网检索超时-总时限(降级为仅本地): %s", out["error"])
+        return out
     except Exception as e:  # noqa: BLE001
         # httpx.ReadTimeout 的 str(e) 是空串 → 只记类型名会让人看不出是超时还是别的
-        out["error"] = f"{type(e).__name__}" + ((": " + str(e)[:120]) if str(e).strip() else "")
+        name = type(e).__name__
+        if name in ("ReadTimeout", "ConnectTimeout", "WriteTimeout", "PoolTimeout"):
+            out["error"] = f"IdeaTimeout({name}): 超过空闲超时 {idle_s:g}s 无数据"
+        else:
+            out["error"] = name + ((": " + str(e)[:120]) if str(e).strip() else "")
         out["ms"] = round((time.time() - t0) * 1000)
         logger.warning("联网检索失败(降级为仅本地): %s", out["error"])
         return out

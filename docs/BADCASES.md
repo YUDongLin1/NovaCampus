@@ -5,7 +5,7 @@
 
 ## 1. 何时提取
 
-每次执行 `python evals/run_evals.py` 产出新报告后,**紧接着跑一次**:
+每次执行评测(`--base` **必填**,见坑 57)产出新报告后,**紧接着跑一次**:
 
 ```bash
 python evals/extract_badcases.py
@@ -59,7 +59,7 @@ open ──(最新报告通过,自动)──▶ fixed ──(再次失败,自动
 ## 4. 修复后的回归流程
 
 1. 在任务分支上修复代码(改 `novaagent/**` 需在 TASKS.md 对应任务白名单内);
-2. `python evals/run_evals.py` 重跑评测;
+2. 重跑评测(`run_evals.py` 的 `--base` **必填**,缺了退出码 2);
 3. `python evals/extract_badcases.py` 刷新档案;
 4. 核对:目标用例 status 应为 `fixed`(或人工 `fixing` → 人工确认后置 `fixed`),且**没有新增 open**(修复引入回归会被自动重开标出);
 5. 把结果写进交接回执(用例 id + 修复前/后 detail)。

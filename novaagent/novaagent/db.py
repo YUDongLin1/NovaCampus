@@ -207,6 +207,46 @@ def _migrate() -> None:
         _conn.execute("CREATE INDEX IF NOT EXISTS idx_documents_audience ON documents(audience)")
         _conn.commit()
 
+    # ---------- P4f C1: 辅导员 persona(AI 辅导员人设) ----------
+    # 迁移纪律(同 P4c C1): 只 CREATE IF NOT EXISTS / 幂等加列,**不 UPDATE 任何既有行**。
+    # `conversations.persona_id` 列在 P4b 建表时已预留,本单只加外键索引(不加 FK 约束:
+    # 既有库的 conversations 已有数据,加 FK 需重建表,违反"不删数据"纪律;
+    # persona 删除后的处理见 `delete_persona` —— 置 `deleted_at` 软删除并**保留行**,
+    # 于是 persona_id 永不断链,历史会话天然保留)。
+    _conn.execute(
+        """CREATE TABLE IF NOT EXISTS personas (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+               name TEXT NOT NULL,
+               college TEXT NOT NULL DEFAULT '',
+               -- 人设提示词:只影响**语气/身份/侧重点**,不得覆盖防幻觉规则段(见 agent.build_system_prompt)
+               persona_prompt TEXT NOT NULL DEFAULT '',
+               -- 回复风格:简短/详细/…(结构化枚举比自由文本更可控,前端下拉直接用)
+               style TEXT NOT NULL DEFAULT 'balanced'
+                   CHECK(style IN ('concise','balanced','detailed','warm','formal')),
+               -- 绑定的检索范围(JSON 数组文本)。**不构成提权**:最终检索范围 =
+               -- persona 绑定范围 ∩ 调用者 RBAC 可见范围(见 agent._resolve_persona_scope)。
+               bound_folder_ids TEXT NOT NULL DEFAULT '[]',
+               bound_categories TEXT NOT NULL DEFAULT '[]',
+               -- private=仅建者;public=学生及以上也可用(admin 本就管全部,无独立档)
+               visibility TEXT NOT NULL DEFAULT 'private'
+                   CHECK(visibility IN ('private','public')),
+               is_default INTEGER NOT NULL DEFAULT 0,
+               deleted_at TEXT,          -- 软删除:历史会话保留并标记「人设已删除」
+               created_at TEXT NOT NULL,
+               updated_at TEXT NOT NULL
+           )"""
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_personas_owner ON personas(owner_id, deleted_at)")
+    # 同一用户最多一个 is_default=1(用**部分唯一索引**在库层兜住,避免应用层竞态
+    # 产生两个默认人设导致前端选择器行为不确定)
+    _conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_personas_one_default "
+        "ON personas(owner_id) WHERE is_default=1 AND deleted_at IS NULL"
+    )
+    _conn.execute("CREATE INDEX IF NOT EXISTS idx_conversations_persona ON conversations(persona_id)")
+    _conn.commit()
+
     _migrate_messages_to_conversations()
 
 
@@ -820,15 +860,238 @@ def get_messages(user_id: int, limit: int = 50) -> list[dict]:
     return [dict(r) for r in rows]
 
 
+# ---------- P4f C1: persona(AI 辅导员人设)CRUD ----------
+#
+# 【权限模型(硬约束:persona 不得提权)】
+#   可见性判据 `_persona_visible_where`(唯一权威实现,list/get 共用):
+#     admin      → 全部 persona(管全部)
+#     非 admin   → 自己建的(owner)+ visibility='public' 的
+#   即「辅导员只管自己的;学生只能用 public 的;admin 管全部」。
+#   ⚠ persona 的 bound_folder_ids **不构成授权**:它只是"缩小检索范围"的配置,
+#     最终范围 = persona 绑定范围 **∩** 调用者 RBAC 可见范围(在 main 层与
+#     `_resolve_scope` 求交,复用同一入口,不得绕过)。
+_STYLE_VALUES = ("concise", "balanced", "detailed", "warm", "formal")
+# ⚠ 档位名用规格原文的 `public`,**不**沿用 folders 的 `student`/`counselor`/`admin`:
+#   persona 的可见性只有「谁能用」这一个维度(没有"仅管理员"档 —— admin 本来就管全部),
+#   沿用 folders 的三档名会让人误以为存在"仅管理员可见的人设"这条不存在的语义。
+#   private=仅建者;public=学生及以上也可用。
+_PERSONA_VISIBILITY_VALUES = ("private", "public")
+
+
+def _persona_row_to_dict(row) -> dict:
+    d = dict(row)
+    for k in ("bound_folder_ids", "bound_categories"):
+        try:
+            d[k] = json.loads(d.get(k) or "[]")
+        except (ValueError, TypeError):
+            d[k] = []
+    d["is_default"] = bool(d.get("is_default"))
+    d["deleted"] = bool(d.get("deleted_at"))
+    return d
+
+
+def _persona_visible_where(role: str, user_id: int) -> tuple[str, list]:
+    """persona 可见性判据(与文件夹的 `_folder_visible_where` 同构)。
+
+    ⚠ **唯一权威实现**:`list_personas`(列表)与 `get_persona`(单条,经 `_persona_can_use`)
+       必须共用它。第一版把这两处写成了两套 if/elif,结果学生**列表里看不到任何 public 人设**
+       (`elif role != "student"` 把学生挡掉了)而 `get_persona` 又放行 —— 同一件事两个权威实现,
+       下拉框空、接口却说"可用"(坑 45:同一判据只应有一处)。
+    """
+    if role == "admin":
+        return "1=1", []
+    # 非 admin:自己的 + visibility='public' 的
+    return "(owner_id=? OR visibility='public')", [user_id]
+
+
+def list_personas(user_id: int, role: str) -> list[dict]:
+    """按角色可见性列出 persona(**不含已软删除的**)。纯查询,不提权。
+
+    ⚠ 返回的是**内部完整读数**,`persona_prompt` 全文明文在列。给 HTTP 响应
+       用之前必须过 `project_persona_for_response` —— 见该函数的坑 46 说明。
+    """
+    connect()   # 确保 _conn 就绪
+    w, args = _persona_visible_where(role, user_id)
+    rows = _conn.execute(
+        f"SELECT * FROM personas WHERE deleted_at IS NULL AND {w} "
+        "ORDER BY is_default DESC, id ASC", args
+    ).fetchall()
+    return [_persona_row_to_dict(r) for r in rows]
+
+
+# ---------- P4f 第3回②:对外投影(作者看全文,非作者看展示字段) ----------
+#
+#【为什么要投影 —— 负责人2026-10-01 裁决】
+#   `visibility='public'` 的人设此前会把 `persona_prompt` **全文**回传给每一个
+#   学生。学生据此能读到辅导员的内部表述,并从「怎么写的」反推 `build_system_prompt`
+#   的组装方式 —— 这是提示词面的信息泄露,且public 人设的使用体验完全不依赖这段正文
+#   (它只在**服务端**组装 system prompt 时被读)。
+#
+# 【投影只作用于响应,不作用于服务端解析 —— 坑 46 的延伸】
+#   ★ 关键红线:`_resolve_persona` → `db.get_persona` 必须继续拿**内部完整读数**。
+#     绝不能改成读列表接口回传的那份,否则:
+#       学生的 persona 段会变成空 → 人设静默失效,评测 pf-*全红且极难归因;
+#       且等于把「展示脱敏」变成了「功能阉割」。
+#     所以这里是**纯函数 + 只在 HTTP 出口调用**,不碰 get_persona / list_personas
+#     本身(它们是服务端读数,review 脚本与自测都在用)。
+#
+# 【判据按「作者」而不是「角色」】
+#   owner_id == 请求者  或  role == 'admin'  → 全文;其他人 → 展示字段。
+#   注意**不**按 counselor 角色一刀切:学生也可能建自己的 private 人设,
+#   对自己的东西当然要给全文。
+def project_persona_for_response(p: dict, viewer_id: int, viewer_role: str) -> dict:
+    """把一条 persona 投影成「给 viewer 看的那一份」。纯函数,不改入参。
+
+    - 非作者:`persona_prompt` 置为`""`(**不删键、不置 None** ——
+      前端 `esc(p ? p.persona_prompt : '')` 与契约测试都依赖键存在)。
+    - 展示字段(name/college/style/visibility/bound_*) 原样保留,选择器要显示它们。
+    """
+    if int(p.get("owner_id") or 0) == int(viewer_id) or viewer_role == "admin":
+        return dict(p)
+    out = dict(p)
+    out["persona_prompt"] = ""
+    # 供前端/复核方判别:这一份是投影后的(不是「本来就没写提示词」)
+    out["persona_prompt_redacted"] = True
+    return out
+
+
+def project_personas_for_response(rows: list[dict], viewer_id: int,
+                                   viewer_role: str) -> list[dict]:
+    return [project_persona_for_response(p, viewer_id, viewer_role) for p in rows]
+
+
+def get_persona(persona_id: int, user_id: int, role: str) -> dict | None:
+    """取单个 persona 并做可见性判定。不可见 → **None(与不存在同表现,不泄露存在性)**。"""
+    connect()
+    row = _conn.execute("SELECT * FROM personas WHERE id=? AND deleted_at IS NULL",
+                        (persona_id,)).fetchone()
+    if not row:
+        return None
+    d = _persona_row_to_dict(row)
+    if not _persona_can_use(d, user_id, role):
+        return None
+    return d
+
+
+def _persona_can_use(p: dict, user_id: int, role: str) -> bool:
+    """该 persona 对 (user_id, role) 是否可用。判据与 `list_personas` **同源**
+    (`_persona_visible_where`),不允许各写一套。"""
+    if p.get("deleted"):
+        return False
+    if role == "admin":
+        return True
+    if int(p.get("owner_id") or 0) == int(user_id):
+        return True
+    return p.get("visibility") == "public"
+
+
+def create_persona(user_id: int, name: str, college: str = "", persona_prompt: str = "",
+                   style: str = "balanced", bound_folder_ids: list | None = None,
+                   bound_categories: list | None = None, visibility: str = "private",
+                   is_default: bool = False) -> int:
+    connect()
+    now = _now()
+    with _lock:
+        cur = _conn.execute(
+            "INSERT INTO personas (owner_id,name,college,persona_prompt,style,"
+            "bound_folder_ids,bound_categories,visibility,is_default,created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,0,?,?)",
+            (user_id, (name or "").strip()[:40] or "未命名辅导员", (college or "").strip()[:40],
+             (persona_prompt or "").strip()[:2000], style,
+             json.dumps(list(bound_folder_ids or []), ensure_ascii=False),
+             json.dumps(list(bound_categories or []), ensure_ascii=False),
+             visibility, now, now),
+        )
+        pid = cur.lastrowid
+        _conn.commit()
+    # ⚠ 必须在锁**外**调 set_default_persona:_lock 是普通 `threading.Lock`,**不可重入**,
+    #   嵌套 acquire 会死锁(本单第一版就踩了:自测直接挂住,不是断言红,是最难查的那种)。
+    if is_default:
+        set_default_persona(pid, user_id)
+    return pid
+
+
+def update_persona(persona_id: int, user_id: int, role: str, patch: dict) -> dict | None:
+    """按可见性更新。不可见/不存在 → None(不区分,防存在性泄露)。"""
+    p = get_persona(persona_id, user_id, role)
+    if not p:
+        return None
+    # 只有 owner 或 admin 能改(辅导员不能用别人的公共人设)
+    if int(p["owner_id"]) != int(user_id) and role != "admin":
+        return None
+    fields, vals = [], []
+    for col, caster, limit in (
+        ("name", str, 40), ("college", str, 40), ("persona_prompt", str, 2000),
+    ):
+        if col in patch:
+            fields.append(f"{col}=?")
+            vals.append(caster(patch[col]).strip()[:limit])
+    if "style" in patch and patch["style"] in _STYLE_VALUES:
+        fields.append("style=?")
+        vals.append(patch["style"])
+    if "visibility" in patch and patch["visibility"] in _PERSONA_VISIBILITY_VALUES:
+        fields.append("visibility=?")
+        vals.append(patch["visibility"])
+    for col in ("bound_folder_ids", "bound_categories"):
+        if col in patch and isinstance(patch[col], list):
+            fields.append(f"{col}=?")
+            vals.append(json.dumps(patch[col], ensure_ascii=False))
+    if not fields:
+        return get_persona(persona_id, user_id, role)
+    with _lock:
+        _conn.execute(f"UPDATE personas SET {','.join(fields)}, updated_at=? WHERE id=?",
+                      (*vals, _now(), persona_id))
+        _conn.commit()
+    # ⚠ 同 create_persona:必须在锁外调(_lock 不可重入,嵌套会死锁)
+    if patch.get("is_default"):
+        set_default_persona(persona_id, user_id)
+    return get_persona(persona_id, user_id, role)
+
+
+def set_default_persona(persona_id: int, user_id: int) -> None:
+    """把某人的人设设为默认(同一人只允许一个默认,库层部分唯一索引兜底)。"""
+    with _lock:
+        _conn.execute("UPDATE personas SET is_default=0 WHERE owner_id=?", (user_id,))
+        _conn.execute("UPDATE personas SET is_default=1, updated_at=? WHERE id=? AND owner_id=?",
+                      (_now(), persona_id, user_id))
+        _conn.commit()
+
+
+def delete_persona(persona_id: int, user_id: int, role: str) -> bool:
+    """**软删除**:置 deleted_at,**保留行**。于是 conversations.persona_id 永不断链,
+    历史会话保留并在读取时标记「人设已删除」(见 `list_conversations` / `get_conversation`)。"""
+    p = get_persona(persona_id, user_id, role)
+    if not p:
+        return False
+    if int(p["owner_id"]) != int(user_id) and role != "admin":
+        return False
+    with _lock:
+        _conn.execute("UPDATE personas SET deleted_at=?, is_default=0, updated_at=? WHERE id=?",
+                      (_now(), _now(), persona_id))
+        _conn.commit()
+    return True
+
+
+def persona_display_name(persona_id: int | None) -> str:
+    """会话列表用的人设显示名。**已删除** → 固定文案「人设已删除」(规格硬要求)。"""
+    if not persona_id:
+        return ""
+    row = _conn.execute("SELECT name, deleted_at FROM personas WHERE id=?", (persona_id,)).fetchone()
+    if not row:
+        return "人设已删除"
+    return "人设已删除" if row["deleted_at"] else (row["name"] or "")
+
+
 # ---------- P4b C6: 会话 CRUD(可见性一律 user_id 过滤;越权与不存在同表现) ----------
 
-def create_conversation(user_id: int, title: str = "新会话") -> int:
+def create_conversation(user_id: int, title: str = "新会话",
+                        persona_id: int | None = None) -> int:
     now = _now()
     with _lock:
         cur = _conn.execute(
             "INSERT INTO conversations (user_id, title, persona_id, archived, created_at, updated_at) "
-            "VALUES (?,?,NULL,0,?,?)",
-            (user_id, (title or "新会话")[:20], now, now),
+            "VALUES (?,?,?,0,?,?)",
+            (user_id, (title or "新会话")[:20], persona_id, now, now),
         )
         _conn.commit()
     return cur.lastrowid
@@ -853,14 +1116,41 @@ def get_conversation(conv_id: int, user_id: int) -> dict | None:
 
 
 def list_conversations(user_id: int, include_archived: bool = False, limit: int = 200) -> list[dict]:
-    q = ("SELECT c.id, c.title, c.archived, c.updated_at, COUNT(m.id) AS message_count "
-         "FROM conversations c LEFT JOIN messages m ON m.conversation_id = c.id "
+    # P4f: 带出 persona_id + 人设显示名(已软删除 → 「人设已删除」,规格硬要求)。
+    # 用 LEFT JOIN 而非额外查询:会话列表是首屏渲染,避免 N+1。
+    q = ("SELECT c.id, c.title, c.archived, c.updated_at, c.persona_id, "
+         "       p.name AS persona_name, p.deleted_at AS persona_deleted_at, "
+         "       COUNT(m.id) AS message_count "
+         "FROM conversations c "
+         "LEFT JOIN personas p ON p.id = c.persona_id "
+         "LEFT JOIN messages m ON m.conversation_id = c.id "
          "WHERE c.user_id=?")
     if not include_archived:
         q += " AND c.archived=0"
     q += " GROUP BY c.id ORDER BY c.archived ASC, c.updated_at DESC, c.id DESC LIMIT ?"
     rows = _conn.execute(q, (user_id, limit)).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("persona_id"):
+            d["persona_name"] = ("人设已删除" if d.get("persona_deleted_at")
+                                 else (d.get("persona_name") or ""))
+        else:
+            d["persona_name"] = ""
+        d.pop("persona_deleted_at", None)
+        out.append(d)
+    return out
+
+
+def set_conversation_persona(conv_id: int, user_id: int, persona_id: int | None) -> bool:
+    """对话中切换人设。会话必须属于该用户,否则 False(与不存在同表现)。"""
+    if not get_conversation(conv_id, user_id):
+        return False
+    with _lock:
+        _conn.execute("UPDATE conversations SET persona_id=?, updated_at=? WHERE id=? AND user_id=?",
+                      (persona_id, _now(), conv_id, user_id))
+        _conn.commit()
+    return True
 
 
 def rename_conversation(conv_id: int, user_id: int, title: str) -> bool:

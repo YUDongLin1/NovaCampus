@@ -1,0 +1,57 @@
+# C5 炸点覆盖的反向验证(拆掉流式炸点 → 必须当场红)
+#
+# 背景(Qoder 第 1 回 Review 必修②):
+#   第一版 install_llm_probe 只替换 chat_for,而 POST /api/chat/stream 走
+#   chat_stream_for。当时没烧钱**不是因为有拦截**,而是 persona_scope_empty
+#   短路恰好在 LLM 之前返回 —— 一旦短路回归,自测会去刷用户 key 而不是当场红。
+#   本文件证明:现在这条自测的「没烧钱」来自**炸点**,不来自运气。
+#
+# 做法:用 docs/p4f/patch_check_c5_tripwire.py 把 `main.agent.chat_stream_for =
+#       _boom_stream` 这一行替换成 `pass`(等于退回第一版的形状),再跑同一个自测。
+# 环境:假 key 护身符(LLM_API_KEY / EMBEDDING_API_KEY = ZERO-QUOTA-PROTECTOR-*)。
+#       ⚠️ 护身符的作用:万一有真请求发出去,拿到的是 401 而不是扣费。
+
+==================== 第 1 步:apply(拆掉炸点)====================
+
+$ python docs/p4f/patch_check_c5_tripwire.py apply
+[patch] 已拆掉流式炸点(chat_stream_for 恢复原样)
+
+$ .venv/Scripts/python.exe tests/test_p4f_persona.py
+EXIT=1
+[RESULT] 134/136 passed
+[FAIL] C5 A:流式炸点在位 —— chat_stream_for 第一次取元素就抛 LlmCalled
+        detail: 返回=未拦截:yielded(若为'未拦截'说明炸点没装上,这条自测会开始烧额度)
+[FAIL] C5 B:短路被拆掉后,流式端点当场撞上炸点(而不是安静地发一次真请求)
+        detail: 200 data: {"type": "error", "error": "Client error '401 Unauthorized' for
+               url 'https://api.siliconflow.cn/v1/embeddings' ..."}
+
+★ 这两条 detail 是本文件最有价值的部分:
+  C5 B 打出的错误是 **上游 401** —— 说明**真请求确实发出去了**(打到了 embeddings 端点),
+  只是被假 key 挡住。**没有护身符时这就是一次真实的用户额度消耗。**
+  换句话说:第一版的自测在这条路径上不是「会红」,而是「会扣钱」。
+
+==================== 第 2 步:revert(复原炸点)====================
+
+$ python docs/p4f/patch_check_c5_tripwire.py revert
+[patch] 已复原(炸点重新装上)
+
+$ .venv/Scripts/python.exe tests/test_p4f_persona.py
+EXIT=0
+[RESULT] 136/136 passed
+
+==================== 结论 ====================
+
+1. 拆掉流式炸点 → 134/136、退出码 1,且红项正是 C5 A / C5 B(不是别的用例连坐)。
+2. 复原后→ 136/136、退出码 0。**这两个数字必须成对出现**,单看全绿说明不了拦截力(坑 52)。
+3. C5 组共 12 条,四组断言:
+   A  流式炸点在位(直接 async for 一次,必须抛 LlmCalled)
+   B  短路被拆掉后走 HTTP 流式端点,必须撞炸点而不是发真请求
+   C  短路完好时同一条请求零LLM;并用「会产事件的替身」反向对照,
+      证明 C 组不是靠「端点根本不调 chat_stream_for」假绿
+   D  install_llm_probe 的复位函数有效(比__func__/__self__,不比 bound method 对象)
+
+⚠️ 一条被这套自测抓出来的**认知修正**(不是被测代码的缺陷):
+   「短路完好时零 LLM」**不是全局性质**,它成立的范围仅限 C4 走过的那几条确定性分支。
+   我第一版拿「无 persona、不指定 scope」的请求去断言它,当场两条红 —— 那条请求
+   本来就该走 LLM(库里无文档 → pre 三个来源全为 None)。
+   尺子的前提写错了,不是被测代码错(坑 52 的隐蔽形态:断言红了,但红的理由不对)。

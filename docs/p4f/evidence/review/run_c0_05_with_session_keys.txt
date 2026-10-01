@@ -1,0 +1,16 @@
+[server] ready on 8947 (pid=7902), running: tests/probe_port_check.py --base http://127.0.0.1:8947
+[FAIL] 本次进程带着会话环境变量 key(C0-⑥:该轮结果不认),证据链须重走
+[probe] base=http://127.0.0.1:8947
+[probe] status=ok weekly_mcp=True
+[PASS] /api/health 可读,且 flags 含 C0-③/④/⑥ 的全部字段
+[probe]   llm_key_source = 'session_env'
+[probe]   embedding_key_source = 'session_env'
+[probe]   grounding_gate_scope_mode = 'factual_turns'
+[probe]   web_search_idle_timeout_s = 20.0
+[probe]   web_search_total_timeout_s = 45.0
+[probe] llm_key_source='session_env' (repo_dotenv = 本次用的是仓库 .env,按 C0-⑥ 规则该轮结果不认)
+[RESULT] 4/5 passed
+[server] done rc=1, shutting down 8947
+[server] taskkill //PID 21564 //F (绔彛 8947 涓婄殑 Windows PID)
+[server] taskkill issued
+[port-check] :8947 closed=True

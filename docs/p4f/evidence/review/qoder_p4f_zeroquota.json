@@ -1,0 +1,61 @@
+{
+  "migration": {
+    "personas_cols": [
+      "id",
+      "owner_id",
+      "name",
+      "college",
+      "persona_prompt",
+      "style",
+      "bound_folder_ids",
+      "bound_categories",
+      "visibility",
+      "is_default",
+      "deleted_at",
+      "created_at",
+      "updated_at"
+    ],
+    "idempotent": true
+  },
+  "rbac": {
+    "hidden_folder_titles": [
+      "EVAL-辅导员内部工作备忘",
+      "S1-NO17-暑期特辑三道国赛经典案例精修",
+      "S2-NO12-学生及家长以方便考研复习为由申请校外住宿,辅导员如何沟通"
+    ],
+    "mixed_chunks": 13,
+    "leaked": [],
+    "student_folders": [
+      9002
+    ],
+    "escalating_persona_id": 15,
+    "private_persona_id": 16
+  },
+  "prompt": {
+    "rules_no": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "rules_evil": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "len_no": 765,
+    "len_evil": 1134
+  },
+  "fails": []
+}

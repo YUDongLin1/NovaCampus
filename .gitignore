@@ -27,6 +27,9 @@ exports/
 !docs/p3b/evidence/*.log
 # 例外:P4 证据留痕(KB 清理与拒答门控实测的评测日志)
 !docs/p4/evidence/*.log
+# 例外:P4f 复核证据留痕(集中验证最小档三次的运行日志,含 env_flags 与逐用例读数)
+!docs/p4f/evidence/*.log
+!docs/p4f/evidence/review/*.log
 
 # 语料脱敏前原始文件(只允许入库脱敏后的版本)
 raw_docs/
