@@ -1,0 +1,28 @@
+==============================================================================
+[state no_injection]     llm=repo_dotenv embedding=repo_dotenv
+[state session_injected] llm=session_env embedding=session_env
+[probe] NOVAAGENT_PROBE_ONLY_KEY: unset→None injected→'session_env' removed→'unset'
+------------------------------------------------------------------------------
+[PASS] health 端点可读(不注入态)
+[PASS] health 端点可读(注入态)
+[PASS] health flags 含 llm_key_source(不注入态)
+[PASS] health flags 含 llm_key_source(注入态)
+[PASS] health flags 含 embedding_key_source(不注入态)
+[PASS] health flags 含 embedding_key_source(注入态)
+[PASS] [no_injection] llm_key_source 取值域封闭
+[PASS] [no_injection] embedding_key_source 取值域封闭
+[PASS] [session_injected] llm_key_source 取值域封闭
+[PASS] [session_injected] embedding_key_source 取值域封闭
+[PASS] key_source 判据会翻转:注入 → session_env(证明它真在读 os.environ)
+[PASS] key_source 判据会翻转:移除 → repo_dotenv/unset
+[PASS] 两态读数确实不同(相同=判据没生效,不是'恰好同源')
+[PASS] 注入后 health 的 llm_key_source 确实翻转(两态对照的核心)
+[PASS] 注入态 llm_key_source 读数为 session_env
+[PASS] 注入后 health 的 embedding_key_source 确实翻转(两态对照的核心)
+[PASS] 注入态 embedding_key_source 读数为 session_env
+[PASS] 基线:未注入时读数为 repo_dotenv(证明「repo_dotenv 整轮不认」这条规则会真的命中)
+[PASS] 落盘内容不含注入的 key 值
+[PASS] 落盘内容无 sk-/Bearer 形态串
+==============================================================================
+[RESULT] 20/20 passed
+[evidence] E:\AILearn\NovaCampus\docs\p4f\evidence\health_keysource_two_states.json

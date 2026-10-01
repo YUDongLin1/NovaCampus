@@ -1,0 +1,151 @@
+{
+  "_note": "P4f C0-⑥ 取证:两态 /api/health 对照。只含**来源标签与模型名**,不含任何 key 值(下方有断言守着)。据此可判定某轮评测是否用了自带额度。",
+  "_rule": "llm_key_source == 'repo_dotenv' 的整轮评测结果一律不认(硬约束第 7 条)。",
+  "states": {
+    "no_injection": {
+      "status": "ok",
+      "weekly_mcp": false,
+      "flags": {
+        "grounding_gate_enabled": true,
+        "grounding_early_window_chars": 80,
+        "grounding_stream_force_ungrounded": false,
+        "grounding_gate_scope_mode": "factual_turns",
+        "web_search_enabled_default": false,
+        "web_search_idle_timeout_s": 20.0,
+        "web_search_total_timeout_s": 45.0,
+        "web_search_timeout_s": 20.0,
+        "web_search_max_sources": 8,
+        "graph_enabled": true,
+        "max_rewrite": 2,
+        "llm_model": "qwen-flash",
+        "llm_key_source": "repo_dotenv",
+        "embedding_key_source": "repo_dotenv",
+        "eval_temperature": ""
+      }
+    },
+    "session_injected": {
+      "status": "ok",
+      "weekly_mcp": false,
+      "flags": {
+        "grounding_gate_enabled": true,
+        "grounding_early_window_chars": 80,
+        "grounding_stream_force_ungrounded": false,
+        "grounding_gate_scope_mode": "factual_turns",
+        "web_search_enabled_default": false,
+        "web_search_idle_timeout_s": 20.0,
+        "web_search_total_timeout_s": 45.0,
+        "web_search_timeout_s": 20.0,
+        "web_search_max_sources": 8,
+        "graph_enabled": true,
+        "max_rewrite": 2,
+        "llm_model": "qwen-flash",
+        "llm_key_source": "session_env",
+        "embedding_key_source": "session_env",
+        "eval_temperature": ""
+      }
+    }
+  },
+  "key_source_flip_probe": {
+    "probe_key_name": "NOVAAGENT_PROBE_ONLY_KEY",
+    "before_injection": null,
+    "after_injection": "session_env",
+    "after_removal": "unset"
+  },
+  "assertions": [
+    {
+      "ok": true,
+      "name": "health 端点可读(不注入态)",
+      "detail": "ok"
+    },
+    {
+      "ok": true,
+      "name": "health 端点可读(注入态)",
+      "detail": "ok"
+    },
+    {
+      "ok": true,
+      "name": "health flags 含 llm_key_source(不注入态)",
+      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+    },
+    {
+      "ok": true,
+      "name": "health flags 含 llm_key_source(注入态)",
+      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+    },
+    {
+      "ok": true,
+      "name": "health flags 含 embedding_key_source(不注入态)",
+      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+    },
+    {
+      "ok": true,
+      "name": "health flags 含 embedding_key_source(注入态)",
+      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+    },
+    {
+      "ok": true,
+      "name": "[no_injection] llm_key_source 取值域封闭",
+      "detail": "got='repo_dotenv'"
+    },
+    {
+      "ok": true,
+      "name": "[no_injection] embedding_key_source 取值域封闭",
+      "detail": "got='repo_dotenv'"
+    },
+    {
+      "ok": true,
+      "name": "[session_injected] llm_key_source 取值域封闭",
+      "detail": "got='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "[session_injected] embedding_key_source 取值域封闭",
+      "detail": "got='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "key_source 判据会翻转:注入 → session_env(证明它真在读 os.environ)",
+      "detail": "got='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "key_source 判据会翻转:移除 → repo_dotenv/unset",
+      "detail": "got='unset'"
+    },
+    {
+      "ok": true,
+      "name": "两态读数确实不同(相同=判据没生效,不是'恰好同源')",
+      "detail": "injected='session_env' removed='unset'"
+    },
+    {
+      "ok": true,
+      "name": "注入后 health 的 llm_key_source 确实翻转(两态对照的核心)",
+      "detail": "no_injection='repo_dotenv' session_injected='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "注入态 llm_key_source 读数为 session_env",
+      "detail": "got='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "注入后 health 的 embedding_key_source 确实翻转(两态对照的核心)",
+      "detail": "no_injection='repo_dotenv' session_injected='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "注入态 embedding_key_source 读数为 session_env",
+      "detail": "got='session_env'"
+    },
+    {
+      "ok": true,
+      "name": "基线:未注入时读数为 repo_dotenv(证明「repo_dotenv 整轮不认」这条规则会真的命中)",
+      "detail": "got='repo_dotenv'"
+    },
+    {
+      "ok": true,
+      "name": "落盘内容不含注入的 key 值(二次确认)",
+      "detail": ""
+    }
+  ]
+}
