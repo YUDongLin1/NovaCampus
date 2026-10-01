@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：Qoder**（**P4f 第 3 回八条已由 WorkBuddy 全部修完并交回 `IN_REVIEW`**，2026-10-01 复核 = Qoder，开单指令 `docs/p4f/workbuddy-order-round3.md`，回执见本文件「P4f 第 3 回交回回执」段）。**读数**：七个自测 **507 条断言 exit 全 0**（`probe_port_check --selftest` 33、`test_p4f_persona` 158、`test_p4f_persona_eval` 68、`test_p4f_persona_eval_wiring` 66、`test_p4f_c0` 63、`test_p4f_frontend_contract` 99、`probe_health_keysource` 20），全程假 key 护身符、**未跑整轮**。**真机双向验证**（起服务只打 `/api/health` 与 `/api/me/settings`，零额度）：① 不注入 → `llm=repo_dotenv` 判红 **6/7 退 1**；注入占位 key 的混合档 → `session_env+repo_dotenv` **7/7 退 0** 且打印披露行；④ 构造「全局 A / 用户 B」两态 → 检出不一致、标红文案同时点名两边值、**环境已还原** 7/7；② 反向闭环：拆掉投影 → **154/158 退 1** → 复原 → **158/158 退 0**。端口 `:8956`–`:8959` 全部 `closed=True`；`:8900`（PID 41956）是别人的常驻实例，未动。**v2.5 三列仍空** —— ⑧ 的 `--throttle-ms`（默认 0=行为不变）与 `env_error` 分账已落地，可重跑整轮；建议免费通道配 `--throttle-ms 3000~5000`。上一状态：**第 2 回复核 = ✅ 必修三条全部复验成立**，复验报告 `docs/p4f/review_qoder_p4f_round2.md`（读数七个自测 428 条 exit 全 0）。再上一状态：**P4f 第 1 回 Review = ❌ 打回必修三条**，报告 `docs/p4f/review_qoder_p4f_round1.md`。⚠ **仍未验证（勿当成已验）**：v2.5 整轮指标、`pf-01..03` 真实模型篇幅比校准、C0-③ 种植轮命中是否归零、③ 冒烟真机非 DashScope 通道、rind-07 在真实输出上的抖动是否已消。**P4g 待 P4f 合并后下发**。）
+> **当前持棒：WorkBuddy**（**P4f 第 3 回复核 = 八条里七条复验成立，只剩 ⑥ 一处必修**，2026-10-01 复核 = Qoder，报告 `docs/p4f/review_qoder_p4f_round3.md`，开单 `docs/p4f/workbuddy-order-round4.md`）。复验读数：七个自测我逐条跑 **508 条 exit 全 0**；② 我**亲自拆掉投影走了红绿闭环**（`main.py:1023` 换回 `rows` → **154/158 退 1**，红的正是脱敏 4 条 → `git checkout --` 复原 → **158/158 退 0**，`git diff` 无残留）；① 混合档真机 `:8963` → **7/7 退 0**，`[DISCLOSURE]` 里 `embedding_calls: null` + `raw: "unknown"`（**没写成 0**）。**⑥ 的两个假绿洞是我自己造样本复现的**：`_derive_no_evidence_marks()` 把模板里的噪声片段（`'0.3'`、`'https'`）也当成「声明无据」，而豁免方向是**放行** → 「调档流程见 https://…」「饭卡余额 0.3 个工作日内退还」这类**真编造被判绿**；反过来「库内未细化…办理流程」被判红。假绿比假红危险（评测会报 PASS），故第 4 回必修这一条，约 10 行 + 3 条反向自测 + 一条「派生集合不得含数字/URL 片段」的静态体检。另：本轮汇总写 507 是把 `test_p4f_c0` 按 63 计（真值 64 → **508**），`HANDOFF` 台账行被写成两遍（闭合 `|` 后挂着 523 字旧内容）—— 两处我已代改（`2a9c4aa`），并要求第 4 回把「合计」改成**从各文件 `[RESULT] n/n` 现算**（同一形状第四次复发）。**同时 P5「应用外壳重构」已立项**：设计稿 `docs/P5.md`（负责人四项裁决：单栏导航+历史列表 / 内置头像库 / 学生保留辅导员只读位 / 先合并 P4f 再开 P5），**等 P4f 合并后立即下发**。上一状态：**P4f 第 2 回复核 = ✅ 必修三条全部复验成立，另下发第 3 回八条收尾项**，由 WorkBuddy 修完八条后于 2026-10-01 交回，2026-10-01 复核 = Qoder，开单指令 `docs/p4f/workbuddy-order-round3.md`，回执见本文件「P4f 第 3 回交回回执」段）。**读数**：七个自测 **507 条断言 exit 全 0**（`probe_port_check --selftest` 33、`test_p4f_persona` 158、`test_p4f_persona_eval` 68、`test_p4f_persona_eval_wiring` 66、`test_p4f_c0` 63、`test_p4f_frontend_contract` 99、`probe_health_keysource` 20），全程假 key 护身符、**未跑整轮**。**真机双向验证**（起服务只打 `/api/health` 与 `/api/me/settings`，零额度）：① 不注入 → `llm=repo_dotenv` 判红 **6/7 退 1**；注入占位 key 的混合档 → `session_env+repo_dotenv` **7/7 退 0** 且打印披露行；④ 构造「全局 A / 用户 B」两态 → 检出不一致、标红文案同时点名两边值、**环境已还原** 7/7；② 反向闭环：拆掉投影 → **154/158 退 1** → 复原 → **158/158 退 0**。端口 `:8956`–`:8959` 全部 `closed=True`；`:8900`（PID 41956）是别人的常驻实例，未动。**v2.5 三列仍空** —— ⑧ 的 `--throttle-ms`（默认 0=行为不变）与 `env_error` 分账已落地，可重跑整轮；建议免费通道配 `--throttle-ms 3000~5000`。上一状态：**第 2 回复核 = ✅ 必修三条全部复验成立**，复验报告 `docs/p4f/review_qoder_p4f_round2.md`（读数七个自测 428 条 exit 全 0）。再上一状态：**P4f 第 1 回 Review = ❌ 打回必修三条**，报告 `docs/p4f/review_qoder_p4f_round1.md`。⚠ **仍未验证（勿当成已验）**：v2.5 整轮指标、`pf-01..03` 真实模型篇幅比校准、C0-③ 种植轮命中是否归零、③ 冒烟真机非 DashScope 通道、rind-07 在真实输出上的抖动是否已消。**P4g 待 P4f 合并后下发**。）
 > ✅ **P4c Review 结论（Qoder，2026-09-30，独立复跑）**：**通过并合并 master**。**边界**：33 文件全在白名单与 Qoder 领地内，`refusal.py`/`llm.py`/`evals/faithfulness.py` **0 变更**，`agent.py` 只有 scope 透传与回显（P4b 的门控/池/压缩一行未动，逐行读过 diff）。**`cases.json` 语义级比对**（494 删/560 增看着像整档重写，所以不只看 diff）：40→43、**无一条旧用例丢失、40 条共有用例逐字段完全一致**，那串数字只是 JSON 重新序列化。**我自写五条安全探针实测三条硬约束**（`docs/p4c/review_scope_security_probe.py` → `after/review_scope_security.json`）：T1 把 counselor 专属文档移进 student 可见夹后以学生 scoped 检索 → **不外泄**；T2 越权夹 vs 不存在夹 → 404/404 且**响应体逐字节一致**（不泄露存在性）；T3 scoped 空夹 → 0 来源 + 明确提示「未做全库检索」，**不回落**；T4 部分越权静默丢弃；T5 scoped 检索来源 2/2 全属该夹。**迁移与 db 层**：在**库副本**上跑三次迁移，`documents 65→65→65`、`chunks 487→487→487`、`folder_id` 全 NULL、`audience` 全 common、schema 三次一致 → **不 UPDATE 既有行且幂等**；db 层 scope 10 项（含 `folder_ids==[]` 直接空、FTS 下推真实过滤：全库 20 → 夹A 3 且全在夹A、夹B 1 且不含夹A块、文件夹可见性不得放宽 `role_min`）→ **18/18 全过**（`after/review_migration_db_probe.json`）。**集中评测我这轮 43/43、exit 0、R@k 0.9412、忠实度 0.9412、拒答 1.0、隔离全量核对 ok**，与 WorkBuddy 那轮**逐值一致**；冒烟 exit 0、`documents 65→65`、`chunks 487`。**C5 追问路径确认被执行**（step 26：合成一对本/研标注文档触发 `audience_conflict` → 返回追问而非猜），另发现服务端还会**拒绝以 `@` 开头的问句（400）**，比我要求的更严。
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
@@ -1638,7 +1638,7 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 5. `qa-08` 轮换波动是**已知方差**，不建议改用例改绿（沿用 HANDOFF 坑 16 口径）。
 6. `docs/p4e/evidence/stream_sse_s2_full6.json` 是**短问句 + 漏设 env**的无效样本，已删除不再作为证据。
 
-### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🟡 **第 3 回八条已修完 → IN_REVIEW 待复核**（2026-10-01 复核 = Qoder，**当前持棒 = Qoder**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
+### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🟡 **第 3 回复核：八条里七条 ✅，⑥ 两个假绿洞 → 第 4 回一条必修**（2026-10-01 复核 = Qoder，**当前持棒 = Qoder**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
 
 - **C0 前置收口（P4e 复核攒下；C0-① 与 C0-③ 为 merge-blocking）**
 
@@ -1992,7 +1992,12 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 **⚠ 仍未验证（勿当成已验）**：v2.5 整轮指标、`pf-01..03` 篇幅比阈值的真实模型校准（本单只做了离线判红/判绿）、C0-③ 种植轮命中是否归零、③ 冒烟真机（非 DashScope 通道下 `/api/weekly/expand` 是否通）、rind-07 在真实模型输出上的抖动是否已消。
 **建议 Qoder 复验入口（全部零额度离线命令）**：`probe_port_check.py --selftest` 应 33/33 退 0；`test_p4f_persona.py` 应 158/158；`test_p4f_persona_eval.py` 应 68/68；`test_p4f_persona_eval_wiring.py` 应 66/66。② 的反向闭环可复跑：把 `main.py` 里 `db.project_personas_for_response(...)` 换回 `rows`，`test_p4f_persona.py` 应 **154/158 退 1**。
 
-### P4g UI 细节收尾（周报文本框等）　📋 READY（待 P4f，设计见 M9）
+#### Review 结论（Qoder，2026-10-01 第 3 回）—— ⚠ **七条 ✅ + ⑥ 两个假绿洞（第 4 回必修）**
+<!-- QODER-P4F-REVIEW-R3 -->
+
+全文 `docs/p4f/review_qoder_p4f_round3.md`。要点：①②③④⑤⑦⑧ 逐条复验成立（② 的红绿闭环我亲自走过；① 混合档真机 7/7 且 `embedding_calls` 照实写 `unknown`；⑤ `cases.json` 实测**只删了 `"longer": "formal"` 一行**）；**⑥ 判据的豁免方向是放行**，而派生集合混进 `'0.3'`/`'https'` 噪声 → 真编造被判绿（我造的两条样本稳定复现，读数在 `docs/p4f/evidence/review/r3_qoder_rind07_ruler_probe.txt`），同时「库内未细化…办理流程」被误判红。第 4 回开单 `docs/p4f/workbuddy-order-round4.md`：过滤函数具名纯函数化 + 补同义无据词 + 三条能判红的反向自测 + 一条静态体检，并要求把「七个自测合计」改成**现算**而不是手加。
+
+### P4g UI 细节收尾（周报文本框等）　📋 **已并入 P5**（2026-10-01 用户提出外壳重构诉求，见 `docs/P5.md`；P4g 的文本框等零碎项作为 P5-1 的子项一并做）
 
 - **目标**：修反馈 F4「谈心谈话记录文本框太小，扩充后看起来麻烦」，并统一 P4 各单新增 UI 的视觉。
 - **允许改**：`novaagent/web/index.html`、`docs/P4G.md`
@@ -2006,6 +2011,15 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 > **P4 各单通用验收口径**见 `docs/P4.md` §五（v1.5 基线不回退、性能红线、KB 守恒、证据入库对账、数字出处）；**合规红线**见 §六（真实学工数据、名单公示页、联网只发问题文本、演示口令不入库、persona 不得覆盖规则段）。
 
 ---
+
+### P5 应用外壳重构：左侧单栏导航 + 辅导员页（内置头像库）　📐 **设计完成，等 P4f 合并即下发**（2026-10-01 用户提出，参考 WorkBuddy 客户端左栏）
+
+- **设计稿**：`docs/P5.md`（信息架构图、逐入口规格、RBAC 矩阵、9 条可验收标准、拆单方案）
+- **负责人四项裁决**：单栏导航 + 历史列表 / 内置头像库（16 个内联 SVG，存逻辑 id 不存路径，禁真实人物与校徽）/ 学生保留「辅导员」**只读位** / 先合并 P4f 再开 P5
+- **口径变更**：`docs/P4B0.md` 的「前端行为零变化」不变量在 P5 **替换**为「**后端行为零变化**」（`theme.css` 设计令牌仍不动；这条修订要写进 P4B0 末尾，不许偷偷改基线）
+- **一次后端小改**：`personas.avatar TEXT DEFAULT ''` 走既有幂等加列（库副本连跑两遍验幂等）
+- **拆单**：P5-1 壳层与页面搬迁 → P5-2 辅导员页 + 头像 + RBAC 矩阵断言（**一张单两阶段交回**，不拆五张）
+- **红线**：全程零额度（假 key 护身符）；走查用库副本 + 独立端口并按属主杀净；`E:\<internal-affairs-dir>\` 不入库；头像不含真实人脸/校徽
 
 ## 技术债（按简历价值排序，轮到下发时补全规格）
 
