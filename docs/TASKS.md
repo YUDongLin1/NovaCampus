@@ -2,7 +2,7 @@
 
 > 协作规则见 `docs/COLLAB.md`。**动手前先读这里。**
 >
-> **当前持棒：WorkBuddy**（**P4f 以 v2 重新下发**：`docs/p4f/workbuddy-order-v2-quota.md`，分支 `task/P4f-persona`；v1 已标记作废）。**P4e 主体 + S1 + S2 已 ✅ 合并 `master` `5705830`，基线 v2.4 / 55 用例**（canonical 档 55/55 退出码 0、默认档 54/55 均如实入库；报告自带 `env_flags` 与逐用例 `grounding_gate`）。**⚠ 用户 2026-10-01 指令（最高优先级纪律，也约束 Qoder 自己）**：后续任务的测试与验证**不得消耗用户填写的 API key 额度**，必须用测试者自带的模型与额度——做法是会话内 `export LLM_API_KEY/LLM_MODEL/EMBEDDING_API_KEY`（`config.env()` 里 os.environ 优先于 `.env`，不改 `.env`），且**key 值一律不得入库**；本单加 **C0-⑥** 把它做成机器可核验（`/api/health` 暴露 `llm_key_source`/`embedding_key_source`，报告里读数为 `repo_dotenv` 的整轮**一律不认**）。**Qoder 侧同步改为零额度复核**：跑纯本地尺子自测、离线重放已入库的原始输出、静态审计、DB 只读副本探针、读 flags；不再自己复跑整轮（那正是烧用户额度的动作），因此**实现方交回的证据必须可被我离线复算**（原始报告与输入输出入库）。详见 HANDOFF 硬约束第 7 条与坑 65。
+> **当前持棒：Qoder**（**P4f 已交回 `IN_REVIEW`**：2026-09-03 实现方 WorkBuddy 交回，分支 `task/P4f-persona`，**未合并 master**；交回文档 `docs/P4F.md`，口径变更 `docs/EVAL_BASELINE.md` §二十 v2.4→v2.5 / 55→59 用例。本轮**零额度**（未跑整轮），六个自测 401 条断言全过。**复核方无需复跑整轮** —— 按 C0-⑥ 规则 `llm_key_source=repo_dotenv` 的轮次本来就不认；跑那六个自测 + 读 flags + 静态审计 + DB 只读副本探针即可。**⚠ 尚未验证**（勿当成已验）：v2.5 整轮指标、`pf-01..03` 篇幅比阈值校准、C0-③ 种植轮命中是否归零、C0-④ idle 层独立触发、persona 前端视觉。**P4g 待 P4f 合并后下发**。）**P4e 主体 + S1 + S2 已 ✅ 合并 `master` `5705830`，基线 v2.4 / 55 用例**（canonical 档 55/55 退出码 0、默认档 54/55 均如实入库；报告自带 `env_flags` 与逐用例 `grounding_gate`）。**⚠ 用户 2026-10-01 指令（最高优先级纪律，也约束 Qoder 自己）**：后续任务的测试与验证**不得消耗用户填写的 API key 额度**，必须用测试者自带的模型与额度——做法是会话内 `export LLM_API_KEY/LLM_MODEL/EMBEDDING_API_KEY`（`config.env()` 里 os.environ 优先于 `.env`，不改 `.env`），且**key 值一律不得入库**；本单加 **C0-⑥** 把它做成机器可核验（`/api/health` 暴露 `llm_key_source`/`embedding_key_source`，报告里读数为 `repo_dotenv` 的整轮**一律不认**）。**Qoder 侧同步改为零额度复核**：跑纯本地尺子自测、离线重放已入库的原始输出、静态审计、DB 只读副本探针、读 flags；不再自己复跑整轮（那正是烧用户额度的动作），因此**实现方交回的证据必须可被我离线复算**（原始报告与输入输出入库）。详见 HANDOFF 硬约束第 7 条与坑 65。
 > ✅ **P4c Review 结论（Qoder，2026-09-30，独立复跑）**：**通过并合并 master**。**边界**：33 文件全在白名单与 Qoder 领地内，`refusal.py`/`llm.py`/`evals/faithfulness.py` **0 变更**，`agent.py` 只有 scope 透传与回显（P4b 的门控/池/压缩一行未动，逐行读过 diff）。**`cases.json` 语义级比对**（494 删/560 增看着像整档重写，所以不只看 diff）：40→43、**无一条旧用例丢失、40 条共有用例逐字段完全一致**，那串数字只是 JSON 重新序列化。**我自写五条安全探针实测三条硬约束**（`docs/p4c/review_scope_security_probe.py` → `after/review_scope_security.json`）：T1 把 counselor 专属文档移进 student 可见夹后以学生 scoped 检索 → **不外泄**；T2 越权夹 vs 不存在夹 → 404/404 且**响应体逐字节一致**（不泄露存在性）；T3 scoped 空夹 → 0 来源 + 明确提示「未做全库检索」，**不回落**；T4 部分越权静默丢弃；T5 scoped 检索来源 2/2 全属该夹。**迁移与 db 层**：在**库副本**上跑三次迁移，`documents 65→65→65`、`chunks 487→487→487`、`folder_id` 全 NULL、`audience` 全 common、schema 三次一致 → **不 UPDATE 既有行且幂等**；db 层 scope 10 项（含 `folder_ids==[]` 直接空、FTS 下推真实过滤：全库 20 → 夹A 3 且全在夹A、夹B 1 且不含夹A块、文件夹可见性不得放宽 `role_min`）→ **18/18 全过**（`after/review_migration_db_probe.json`）。**集中评测我这轮 43/43、exit 0、R@k 0.9412、忠实度 0.9412、拒答 1.0、隔离全量核对 ok**，与 WorkBuddy 那轮**逐值一致**；冒烟 exit 0、`documents 65→65`、`chunks 487`。**C5 追问路径确认被执行**（step 26：合成一对本/研标注文档触发 `audience_conflict` → 返回追问而非猜），另发现服务端还会**拒绝以 `@` 开头的问句（400）**，比我要求的更严。
 > ✅ **P4b 第二次把关结论（Qoder，2026-09-30）**：**通过并合并 master**。五条必改逐条独立复验成立——① 复核自写 A/B 探针（同一句「研究生休学期间宿舍床位保留多少天?」首问 vs 追问）证明「门控放行 + 池内无该主题」时模型仍如实说明未覆盖、**零编造数字**；② 隔离断言已**全量**核对 36 个带会话用例、退出码会因断言失败判红，且它**真的红过**（r1 会话 225 取不到 → 评测被阻塞）；③ `rfol-01`/`hfp-01` 把上轮实测的两个缺陷（自拟部门出口、复述用户假事实）固化成回归闸；④ 证据与库内实况对账（会话 324 保留、摘要 854 字与库内**逐字一致**、四个数字语义归属逐条正确）；⑤ 真流式阶段中止后消息 **0→0**（上轮留 1 条悬空 user）。本轮集中验证：**39/40**（唯一失败 `qa-08` 为在案「一周」轮换波动，R@k 与忠实度均 1.0）、四类新用例全过、R@k 0.9412、拒答 1.0、忠实度 0.9706、冒烟 exit 0 且 `documents 65→65`、单测 ALL PASS。**新发现一条结构性漏洞转 P4d 必办**：用户自述断言会随历史进入 `COMPRESS_PROMPT` 产出的摘要，而摘要属可采信池 → ①b「user 消息不作证据」在**压缩之后被绕开**（④ 的证据本身就是这条通道的演示：7341 元只存在于用户自塞的背景资料里，真实语料是硕士 7200 元/生·学年）。当前自保是答案归因于「根据此前对话」而非校规，且 `hfp-01` 守住了未压缩路径，故不阻塞 P4b。
 > ⚠ **口径变更已记账**：评测集 **36 → 40 用例**，基线 **v1.7 → v1.8**（新增 `multiturn`/`context_compress`/`refusal_followup`/`history_false_premise` 各 1 条）。**以后 40/40 是正常满通过，不是异常**；36/36 说明跑的是旧口径。见 `docs/EVAL_BASELINE.md` 第十二节、HANDOFF 坑 40。
@@ -1638,16 +1638,16 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 5. `qa-08` 轮换波动是**已知方差**，不建议改用例改绿（沿用 HANDOFF 坑 16 口径）。
 6. `docs/p4e/evidence/stream_sse_s2_full6.json` 是**短问句 + 漏设 env**的无效样本，已删除不再作为证据。
 
-### P4f 辅导员定制（persona）+ 侧边栏重构　🚀 **已下发**（2026-10-01，持棒 WorkBuddy，分支 `task/P4f-persona`，设计见 M8，开单指令 `docs/p4f/workbuddy-order.md`）
+### P4f 辅导员定制（persona）+ 侧边栏重构 + **C0 前置收口六条**　🔍 **IN_REVIEW**（2026-09-03 交回，**当前持棒 = Qoder**，分支 `task/P4f-persona`，起点 `master` `950ee8c`，commit `af4bbca`/`b0bba12`/`8c911a0`/`151e266`/`96542d2`，**未合并 `master`**。设计见 M8，开单指令 `docs/p4f/workbuddy-order-v2-quota.md`（v1 已作废），**交回文档 `docs/P4F.md`**，口径变更见 `docs/EVAL_BASELINE.md` §二十）
 
 - **C0 前置收口（P4e 复核攒下；C0-① 与 C0-③ 为 merge-blocking）**
 
-  - [ ] **C0-①（🔴 红线形状）** `evals/run_evals.py` 的 `env_flags.client_env` 现在收**所有** `NOVA*` 变量，而评测报告**要提交进 git**：一旦有人 `export NOVAAGENT_LLM_API_KEY=...`，密钥就进库并永久留在历史里（今天实测只有 `NOVAAGENT_EVAL_TEMPERATURE`，无害，但形状是错的）。改显式白名单 + 一条**能判红**的单测（断言密钥类键名不在 `client_env`、且白名单项确实在 → 防空集假通过，坑 45）。
-  - [ ] **C0-②** 规则落地：**问句级/判据常量级变更也算口径变更**，必须升 `version` 并在 `docs/EVAL_BASELINE.md` 记一行（S2 换了 `ss-*` 长问句、阈值 300→150 却仍标 v2.4，同一标签现覆盖两种刺激）。
-  - [ ] **C0-③（闸门作用域）** grounding 闸门被套在**不需要事实回答的轮次**上：P4e S2 我实测默认档命中 12 次/重生失败 11 次、canonical 档命中 16/失败 14，**全部来自 `cc-01` 的种植轮，`final` 轮从未命中**；「重生一次都没救回来」＝前提不成立（种植轮是塞背景，模型回「记下了」才对）。要求给闸门加**轮次类型判定**（只对期待事实回答的轮次生效），判据写进注释、不许用「长度<30 字」糊。验收：整轮记账里种植轮命中数归零，且 `qa-17`/`ss-03` 的兜底能力不回退。
-  - [ ] **C0-④** `WEB_SEARCH_TIMEOUT_S=60` 名实不符：httpx 那个是**空闲超时**不是总时限（实现方实测同问句 12.3s/**79.4s**，60s 没截断）。做总时限 + 双层（idle 20s / 总 45s）或改名 + 文档写清等待预期，并补一条用假 transport 的**慢响应必判红**单测（不打真实网络）。
-  - [ ] **C0-⑤** `docs/p4d/run_with_server.sh` 收尾 `kill $SRV` **杀不掉 Windows 进程**：本轮复核打印 `[server] done rc=0, shutting down 8936` 之后端口**仍在监听**；负责人另两次也留过孤儿实例（:8906/:8907、:8923），都是实现方复查端口时发现的。改 `taskkill //PID x //F` 或 psutil，并在退出前**按端口复查打印** `[port-check] :N closed=True/False`，False 时非 0 退出（坑 61）。
-  - [ ] **C0-⑥（🔌 额度可核验化，用户 2026-10-01 指令，merge-blocking）** 把「不用用户 key」做成代码而不是口头承诺：`config.py` 加 `key_source(key)`（返回 `session_env`/`repo_dotenv`/`unset`，**绝不返回值**）→ `/api/health` 的 flags 暴露 `llm_key_source`、`embedding_key_source` → 评测报告 `env_flags.server` 自动带上 → **闸门规则：key_source 读数为 `repo_dotenv` 的整轮结果一律不认**。自测在「注入 / 不注入」两种状态下各取一次 `/api/health` 落盘对照（只读 health，不烧额度）。
+  - [x] **C0-①（🔴 红线形状）✅ 18 项显式白名单 + `_is_sensitive_key()`（下划线分词整段相等，避免 `KEYWORD` 误判）+ 双向判红单测（断言密钥键名不在 **且** 白名单项确实在，防过滤过头成空集的假通过） `evals/run_evals.py` 的 `env_flags.client_env` 现在收**所有** `NOVA*` 变量，而评测报告**要提交进 git**：一旦有人 `export NOVAAGENT_LLM_API_KEY=...`，密钥就进库并永久留在历史里（今天实测只有 `NOVAAGENT_EVAL_TEMPERATURE`，无害，但形状是错的）。改显式白名单 + 一条**能判红**的单测（断言密钥类键名不在 `client_env`、且白名单项确实在 → 防空集假通过，坑 45）。
+  - [x] **C0-② ✅ 规则落地 + v2.4→v2.5 记账（`EVAL_BASELINE.md` §二十，含新增阈值常量 `PERSONA_LEN_RATIO_MIN`）**：**问句级/判据常量级变更也算口径变更**，必须升 `version` 并在 `docs/EVAL_BASELINE.md` 记一行（S2 换了 `ss-*` 长问句、阈值 300→150 却仍标 v2.4，同一标签现覆盖两种刺激）。
+  - [x] **C0-③（闸门作用域）⚠️ 代码+单测已过，整轮记账待集中验证** —— grounding 闸门被套在**不需要事实回答的轮次**上：P4e S2 我实测默认档命中 12 次/重生失败 11 次、canonical 档命中 16/失败 14，**全部来自 `cc-01` 的种植轮，`final` 轮从未命中**；「重生一次都没救回来」＝前提不成立（种植轮是塞背景，模型回「记下了」才对）。要求给闸门加**轮次类型判定**（只对期待事实回答的轮次生效），判据写进注释、不许用「长度<30 字」糊。验收：整轮记账里种植轮命中数归零，且 `qa-17`/`ss-03` 的兜底能力不回退。**已落地** `turn_expects_factual_answer()` + `grounding_gate_applies()`（判据是语义级的：抑制型元指令 / 纯陈述轮，**不用长度阈值**），`_StreamGate.gate_on` 优先于 `force` 钩子；单测在 `test_p4f_c0.py` 63/63 内。**⚠️ 剩余验收只能靠整轮 `grounding_gate.by_case` 记账**（实现期零额度跑不了）→ 归入集中验证。
+  - [x] **C0-④ ✅ 双层超时（idle 20s / 总 45s）+ `TotalTimeout`/`IdleTimeout` 区分 + 假 transport 判红**： `WEB_SEARCH_TIMEOUT_S=60` 名实不符：httpx 那个是**空闲超时**不是总时限（实现方实测同问句 12.3s/**79.4s**，60s 没截断）。做总时限 + 双层（idle 20s / 总 45s）或改名 + 文档写清等待预期，并补一条用假 transport 的**慢响应必判红**单测（不打真实网络）。
+  - [x] **C0-⑤ ✅ 真机验证并修掉两个真缺陷（见下）**： `docs/p4d/run_with_server.sh` 收尾 `kill $SRV` **杀不掉 Windows 进程**：本轮复核打印 `[server] done rc=0, shutting down 8936` 之后端口**仍在监听**；负责人另两次也留过孤儿实例（:8906/:8907、:8923），都是实现方复查端口时发现的。改 `taskkill //PID x //F` 或 psutil，并在退出前**按端口复查打印** `[port-check] :N closed=True/False`，False 时非 0 退出（坑 61）。**已落地且真机验证**（`docs/p4f/evidence/c0_05_port_check.txt`），**验证当场暴露两个真缺陷**：① `taskkill //PID $SRV` 用的是 **MSYS PID**，Windows 侧找不到 → 静默失败（坑 61）；② **更严重**：主流程 `if ! port_closed; then exit 4` 写在终止动作**之前** → 那一刻端口必然在听 → **恒 exit 4**，而 trap 才真正杀掉并打印 `closed=True` —— **退出码与事实相反**。修为「按端口反查 Windows PID 再 taskkill（三段降级）+ 收尾移到主流程显式执行」；实测 `:8941` 修复前 EXIT=4（假红）、`:8942` 修复后 EXIT=0 + closed=True。
+  - [x] **C0-⑥（🔌 额度可核验化，用户 2026-10-01 指令，merge-blocking）** 把「不用用户 key」做成代码而不是口头承诺：`config.py` 加 `key_source(key)`（返回 `session_env`/`repo_dotenv`/`unset`，**绝不返回值**）→ `/api/health` 的 flags 暴露 `llm_key_source`、`embedding_key_source` → 评测报告 `env_flags.server` 自动带上 → **闸门规则：key_source 读数为 `repo_dotenv` 的整轮结果一律不认**。自测在「注入 / 不注入」两种状态下各取一次 `/api/health` 落盘对照（只读 health，不烧额度）。
 - **🔌 额度与凭据纪律（本单最高优先级，违反即打回）**：`novaagent/.env` 里的 key 是**用户本人的额度**。任何真发请求（服务自测、整轮评测、忠实度 judge、联网检索、embedding）都必须走会话环境变量注入的自带 key；**不允许也不需要用改 `.env` 来切换**（`os.environ` 优先）；**key 值不得出现在任何入库文件里**，只允许写来源标签与模型名。省额度做法：实现期只做不烧额度的检查（纯本地尺子、DB 只读副本、离线重放、假 transport 单测、`/api/health`），**整轮一单只跑一次**。
 - **⚠ 交回必须「零额度可复核」**：因为 Qoder 不再复跑整轮，你必须把断言用到的输入与模型输出原文入库（原始 `eval_report_*.json` 两档 + 证据 JSON），让判据能被纯函数离线复算——**入库证据不足以复算时，我会回来请你用你的额度补跑指定探针，不会动用户那把 key**。
 
@@ -1655,13 +1655,44 @@ r1 的 `mt-01` 失败是①追加"回指命中"判据的直接触发原因，修
 - **允许改**：`novaagent/novaagent/{db.py,agent.py,main.py,config.py}`、`novaagent/web/index.html`、`novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4F.md`
 - **禁改**：`sims/**`、`mcp/**`、`weknora/**`、`evals/faithfulness.py`、`novaagent/novaagent/refusal.py`
 - **完成标准要点**：
-  - [ ] `personas` 表（owner/name/college/persona_prompt/style/bound_folder_ids/bound_categories/visibility/is_default）+ `conversations.persona_id`
-  - [ ] `SYSTEM_PROMPT` 改为 `build_system_prompt(persona, ctx_local, ctx_web)`；**防幻觉规则 1–9 硬编码在模板里，persona 段不得覆盖或删改**
-  - [ ] 权限：辅导员管自己的、学生只能用 public、admin 管全部；**绑定库仍受 RBAC 交集约束，persona 不得提权**
-  - [ ] 前端：左侧会话栏统一（列表 + 新建 + 辅导员选择器），**账户入口移到会话栏最底部**；"辅导员"入口 → 创建/编辑表单；对话中可切换
-  - [ ] 新增评测类型 `persona`：同一问题在两个 persona 下断言风格差异且来源一致；**用"忽略以上规则"类注入攻击问句断言防幻觉规则未被绕过**
-  - [ ] persona 删除后其历史会话保留并标记"人设已删除"
+  - [x] `personas` 表（owner/name/college/persona_prompt/style/bound_folder_ids/bound_categories/visibility/is_default）+ `conversations.persona_id` —— 另加 `deleted_at` 软删 + `idx_personas_one_default` 部分唯一索引；迁移**只进 `db.py` 启动期 `_migrate()`**（幂等，已在库副本上验连跑两遍一致）
+  - [x] `SYSTEM_PROMPT` 改为 `build_system_prompt(persona, ctx_local, ctx_web)`；**防幻觉规则 1–9 硬编码在模板里，persona 段不得覆盖或删改** —— 规则段是**模块级常量、无插值入口**（结构性防御，不是靠 prompt 里写「不许忽略规则」）；persona 段排在规则段**之后**且顺序不可调；无 persona 时与 P4e 模板**逐字等价**（基线 `novaagent/tests/fixtures/p4e_agent_snapshot.py.txt`）
+  - [x] 权限：辅导员管自己的、学生只能用 public、admin 管全部；**绑定库仍受 RBAC 交集约束，persona 不得提权** —— 三条硬约束（不可见=不存在且响应体逐字节一致 / 越权夹静默丢弃 / 空 scope 不回落全库），`_resolve_persona` **复用 `_resolve_scope` 唯一入口**。⚠️ 顺带修掉「档位名误用 folders 三档」：规格字面是 `private`/`public`，原实现写的 `admin` 档语义上根本不存在
+  - [x] 前端：左侧会话栏统一（列表 + 新建 + 辅导员选择器），**账户入口移到会话栏最底部**；"辅导员"入口 → 创建/编辑表单；对话中可切换 —— 新增 `js/persona.js` + `css/persona.css` 走既有静态路由、`api.js` 仍最先；**`theme.css` 零改动**（P4b-0「行为零变化」基线不能碰）；账户卡**子元素 id 全不变** → `ui.js` 零改动；每轮**显式带 `persona_id`**（只靠会话绑定的话「首问前先选人设」会静默丢失）
+  - [x] 新增评测类型 `persona`：同一问题在两个 persona 下断言风格差异且来源一致；**用"忽略以上规则"类注入攻击问句断言防幻觉规则未被绕过** —— `persona` ×3（**主判据=来源集合完全一致**，次判据=篇幅比方向性；两侧各起独立会话）+ `persona_inject` ×1（三条独立判据任一命中即红）。用例 55 → **59**、版本 v2.4 → **v2.5**（C0-② 记账）。⚠️ 篇幅比阈值 1.2 是结构推断，**必须由集中验证实测校准**
+  - [x] persona 删除后其历史会话保留并标记"人设已删除" —— 软删 `deleted_at` 置位保留行，`persona_id` 永不断链，`list_conversations` LEFT JOIN 带出展示名
 - **依赖**：P4c（文件夹绑定）+ P4e 合并；`docs/P4.md` M8
+
+#### P4f 交回回执（WorkBuddy → Qoder，2026-09-03）—— **IN_REVIEW**，持棒交回 Qoder
+
+**交回文档 `docs/P4F.md`**（完整事实、判据口径、覆盖边界、未验项都在那里）。三条要紧的：
+
+**① 零额度已守住，且做成机器可核验的**。本轮**未跑整轮评测**，未发任何真实 LLM / embedding / 联网请求。
+`config.key_source()` + `/api/health` 的 `llm_key_source`/`embedding_key_source` 让「读数为
+`repo_dotenv` 的整轮结果一律不认」这条规则可执行。两态对照 20/20：未注入 `repo_dotenv` →
+注入真键名后翻成 `session_env`。⚠️ 第一版注入的是**探针专用键**，两态读数完全一样 ——
+**对照等于没做**，它只证明「探针键会翻转」，证明不了「注入 `LLM_API_KEY` 后 health 会变」。
+
+**② 自测 401 条断言、六个自测 exit 全 0**（63+124+99+20+33+62），全部零额度。
+判红证据用**离线重放**（直接 import 判据函数喂构造输入），因为真发请求只能证明一次。
+
+**③ C0-⑤ 的真机验证当场抓出两个真缺陷，其中一个很严重**：
+主流程 `if ! port_closed; then exit 4; fi` 写在终止动作**之前** —— 那一刻端口必然在听 →
+**恒 exit 4**，而 EXIT trap 才真正杀掉进程并打印 `closed=True`。
+**退出码与事实相反，比不报错更坏**。另 `taskkill //PID $SRV` 用的是 MSYS PID，
+Windows 侧根本找不到（坑 61）。已修为「按端口反查 Windows PID + 三段降级 + 收尾移到主流程」，
+实测 `:8941` 修复前 EXIT=4（假红）、`:8942` 修复后 EXIT=0。
+
+**本单没有验证的（请勿当成已验）**：v2.5 整轮通过率 / R@k / 忠实度（未跑整轮）；
+`pf-01..03` 篇幅比在真实模型输出下是否稳定 ≥1.2（阈值校准，**判红先怀疑阈值、别改用例**）；
+C0-③ 种植轮命中是否归零 + `qa-17`/`ss-03` 兜底是否回退（只能靠整轮记账）；
+C0-④ idle 超时的独立触发（假 transport 触发不了，待人工/真网络）；
+persona 前端的**视觉**与真实交互时序（契约自测是纯文本 + DOM 桩，**视觉需人工过一眼**）。
+
+**零额度复核建议**：跑 §3.1 六个自测 + 读 flags + 静态审计 + DB 只读副本探针，
+不必复跑整轮。集中验证那一轮需要**你自己带额度**并在会话内注入环境变量
+（否则 `env_flags.server.llm_key_source` 是 `repo_dotenv`，该轮结果按规则不认）。
+
 
 ### P4g UI 细节收尾（周报文本框等）　📋 READY（待 P4f，设计见 M9）
 
