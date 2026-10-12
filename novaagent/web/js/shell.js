@@ -16,8 +16,9 @@ const PAGES = [
   { id: 'chat', staffOnly: false, onEnter: null },
   { id: 'kb', staffOnly: false, onEnter: 'loadDocs' },
   { id: 'personas', staffOnly: false, onEnter: 'loadPersonaPage' },
-  { id: 'weekly', staffOnly: true, onEnter: 'loadArchived' },
+  { id: 'weekly', staffOnly: true, onEnter: 'enterWeekly' },
   { id: 'records', staffOnly: true, onEnter: 'loadRecords' },
+  { id: 'minutes', staffOnly: true, onEnter: 'loadMinutes' },
 ];
 const DEFAULT_PAGE = 'chat';
 const STAFF_ROLES = ['counselor', 'admin'];

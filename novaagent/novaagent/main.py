@@ -1,21 +1,25 @@
 """NovaAgent FastAPI 入口:认证 / 知识库管理 / 检索增强对话 / 周报"""
 from __future__ import annotations
 
+import csv
 import io
 import json
 import os
 import logging
 import re
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 import httpx
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from . import config, db, llm, rag
+from . import asr as asr_mod
+from . import minutes as minutes_lib
+from . import talk_summary
 from .agent import AgentService
 from .config import ROLE_RANK, ROLE_ZH, configured
 
@@ -1185,14 +1189,6 @@ async def weekly_expand(body: dict, user=Depends(require_role("counselor"))):
         raise HTTPException(502, "扩充结果为空,请重试或直接保存原文")
     return {"expanded": expanded, "original": content}
 
-@app.post("/api/weekly/fragments")
-async def weekly_add(body: dict, user=Depends(require_role("counselor"))):
-    content = (body.get("content") or "").strip()
-    if not content:
-        raise HTTPException(400, "content 不能为空")
-    return await agent.weekly_add(content, body.get("category", "其他"), body.get("occurred_at", ""))
-
-
 @app.get("/api/weekly/fragments")
 async def weekly_list(
     category: str = "", start_date: str = "", end_date: str = "",
@@ -1245,6 +1241,246 @@ async def weekly_archive(body: dict, user=Depends(require_role("counselor"))):
     return await agent.weekly_archive(body["title"], body["start_date"], body["end_date"], body["content_md"])
 
 
+# ---------- 谈心谈话:姓名 / 自动摘要 / 按月导出 ----------
+
+TALK_CATEGORY = "谈心谈话"
+
+
+def _attachment_headers(filename: str) -> dict[str, str]:
+    """下载文件名头。
+
+    ⚠ 中文文件名必须走 RFC 5987 的 `filename*`,同时给一个纯 ASCII 的 `filename` 兜底
+      —— HTTP 头是 latin-1,直接塞中文会 UnicodeEncodeError,而不是"某些浏览器显示乱码"。
+    """
+    fallback = re.sub(r"[^A-Za-z0-9._-]", "_", filename) or "download"
+    return {"Content-Disposition":
+            f'attachment; filename="{fallback}"; filename*=UTF-8\'\'{quote(filename)}'}
+
+
+@app.post("/api/weekly/summarize")
+async def weekly_summarize(body: dict, user=Depends(require_role("counselor"))):
+    """按谈话内容生成规范摘要草稿(不落库,供表单在保存前预览与手改)。"""
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(400, "content 不能为空")
+    eff = agent.effective_llm(user["id"])
+    summary = await agent.summarize_talk(content, eff["model"], eff["base_url"], eff["api_key"])
+    return {"summary": summary, "placeholder": talk_summary.PLACEHOLDER_SUMMARY}
+
+
+@app.post("/api/weekly/fragments")
+async def weekly_add(body: dict, user=Depends(require_role("counselor"))):
+    content = (body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(400, "content 不能为空")
+    category = body.get("category", "其他")
+    student_name = (body.get("student_name") or "").strip()
+    summary = (body.get("summary") or "").strip()
+    # 姓名**只在谈心谈话这一类**必填:事务办理/活动组织没有"某个学生"这个对象,
+    # 一刀切必填会逼着辅导员填无关内容。MCP 层保持宽松默认值(见 server.py 同处注释),
+    # 严格的只有这条 UI 入口 —— 这是有意的不对称,不是漏判。
+    if category == TALK_CATEGORY and not student_name:
+        raise HTTPException(400, "谈心谈话记录必须填写学生姓名")
+    if category == TALK_CATEGORY and not summary:
+        eff = agent.effective_llm(user["id"])
+        summary = await agent.summarize_talk(content, eff["model"], eff["base_url"], eff["api_key"])
+    d = await agent.weekly_add(content, category, body.get("occurred_at", ""),
+                               student_name, summary)
+    if isinstance(d, dict):
+        d["summary"] = summary
+    return d
+
+
+@app.patch("/api/weekly/fragments/{fragment_id}")
+async def weekly_patch(fragment_id: int, body: dict, user=Depends(require_role("counselor"))):
+    """详情页补录姓名 / 手改摘要。"""
+    student_name = (body.get("student_name") or "").strip()
+    summary = (body.get("summary") or "").strip()
+    if not student_name and not summary:
+        raise HTTPException(400, "student_name 与 summary 至少要提供一个")
+    d = await agent.weekly_update(fragment_id, student_name, summary)
+    if not d.get("ok"):
+        raise HTTPException(404, d.get("error", "记录不存在"))
+    return d
+
+
+@app.get("/api/weekly/records/export")
+async def weekly_records_export(month: str, user=Depends(require_role("counselor"))):
+    """按月导出谈心谈话记录:每条一行台账整句,UTF-8 with BOM 的 CSV。
+
+    BOM 不是可选修饰:Excel 双击打开无 BOM 的 UTF-8 CSV 会把中文显示成乱码,
+    而这份文件的用途就是给辅导员在 Excel 里看和往上交。
+    """
+    if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])", month or ""):
+        # 只写 \d{4}-\d{2} 会放过 `2026-13`:它到 MCP 层才被拒,返回的是 502 而不是 400
+        # —— "用户输入不合法"必须是 4xx,否则客户端无法区分"我月份写错了"和"服务坏了"
+        raise HTTPException(400, "month 必须是 YYYY-MM 格式(月份 01~12)")
+    d = await agent.weekly_export_talk(month)
+    if not d.get("ok"):
+        raise HTTPException(502, d.get("error", "导出失败"))
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(["谈心谈话记录"])
+    for row in d.get("rows", []):
+        w.writerow([row])
+    data = ("﻿" + buf.getvalue()).encode("utf-8")
+    headers = _attachment_headers(f"谈心谈话记录_{month}.csv")
+    headers["X-Export-Count"] = str(d.get("count", 0))
+    return StreamingResponse(iter([data]), media_type="text/csv; charset=utf-8", headers=headers)
+
+
+# ---------- 会议纪要(AI 整理) ----------
+# ⚠ 出网告知:转写会把**会议音频**发往 DashScope,整理会把**会议原文**发往 LLM。
+#   这与既有"联网检索只发问题文本"是两条不同通道,前端入口必须先勾选确认再调这些接口。
+
+MINUTES_TEXT_EXTS = {".txt", ".md", ".markdown"}
+MINUTES_MAX_BYTES = 8 * 1024 * 1024
+
+
+def _minutes_payload(body: dict) -> dict:
+    """把 HTTP 请求体(结构化数组)收成 MCP `add_minutes`/`update_minutes` 的参数。
+
+    ⚠ 三个数组字段在这里**序列化成 JSON 文本**:MCP 工具参数声明为 `str`,
+      直接传 list 会在协议层参数校验就被打回(实测报 `Input should be a valid string`),
+      根本到不了函数体。读回时由 server 层解析成数组,前端看到的仍是数组。
+    """
+    def _lines(key: str) -> str:
+        v = body.get(key)
+        if isinstance(v, str):
+            s = v.strip()
+            # 容忍把数组发成 JSON 文本的调用方:不先 parse 就会把 `["a"]` 连中括号
+            # 当成一条要点存进纪要(实测:前端正常路径不会踩到,手写脚本会)
+            if s.startswith("[") and s.endswith("]"):
+                try:
+                    v = json.loads(s)
+                except json.JSONDecodeError:
+                    v = [s]
+            else:
+                v = [p.strip() for p in re.split(r"[\n;；]+", s) if p.strip()]
+        return json.dumps([str(x).strip() for x in (v or []) if str(x).strip()][:200],
+                          ensure_ascii=False)
+
+    todos = body.get("todos") or []
+    if isinstance(todos, str):
+        try:
+            todos = json.loads(todos or "[]")
+        except json.JSONDecodeError:
+            todos = []
+    cleaned = [{"item": str(t.get("item") or "").strip(),
+                "owner": str(t.get("owner") or "").strip(),
+                "due": str(t.get("due") or "").strip()}
+               for t in todos if isinstance(t, dict) and str(t.get("item") or "").strip()]
+    return {
+        "title": (body.get("title") or "").strip(),
+        "meeting_time": (body.get("meeting_time") or "").strip(),
+        "attendees": (body.get("attendees") or "").strip(),
+        "discussion": _lines("discussion"),
+        "resolutions": _lines("resolutions"),
+        "todos": json.dumps(cleaned[:40], ensure_ascii=False),
+    }
+
+
+@app.post("/api/weekly/minutes/transcribe")
+async def minutes_transcribe(file: UploadFile = File(...), user=Depends(require_role("counselor"))):
+    """录音文件 → 转写文本(整理流程的第一步;转写完的文本再交给 /organize)。"""
+    data = await file.read()
+    if not data:
+        raise HTTPException(400, "音频文件为空")
+    if len(data) > config.ASR_MAX_MB * 1024 * 1024:
+        raise HTTPException(413, f"音频超过 {config.ASR_MAX_MB}MB 上限")
+    try:
+        text = await agent.transcribe_audio(file.filename or "audio.mp3", data,
+                                            agent.effective_llm(user["id"])["api_key"])
+    except asr_mod.AsrError as e:
+        raise HTTPException(502, str(e))
+    if not text:
+        raise HTTPException(502, "转写结果为空,请检查音频是否包含语音")
+    return {"ok": True, "text": text, "chars": len(text),
+            "audio_name": file.filename or "", "source_type": "audio"}
+
+
+@app.post("/api/weekly/minutes/organize")
+async def minutes_organize(body: dict, user=Depends(require_role("counselor"))):
+    """零散内容 → 结构化纪要草稿(不落库,前端编辑确认后再 POST /minutes 保存)。"""
+    raw = (body.get("raw") or "").strip()
+    if not raw:
+        raise HTTPException(400, "raw 不能为空(请先粘贴会议内容、上传笔记或上传录音)")
+    eff = agent.effective_llm(user["id"])
+    try:
+        minutes, untraced = await agent.organize_minutes(raw, eff["model"],
+                                                         eff["base_url"], eff["api_key"])
+    except (RuntimeError, ValueError) as e:
+        raise HTTPException(502, f"整理失败:{e}")
+    except Exception as e:  # noqa: BLE001 — LLM 通道异常给可读错误,不抛裸 500
+        logger.exception("会议纪要整理失败")
+        # 文案要点:异常类型名(如 KeyError)对用户没有可操作性,必须同时给出**下一步**
+        raise HTTPException(502, f"整理失败（{type(e).__name__}）：请检查设置里的模型配置，"
+                                f"或把原始内容拆短一些再试")
+    return {"ok": True, "minutes": minutes, "untraced": untraced,
+            "markdown": minutes_lib.render_markdown(minutes), "raw": raw}
+
+
+@app.post("/api/weekly/minutes")
+async def minutes_create(body: dict, user=Depends(require_role("counselor"))):
+    d = await agent.minutes_add({
+        **_minutes_payload(body),
+        "raw_content": (body.get("raw_content") or body.get("raw") or "").strip(),
+        "source_type": body.get("source_type") if body.get("source_type") in ("text", "file", "audio") else "text",
+        "audio_name": (body.get("audio_name") or "").strip(),
+    })
+    if not d.get("ok"):
+        raise HTTPException(502, d.get("error", "保存失败"))
+    return d
+
+
+@app.get("/api/weekly/minutes")
+async def minutes_list(user=Depends(require_role("counselor"))):
+    d = await agent.minutes_list()
+    if not d.get("ok"):
+        raise HTTPException(502, d.get("error", "纪要服务不可用"))
+    return d
+
+
+@app.get("/api/weekly/minutes/{minutes_id}")
+async def minutes_detail(minutes_id: int, user=Depends(require_role("counselor"))):
+    d = await agent.minutes_get(minutes_id)
+    if not d.get("ok"):
+        raise HTTPException(404, d.get("error", "纪要不存在"))
+    return d
+
+
+@app.put("/api/weekly/minutes/{minutes_id}")
+async def minutes_update(minutes_id: int, body: dict, user=Depends(require_role("counselor"))):
+    """在线编辑保存(整条覆盖,见 server.py `update_minutes`)。"""
+    d = await agent.minutes_update(minutes_id, _minutes_payload(body))
+    if not d.get("ok"):
+        raise HTTPException(404, d.get("error", "纪要不存在"))
+    return d
+
+
+@app.delete("/api/weekly/minutes/{minutes_id}")
+async def minutes_delete(minutes_id: int, user=Depends(require_role("counselor"))):
+    d = await agent.minutes_delete(minutes_id)
+    if not d.get("ok"):
+        raise HTTPException(404, d.get("error", "删除失败"))
+    return d
+
+
+@app.get("/api/weekly/minutes/{minutes_id}/export")
+async def minutes_export_docx(minutes_id: int, user=Depends(require_role("counselor"))):
+    d = await agent.minutes_get(minutes_id)
+    if not d.get("ok"):
+        raise HTTPException(404, d.get("error", "纪要不存在"))
+    docx = minutes_lib.render_docx(minutes_lib.normalize_fields(d))
+    title = (d.get("title") or "会议纪要").strip() or "会议纪要"
+    headers = _attachment_headers(f"{title}.docx")
+    return StreamingResponse(iter([docx]),
+                             media_type="application/vnd.openxmlformats-officedocument"
+                                        ".wordprocessingml.document",
+                             headers=headers)
+
+
+
 # ---------- 其他 ----------
 
 @app.get("/api/health")
@@ -1279,6 +1515,8 @@ async def health():
             "llm_key_source": config.key_source("LLM_API_KEY"),
             "embedding_key_source": config.key_source("EMBEDDING_API_KEY"),
             "eval_temperature": os.environ.get("NOVAAGENT_EVAL_TEMPERATURE", ""),
+            # 纪要转写通道(同样只暴露来源标签,不暴露 key 值)
+            **asr_mod.describe_config(),
         }
     except Exception as e:  # noqa: BLE001  — 自检字段不该让 health 挂掉
         logger.warning("health flags 组装失败: %s", e)
@@ -1287,8 +1525,8 @@ async def health():
 
 
 @app.get("/")
-async def index():
-    return FileResponse(WEB_DIR / "index.html")
+async def index(request: Request):
+    return _web_file(WEB_DIR / "index.html", request, "text/html; charset=utf-8")
 
 
 # ---------- P4b-0 前端拆分:静态资源挂载(本单对 main.py 的唯一改动) ----------
@@ -1296,21 +1534,59 @@ async def index():
 # 浏览器会因严格 MIME 校验拒绝执行脚本 → 拆分后页面白屏。故不走 StaticFiles 猜测。
 _WEB_MEDIA = {".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8"}
 
+# 【为什么入口资源必须带 Cache-Control】不写这个头,浏览器就按「启发式缓存」自己决定
+# 新鲜期(Chrome 约 (now − Last-Modified) / 10,本仓库实测约 2 小时),于是部署后出现
+# **混版**:主文档 F5 一定重取,而 /js/weekly.js 仍在用改版前那一份。同一个根因结出两条
+# 完全不同的症状 ——
+#   · 旧 addFragment 不发 student_name → 新后端按契约回 400「必须填写学生姓名」,
+#     姓名明明填了也存不进(看起来像校验逻辑坏了);
+#   · 旧文件里根本没有 summarizeTalk → 内联 onclick 抛 ReferenceError,只写在 console,
+#     「生成摘要」按钮点了没反应、不转圈、也不报错(看起来像事件没绑上)。
+# `no-cache` 的语义是「可以缓存,但每次必须回源校验」,配合下面的 ETag:文件没变回 304
+# (不重传正文),变了立刻拿新的 —— 这是唯一能让「HTML 新 + JS 旧」不再出现的开关。
+_WEB_HEADERS = {"Cache-Control": "no-cache"}
 
-def _serve_web_asset(sub: str, name: str) -> FileResponse:
+
+def _norm_etag(value: str) -> str:
+    """比较 ETag 时忽略弱校验前缀(`W/"…"` 与 `"…"` 指向同一份内容)。"""
+    value = value.strip()
+    return value[2:].strip() if value.startswith("W/") else value
+
+
+def _web_file(target: Path, request: Request, media_type: str) -> Response:
+    """带 ETag 回源校验的静态响应。
+    ⚠ 本仓库 Starlette 版本的 `FileResponse` **不再处理条件请求**(304 逻辑只留在
+      `StaticFiles` 里,而我们因为 MIME 坑不能用它),所以 `If-None-Match` 要自己接:
+      否则 `no-cache` 会让每次刷新都全量重传所有 JS/CSS。
+    """
+    resp = FileResponse(target, media_type=media_type, headers=dict(_WEB_HEADERS),
+                        stat_result=target.stat())
+    sent = {_norm_etag(v) for v in (request.headers.get("if-none-match") or "").split(",") if v.strip()}
+    etag = _norm_etag(resp.headers.get("etag") or "")
+    if request.method == "GET" and etag and etag in sent:
+        # 304 不能带 content-length / content-type,否则浏览器会等一个并不存在的正文
+        return Response(status_code=304, headers={
+            "etag": etag,
+            "last-modified": resp.headers.get("last-modified", ""),
+            **_WEB_HEADERS,
+        })
+    return resp
+
+
+def _serve_web_asset(sub: str, name: str, request: Request) -> Response:
     root = (WEB_DIR / sub).resolve()
     target = (root / name).resolve()
     if not str(target).startswith(str(root)) or target.suffix != "." + sub or not target.is_file():
         raise HTTPException(404, "资源不存在")
-    return FileResponse(target, media_type=_WEB_MEDIA[target.suffix])
+    return _web_file(target, request, _WEB_MEDIA[target.suffix])
 
 
 @app.get("/css/{name}")
-async def css_asset(name: str):
-    return _serve_web_asset("css", name)
+async def css_asset(name: str, request: Request):
+    return _serve_web_asset("css", name, request)
 
 
 @app.get("/js/{name}")
-async def js_asset(name: str):
-    return _serve_web_asset("js", name)
+async def js_asset(name: str, request: Request):
+    return _serve_web_asset("js", name, request)
 

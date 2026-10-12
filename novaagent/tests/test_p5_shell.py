@@ -108,12 +108,12 @@ def test_shell_wiring() -> None:
         check(i in ids, f"P5 壳层容器 #{i} 在 DOM 里", "")
     # ② 六个入口(验收标准第 1 条)
     navs = re.findall(r'<li class="nav-item"[^>]*data-page="([a-z]+)"', HTML)
-    check(len(navs) == 6, "P5 左栏是 6 个入口", f"got={navs}")
-    for pg in ("chat", "kb", "personas", "weekly", "records"):
+    check(len(navs) == 7, "P5 左栏是 7 个入口", f"got={navs}")
+    for pg in ("chat", "kb", "personas", "weekly", "records", "minutes"):
         check(pg in navs, f"P5 入口 {pg} 存在", f"navs={navs}")
     # ③ 每个入口都指向一个**真实存在**的页面(拼错 = 点了之后主区空白,且不报错)
     pages = set(re.findall(r'<div class="tabpane page" id="pane-([a-z]+)"', HTML))
-    check(len(pages) == 5, "P5 主区有 5 个整页", f"got={sorted(pages)}")
+    check(len(pages) == 6, "P5 主区有 6 个整页", f"got={sorted(pages)}")
     for href in set(re.findall(r'href="#/([a-z]+)"', HTML)):
         check(href in pages, f"P5 hash 入口 #/{href} 指向真实页面(拼错=静默空白)",
               f"pages={sorted(pages)}")
@@ -122,8 +122,8 @@ def test_shell_wiring() -> None:
           f"n={HTML.count('href=\"#/')}")
     check("addEventListener('hashchange'" in JS_FILES["shell.js"],
           "P5 hashchange 驱动切换(刷新/前进后退都落到同一处)", "")
-    # ⑤ 学生不该看到的两个入口标了 data-staff(不是靠 CSS 藏,是渲染时整条不渲染)
-    for pg in ("weekly", "records"):
+    # ⑤ 学生不该看到的三个入口标了 data-staff(不是靠 CSS 藏,是渲染时整条不渲染)
+    for pg in ("weekly", "records", "minutes"):
         check(f'data-page="{pg}" data-staff="1"' in HTML,
               f"P5 {pg} 入口标了 data-staff(按角色整条隐藏)", "")
     # ⑥ 账户入口仍在左栏内(P4f 的约定不回退)
@@ -174,11 +174,11 @@ def test_routing_pure() -> None:
         check(False, "P5 node 跑 shell.js 成功", f"stderr={raw}")
         return
     check(v["student"] == ["chat", "kb", "personas"],
-          "P5 学生可见入口 = 会话/知识库/辅导员(周报与工作记录**不可见**)",
+          "P5 学生可见入口 = 会话/知识库/辅导员(周报、工作记录与会议纪要**不可见**)",
           f"got={v['student']}")
     for role in ("counselor", "admin"):
-        check(v[role] == ["chat", "kb", "personas", "weekly", "records"],
-              f"P5 {role} 可见全部 5 个入口", f"got={v[role]}")
+        check(v[role] == ["chat", "kb", "personas", "weekly", "records", "minutes"],
+              f"P5 {role} 可见全部 6 个入口", f"got={v[role]}")
     check(v["unknown"] == ["chat", "kb", "personas"],
           "P5 未知角色**按最小权限**渲染(不因为拿不到角色就全给)", f"got={v['unknown']}")
     check(v["h_kb"] == "kb" and v["h_personas"] == "personas",
@@ -537,17 +537,18 @@ def test_enter_boots() -> None:
               f"items={v['convListItems']} placeholder={v['convListPlaceholder']}")
         check(v["convCount"] == "3",
               f"P5 #conv-count 显示真实条数(role={role})", f"got={v['convCount']!r}")
-        # ③ 学生侧周报/工作记录两条入口 hidden
+        # ③ 学生侧周报/工作记录/会议纪要三条入口 hidden
         if role == "student":
-            check(v["navHidden"] == ["weekly", "records"],
-                  "P5 学生侧 #nav-entries 的 weekly/records 入口被隐藏", f"hidden={v['navHidden']}")
-            check("weekly" not in v["navVisible"] and "records" not in v["navVisible"],
-                  "P5 学生侧可见入口不含周报/工作记录", f"visible={v['navVisible']}")
+            check(v["navHidden"] == ["weekly", "records", "minutes"],
+                  "P5 学生侧 #nav-entries 的 weekly/records/minutes 入口被隐藏", f"hidden={v['navHidden']}")
+            check("weekly" not in v["navVisible"] and "records" not in v["navVisible"]
+                  and "minutes" not in v["navVisible"],
+                  "P5 学生侧可见入口不含周报/工作记录/会议纪要", f"visible={v['navVisible']}")
             check(v["personasNewDisplay"] == "none",
                   "P5 学生侧「新建人设」按钮隐藏", f"got={v['personasNewDisplay']!r}")
         else:
             check(v["navHidden"] == [],
-                  "P5 辅导员侧 6 个入口全部可见", f"hidden={v['navHidden']}")
+                  "P5 辅导员侧 7 个入口全部可见", f"hidden={v['navHidden']}")
             check(v["personasNewDisplay"] == "" and v["uploadRowDisplay"] == "flex",
                   "P5 辅导员侧显示新建人设/上传行", f"{v['personasNewDisplay']!r}/{v['uploadRowDisplay']!r}")
         # ④ 账户卡

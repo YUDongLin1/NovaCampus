@@ -328,16 +328,31 @@ def main() -> int:
             print(f"    答案节选: {d['answer'][:80]}...")
 
             # 周报:直调 REST → MCP
+            # ⚠ 这里**显式传 summary**:谈心谈话保存时若摘要为空,服务端会自动调一次 LLM
+            #   生成摘要 —— 冒烟不该为摘要这件事扣额度,所以把摘要给定住。
             r = c.post(f"{BASE}/api/weekly/fragments", headers=auth(counselor["token"]),
                        json={"content": "与姓名1同学谈话,反馈补考压力,已转介心理中心",
-                             "category": "谈心谈话", "occurred_at": "2026-09-25"})
+                             "category": "谈心谈话", "occurred_at": "2026-09-25",
+                             "student_name": "姓名1",
+                             "summary": "就该学生心理健康情况进行谈心谈话"})
             r.raise_for_status()
+            assert r.json()["ok"]
+            # 永久闸门:谈心谈话缺学生姓名必须被拒(400),而不是静默存一条没名字的台账
+            r = c.post(f"{BASE}/api/weekly/fragments", headers=auth(counselor["token"]),
+                       json={"content": "与某同学谈了职业规划", "category": "谈心谈话",
+                             "occurred_at": "2026-09-25", "summary": "就该学生职业规划情况进行谈心谈话"})
+            assert r.status_code == 400, f"谈心谈话缺姓名应 400,得到 {r.status_code}"
+            # 对照:非谈心谈话分类不要求姓名(事务办理没有"某个学生"这个对象)
+            r = c.post(f"{BASE}/api/weekly/fragments", headers=auth(counselor["token"]),
+                       json={"content": "代办了休学手续", "category": "事务办理",
+                             "occurred_at": "2026-09-25"})
+            assert r.status_code == 200, f"事务办理不要求姓名,得到 {r.status_code}"
             assert r.json()["ok"]
             r = c.post(f"{BASE}/api/weekly/report", headers=auth(counselor["token"]),
                        json={"start_date": "2026-09-21", "end_date": "2026-09-27"})
             r.raise_for_status()
             assert r.json()["ok"] and "谈心谈话" in r.json()["report_markdown"]
-            print("[6] 周报记录+生成 OK(经 MCP)")
+            print("[6] 周报记录+生成 OK(经 MCP;姓名必填闸门与分类对照已验)")
 
             # 学生不应能访问周报
             r = c.post(f"{BASE}/api/weekly/report", headers=auth(student["token"]),
@@ -367,6 +382,36 @@ def main() -> int:
             r = c.get(f"{BASE}/api/weekly/fragments", headers=auth(student["token"]))
             assert r.status_code == 403
             print(f"[9] 记录筛选 OK({d['stats']}),学生访问记录 403 OK")
+
+            # 按月导出谈心谈话(CSV):不调 LLM,可放心在冒烟里跑
+            r = c.get(f"{BASE}/api/weekly/records/export?month=2026-09",
+                      headers=auth(counselor["token"]))
+            assert r.status_code == 200, f"按月导出应 200,得到 {r.status_code}"
+            assert r.content.startswith("﻿".encode("utf-8")), "CSV 必须带 UTF-8 BOM(否则 Excel 中文乱码)"
+            cd = r.headers.get("content-disposition", "")
+            assert "attachment" in cd and "filename*=UTF-8''" in cd, f"下载头不完整: {cd!r}"
+            rows = r.content.decode("utf-8-sig").strip().splitlines()
+            assert rows and "谈心谈话记录" in rows[0], f"表头缺失: {rows[:1]}"
+            assert all("进行谈心谈话" in x or "未生成摘要" in x or "姓名" in x for x in rows[1:]), \
+                f"导出行既不是台账整句也没有占位标记: {rows[1:3]}"
+            n_export = len(rows) - 1
+            r = c.get(f"{BASE}/api/weekly/records/export?month=2026-13",
+                      headers=auth(counselor["token"]))
+            assert r.status_code == 400, f"非法 month 应 400,得到 {r.status_code}"
+            r = c.get(f"{BASE}/api/weekly/records/export?month=2026-09",
+                      headers=auth(student["token"]))
+            assert r.status_code == 403, f"学生导出工作记录应 403,得到 {r.status_code}"
+            print(f"[9a] 按月导出 OK({n_export} 行 CSV 带 BOM;非法月份 400;学生 403)")
+
+            # 会议纪要:列表/详情走 MCP 存取,不调 LLM(整理与转写要花钱,不在冒烟里跑)
+            r = c.get(f"{BASE}/api/weekly/minutes", headers=auth(counselor["token"]))
+            assert r.status_code == 200 and "minutes" in r.json(), \
+                f"纪要列表应 200 且带 minutes,得到 {r.status_code}"
+            r = c.get(f"{BASE}/api/weekly/minutes/999999", headers=auth(counselor["token"]))
+            assert r.status_code == 404, f"不存在的纪要应 404,得到 {r.status_code}"
+            r = c.get(f"{BASE}/api/weekly/minutes", headers=auth(student["token"]))
+            assert r.status_code == 403, f"学生访问会议纪要应 403,得到 {r.status_code}"
+            print("[9b] 会议纪要存取 OK(列表/404/学生 403;整理与转写不在冒烟内)")
 
             # 归档周报列表与详情
             r = c.get(f"{BASE}/api/weekly/reports", headers=auth(counselor["token"]))

@@ -9,6 +9,14 @@ const ROLE_ZH = { student: '学生', counselor: '辅导员', admin: '校管理�
 function toast(t) { const e = $('toast'); e.textContent = t; e.style.display = 'block'; setTimeout(() => e.style.display = 'none', 2600); }
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
+/* 未捕获的脚本错误必须**让用户看见**。内联 onclick 指向的函数不存在时(混版、脚本没
+   加载、文件名拼错),浏览器只往 console 丢一条 ReferenceError,页面上的表现就是
+   「按钮点了没反应,不转圈也不报错」—— 这条比"报错弹窗"危险,因为用户无从判断是
+   自己操作错了还是系统坏了。 */
+window.addEventListener('error', (e) => {
+  if (e && e.message) toast('页面脚本异常：' + e.message + '（按 Ctrl+F5 重新载入可取回最新脚本）');
+});
+
 async function api(path, opts = {}) {
   opts.headers = Object.assign({}, opts.headers, TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {});
   if (opts.json) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(opts.json); }
@@ -31,6 +39,28 @@ async function api(path, opts = {}) {
     throw new Error(msg);
   }
   return data;
+}
+
+/** 带认证头的文件下载:fetch 取 blob → 临时 <a download> 触发保存。
+ *  不能用裸 `<a href>` —— 下载接口要 `Authorization: Bearer`,<a> 带不上这个头。 */
+async function downloadFile(path, fallbackName) {
+  const resp = await fetch(path, { headers: TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {} });
+  if (!resp.ok) {
+    let msg = 'HTTP ' + resp.status;
+    try { const d = await resp.json(); if (typeof d.detail === 'string') msg = d.detail; }
+    catch (e) { /* 错误体不是 JSON 就用状态码 */ }
+    throw new Error(msg);
+  }
+  const cd = resp.headers.get('Content-Disposition') || '';
+  let name = fallbackName || 'download';
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+  if (star) { try { name = decodeURIComponent(star[1]); } catch (e) { /* 保留兜底名 */ } }
+  const url = URL.createObjectURL(await resp.blob());
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return name;
 }
 
 async function login() {

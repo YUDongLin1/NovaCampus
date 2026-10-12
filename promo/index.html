@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>智枢 Agent · NovaCampus —— 会拒答的校园政策智能体</title>
+<meta name="description" content="面向高校场景的智能对话与运维 Agent：混合检索 + 四层防幻觉 + 三级权限 RBAC + 59 条公开评测用例。跑在自己电脑上，不需要 Docker 和 GPU。">
+<style>
+/* ============ 学术水墨 × 朱砂印 · 设计令牌（与应用同源） ============ */
+:root{
+  --ink:#16233d; --ink-700:#101b31; --ink-600:#1c2c4d; --ink-500:#2b4169; --ink-300:#56688c;
+  --cinnabar:#bf3b2b; --cinnabar-lt:#d8573f; --cinnabar-wash:#f6e7e1;
+  --jade:#2e6f5e; --bronze:#9a6b23;
+  --paper:#f4efe4; --paper-2:#ece5d6; --card:#fffdf8;
+  --text:#22252c; --muted:#7c7466; --line:#e2d9c6; --line-soft:#eee7d8;
+  --shadow-md:0 4px 14px rgba(22,35,61,.08),0 12px 32px rgba(22,35,61,.07);
+  --shadow-lg:0 10px 30px rgba(22,35,61,.12),0 30px 60px rgba(22,35,61,.14);
+  --serif:"Marcellus","Noto Serif SC","Songti SC","STSong","SimSun",Georgia,serif;
+  --sans:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei","Noto Sans SC",-apple-system,"Segoe UI",sans-serif;
+  --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+  --grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  --nav-h:62px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:var(--sans);color:var(--text);background:var(--paper);line-height:1.75;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:99;background-image:var(--grain);opacity:.04;mix-blend-mode:multiply}
+::selection{background:var(--cinnabar-wash);color:var(--ink)}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+h1,h2,h3{font-family:var(--serif);font-weight:400;line-height:1.25;letter-spacing:.01em}
+code{font-family:var(--mono)}
+.wrap{width:min(1180px,92vw);margin-inline:auto}
+section{padding:clamp(64px,9vw,116px) 0;position:relative}
+
+/* ============ 导航 ============ */
+header.nav{position:fixed;inset:0 0 auto;z-index:50;height:var(--nav-h);display:flex;align-items:center;
+  transition:background .35s,box-shadow .35s,border-color .35s;border-bottom:1px solid transparent}
+header.nav.solid{background:rgba(244,239,228,.92);backdrop-filter:blur(12px);border-bottom-color:var(--line);box-shadow:0 1px 0 rgba(22,35,61,.03)}
+.nav .wrap{display:flex;align-items:center;gap:22px;width:min(1180px,94vw)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--serif);font-size:19px;color:#f6f1e6;transition:color .35s}
+header.nav.solid .brand{color:var(--ink)}
+.seal{width:30px;height:30px;border-radius:6px;background:linear-gradient(140deg,var(--cinnabar-lt),var(--cinnabar));
+  color:#fff;display:grid;place-items:center;font-family:var(--serif);font-size:16px;box-shadow:0 2px 10px rgba(191,59,43,.4)}
+.nav nav{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.nav nav a{font-size:13.5px;color:rgba(246,241,230,.78);padding:7px 12px;border-radius:99px;transition:.25s}
+header.nav.solid .nav nav a{color:var(--ink-500)}
+.nav nav a:hover{background:rgba(191,59,43,.1);color:var(--cinnabar)}
+.nav nav a.on{background:rgba(191,59,43,.12);color:var(--cinnabar);font-weight:600}
+.nav .cta{font-size:13px;padding:8px 16px;border-radius:99px;border:1px solid rgba(246,241,230,.35);color:#f6f1e6;transition:.25s}
+header.nav.solid .nav .cta{border-color:var(--ink);color:var(--ink)}
+.nav .cta:hover{background:var(--cinnabar);border-color:var(--cinnabar);color:#fff}
+@media(max-width:900px){.nav nav{display:none}}
+
+/* ============ HERO ============ */
+.hero{background:
+    radial-gradient(1200px 700px at 78% -12%,rgba(191,59,43,.26),transparent 62%),
+    radial-gradient(900px 600px at 4% 108%,rgba(46,111,94,.22),transparent 60%),
+    linear-gradient(160deg,var(--ink-700),var(--ink) 48%,var(--ink-600));
+  color:#f6f1e6;padding:calc(var(--nav-h) + clamp(56px,8vw,96px)) 0 0;overflow:hidden}
+.hero::before{content:"";position:absolute;inset:0;opacity:.16;
+  background-image:linear-gradient(rgba(246,241,230,.16) 1px,transparent 1px),linear-gradient(90deg,rgba(246,241,230,.16) 1px,transparent 1px);
+  background-size:64px 64px;mask-image:radial-gradient(80% 60% at 50% 20%,#000,transparent 75%)}
+.hero .wrap{position:relative;z-index:2;display:grid;grid-template-columns:1.02fr .98fr;gap:clamp(28px,4vw,60px);align-items:center}
+@media(max-width:980px){.hero .wrap{grid-template-columns:1fr}}
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:rgba(246,241,230,.72);border:1px solid rgba(246,241,230,.22);border-radius:99px;padding:6px 15px;margin-bottom:26px}
+.eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--cinnabar-lt);box-shadow:0 0 0 0 rgba(216,87,63,.6);animation:seal 2.4s infinite}
+@keyframes seal{0%,100%{box-shadow:0 0 0 0 rgba(216,87,63,.55)}50%{box-shadow:0 0 0 8px rgba(216,87,63,0)}}
+.hero h1{font-size:clamp(34px,5.4vw,62px);letter-spacing:.005em;margin-bottom:22px}
+.hero h1 em{font-style:normal;color:#fff;position:relative;white-space:nowrap}
+.hero h1 em::after{content:"";position:absolute;left:-2%;right:-2%;bottom:.08em;height:.34em;background:rgba(191,59,43,.85);
+  z-index:-1;transform:skewX(-8deg) scaleX(0);transform-origin:left;animation:swipe 1s .55s cubic-bezier(.2,.8,.2,1) forwards}
+@keyframes swipe{to{transform:skewX(-8deg) scaleX(1)}}
+.hero .lede{font-size:clamp(15px,1.6vw,17.5px);color:rgba(246,241,230,.8);max-width:34em;margin-bottom:34px}
+.hero .lede b{color:#fff;font-weight:600}
+.btns{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;gap:9px;font-size:14.5px;padding:13px 26px;border-radius:99px;font-weight:600;transition:.28s;border:1px solid transparent}
+.btn-primary{background:var(--cinnabar);color:#fff;box-shadow:0 8px 26px rgba(191,59,43,.38)}
+.btn-primary:hover{background:var(--cinnabar-lt);transform:translateY(-2px);box-shadow:0 14px 34px rgba(191,59,43,.45)}
+.btn-ghost{border-color:rgba(246,241,230,.34);color:#f6f1e6}
+.btn-ghost:hover{background:rgba(246,241,230,.1);border-color:rgba(246,241,230,.55)}
+.hint{font-size:12.5px;color:rgba(246,241,230,.5)}
+
+/* 对话演示卡 */
+.demo{background:linear-gradient(180deg,#fffdf8,#faf6ec);color:var(--text);border-radius:16px;box-shadow:var(--shadow-lg);
+  overflow:hidden;border:1px solid rgba(246,241,230,.18);transform:perspective(1600px) rotateY(-5deg) rotateX(2deg)}
+.demo-bar{display:flex;align-items:center;gap:8px;padding:11px 16px;background:linear-gradient(105deg,var(--ink-700),var(--ink));color:#f6f1e6;font-size:12px}
+.demo-bar .dot{width:9px;height:9px;border-radius:50%;background:rgba(246,241,230,.28)}
+.demo-bar b{margin-left:6px;font-weight:500;letter-spacing:.05em}
+.demo-bar .demo-role{margin-left:auto;border:1px solid rgba(246,241,230,.3);border-radius:99px;padding:2px 10px;font-size:11px}
+.demo-body{padding:18px 16px 20px;min-height:392px;display:flex;flex-direction:column;gap:13px;background:
+  radial-gradient(600px 300px at 12% -8%,#fbf8f0,transparent 60%),var(--paper)}
+.msg{max-width:88%;font-size:13.6px;line-height:1.72;opacity:0;transform:translateY(12px);transition:.5s}
+.msg.show{opacity:1;transform:none}
+.msg.q{align-self:flex-end;background:var(--ink);color:#f6f1e6;padding:9px 15px;border-radius:12px 12px 3px 12px}
+.msg.a{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-left:3px solid var(--cinnabar);
+  padding:11px 14px;border-radius:12px 12px 12px 3px;box-shadow:var(--shadow-md)}
+.msg.a.refuse{border-left-color:var(--ink-300)}
+.src{margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);font-size:11.5px;color:var(--muted)}
+.src b{color:var(--cinnabar);font-weight:600}
+.tag{display:inline-block;font-size:10.5px;padding:1px 8px;border-radius:99px;background:var(--cinnabar-wash);color:var(--cinnabar);margin-right:6px;font-weight:600}
+.tag.sys{background:#eef1f6;color:var(--ink-500)}
+.typing{align-self:flex-start;display:flex;gap:5px;padding:13px 15px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--ink-300);animation:blink 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.22;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+.demo-foot{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line-soft);background:var(--card);font-size:11.5px;color:var(--muted)}
+.demo-foot button{margin-left:auto;font-family:inherit;font-size:11.5px;border:1px solid var(--line);background:transparent;color:var(--ink-500);
+  border-radius:99px;padding:4px 12px;cursor:pointer;transition:.2s}
+.demo-foot button:hover{border-color:var(--cinnabar);color:var(--cinnabar)}
+
+/* 指标条 */
+.stats{position:relative;z-index:2;margin-top:clamp(44px,6vw,74px);border-top:1px solid rgba(246,241,230,.14);
+  display:grid;grid-template-columns:repeat(4,1fr)}
+@media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{padding:26px 20px 34px;border-left:1px solid rgba(246,241,230,.14)}
+.stat:first-child{border-left:0}
+.stat .n{font-family:var(--serif);font-size:clamp(26px,3.4vw,40px);color:#fff;line-height:1}
+.stat .n s{text-decoration:none;font-size:.5em;color:var(--cinnabar-lt);margin-left:3px}
+.stat .l{font-size:12.5px;color:rgba(246,241,230,.62);margin-top:9px;letter-spacing:.04em}
+
+/* ============ 通用区块 ============ */
+.kicker{font-size:12.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--cinnabar);font-weight:700;margin-bottom:14px}
+.h2{font-size:clamp(26px,3.6vw,42px);color:var(--ink);margin-bottom:16px}
+.sub{font-size:16px;color:var(--muted);max-width:56em;margin-bottom:clamp(34px,5vw,56px)}
+.sub b{color:var(--ink);font-weight:600}
+.on-dark .sub{color:rgba(246,241,230,.72)}
+
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal.d1{transition-delay:.08s}.reveal.d2{transition-delay:.16s}.reveal.d3{transition-delay:.24s}.reveal.d4{transition-delay:.32s}
+
+/* 角色卡 */
+.roles{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.roles{grid-template-columns:1fr}}
+.role{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px 26px;box-shadow:var(--shadow-md);
+  position:relative;overflow:hidden;transition:.35s}
+.role:hover{transform:translateY(-5px);box-shadow:var(--shadow-lg)}
+.role::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--rc)}
+.role .ic{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;background:var(--rcb);color:var(--rc);margin-bottom:18px}
+.role h3{font-size:20px;color:var(--ink);margin-bottom:6px}
+.role .who{font-size:12px;letter-spacing:.1em;color:var(--rc);font-weight:700;margin-bottom:16px}
+.role p{font-size:14px;color:#4b4f57;margin-bottom:12px}
+.role q{display:block;font-family:var(--serif);font-size:15px;color:var(--ink-500);background:var(--paper-2);
+  border-radius:9px;padding:11px 14px;margin-top:14px;quotes:"「" "」"}
+
+/* 截图 */
+.shots{display:grid;grid-template-columns:repeat(6,1fr);gap:22px}
+.shot{grid-column:span 3;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  box-shadow:var(--shadow-md);cursor:zoom-in;transition:.35s}
+.shot:hover{transform:translateY(-4px);box-shadow:var(--shadow-lg);border-color:var(--cinnabar-lt)}
+.shot.big{grid-column:span 6}
+.shot .frame{background:linear-gradient(105deg,var(--ink-700),var(--ink));padding:9px 13px;display:flex;gap:7px;align-items:center}
+.shot .frame i{width:8px;height:8px;border-radius:50%;background:rgba(246,241,230,.3)}
+.shot .frame span{margin-left:8px;font-size:11px;color:rgba(246,241,230,.66);letter-spacing:.05em}
+.shot img{width:100%;height:auto;aspect-ratio:1440/900;object-fit:cover;object-position:top left;border-bottom:1px solid var(--line)}
+.shot figcaption{padding:14px 18px 18px;font-size:13px;color:var(--muted)}
+.shot figcaption b{display:block;font-family:var(--serif);font-size:16px;color:var(--ink);margin-bottom:4px;font-weight:400}
+@media(max-width:820px){.shots{grid-template-columns:1fr}.shot,.shot.big{grid-column:span 1}.shot img{object-position:top left}}
+
+/* 四层门控 */
+.gates{display:grid;grid-template-columns:repeat(4,1fr);gap:0;position:relative}
+@media(max-width:980px){.gates{grid-template-columns:1fr}}
+.gate{padding:30px 26px;border:1px solid rgba(246,241,230,.16);border-right:0;background:rgba(255,255,255,.025);transition:.35s;position:relative}
+.gate:last-child{border-right:1px solid rgba(246,241,230,.16)}
+.gate:hover{background:rgba(191,59,43,.1);border-color:rgba(216,87,63,.4)}
+.gate .num{font-family:var(--serif);font-size:40px;color:rgba(246,241,230,.16);line-height:1;margin-bottom:14px}
+.gate:hover .num{color:var(--cinnabar-lt)}
+.gate h3{font-size:18px;color:#fff;margin-bottom:10px}
+.gate p{font-size:13.5px;color:rgba(246,241,230,.68);margin-bottom:12px}
+.gate code{display:block;font-size:11.5px;color:var(--cinnabar-lt);background:rgba(0,0,0,.28);border-radius:7px;padding:8px 10px;line-height:1.6;overflow-wrap:anywhere}
+.on-dark{background:linear-gradient(170deg,var(--ink-700),var(--ink) 60%,#131f38);color:#f6f1e6}
+.on-dark .h2{color:#fff}
+.on-dark .kicker{color:var(--cinnabar-lt)}
+
+/* 检索链路 */
+.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin-bottom:34px}
+.node{flex:1 1 150px;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 16px 18px;box-shadow:var(--shadow-md);position:relative}
+.node b{display:block;font-family:var(--serif);font-size:15.5px;color:var(--ink);margin-bottom:5px}
+.node span{font-size:12.5px;color:var(--muted);line-height:1.6}
+.node.alt{border-color:var(--cinnabar-lt);background:linear-gradient(180deg,#fff,#fdf4f1)}
+.arrow{align-self:center;color:var(--cinnabar);font-size:19px;flex:0 0 auto}
+.split{display:grid;grid-template-columns:1.1fr .9fr;gap:clamp(24px,4vw,52px);align-items:start}
+.split>*{min-width:0}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:26px 26px 28px;box-shadow:var(--shadow-md)}
+.panel h3{font-size:19px;color:var(--ink);margin-bottom:14px}
+.panel ul{list-style:none;display:grid;gap:11px}
+.panel li{font-size:14px;padding-left:22px;position:relative;color:#4b4f57}
+.panel li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:8px;border-radius:2px;background:var(--cinnabar);transform:rotate(45deg)}
+.panel li b{color:var(--ink)}
+.mono{font-family:var(--mono);font-size:12.5px;background:var(--ink-700);color:#e8e2d4;border-radius:10px;padding:16px 18px;overflow-x:auto;line-height:1.8;white-space:pre;max-width:100%}
+.mono .c{color:#8d9ab5}
+.mono .k{color:var(--cinnabar-lt)}
+.on-dark .sub b,.on-dark .gate p b{color:#fff}
+.on-dark .tl p{color:rgba(246,241,230,.78)}
+.on-dark .tl p b{color:#fff}
+.btn-ghost{background:transparent}
+
+/* 权限矩阵 */
+.matrix{width:100%;border-collapse:separate;border-spacing:0;background:var(--card);border:1px solid var(--line);border-radius:13px;overflow:hidden;box-shadow:var(--shadow-md);font-size:13.8px}
+.matrix th,.matrix td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--line-soft)}
+.matrix thead th{background:var(--ink);color:#f6f1e6;font-weight:500;font-family:var(--serif);font-size:14.5px}
+.matrix tbody tr:last-child td{border-bottom:0}
+.matrix td.y{color:var(--jade);font-weight:700}
+.matrix td.n{color:var(--cinnabar);font-weight:700}
+.matrix tbody tr:hover{background:#fbf7ee}
+
+/* 故事块 */
+.story{display:grid;grid-template-columns:.92fr 1.08fr;gap:clamp(26px,4vw,56px);align-items:center}
+@media(max-width:900px){.story{grid-template-columns:1fr}}
+.story .quote{font-family:var(--serif);font-size:clamp(19px,2.3vw,27px);line-height:1.6;color:var(--ink);
+  border-left:3px solid var(--cinnabar);padding-left:24px;margin-bottom:20px}
+.story .quote s{text-decoration:none;background:linear-gradient(transparent 62%,var(--cinnabar-wash) 0);color:var(--cinnabar);font-weight:600}
+.timeline{display:grid;gap:0}
+.tl{display:grid;grid-template-columns:78px 1fr;gap:18px;padding:16px 0;border-top:1px dashed var(--line)}
+.tl:last-child{border-bottom:1px dashed var(--line)}
+.tl .d{font-family:var(--serif);font-size:13px;color:var(--cinnabar);padding-top:3px}
+.tl p{font-size:14px;color:#4b4f57}
+.tl b{color:var(--ink)}
+
+/* 评测看板 */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:30px}
+@media(max-width:860px){.board{grid-template-columns:1fr}}
+.metric{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:24px;box-shadow:var(--shadow-md)}
+.metric .top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+.metric .name{font-size:13.5px;color:var(--muted);letter-spacing:.04em}
+.metric .val{font-family:var(--serif);font-size:32px;color:var(--ink);line-height:1}
+.bar{height:7px;border-radius:99px;background:var(--paper-2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--jade),#4d9c86);width:0;transition:width 1.3s cubic-bezier(.2,.8,.2,1)}
+.reveal.in .bar i{width:var(--w,100%)}
+.bar.warn i{background:linear-gradient(90deg,var(--bronze),#c8944a)}
+.metric .foot{font-size:12px;color:var(--muted);margin-top:12px}
+.cases{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:12px;padding:5px 12px;border-radius:99px;background:var(--card);border:1px solid var(--line);color:var(--ink-500)}
+.chip b{color:var(--cinnabar);font-weight:700}
+
+/* 技术栈 */
+.stack{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:14px;margin-bottom:38px}
+.tech{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:18px;transition:.3s}
+.tech:hover{border-color:var(--cinnabar-lt);transform:translateY(-3px)}
+.tech b{display:block;font-family:var(--serif);font-size:16px;color:var(--ink);margin-bottom:3px}
+.tech span{font-size:12.5px;color:var(--muted)}
+
+/* 限制 */
+.limits{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:860px){.limits{grid-template-columns:1fr}}
+.limit{background:rgba(255,255,255,.6);border:1px dashed var(--line);border-radius:13px;padding:24px 26px}
+.limit h3{font-size:18px;color:var(--ink);margin-bottom:14px}
+.limit li{font-size:13.8px;color:#4b4f57;margin-bottom:10px;padding-left:20px;position:relative;list-style:none}
+.limit li::before{content:"—";position:absolute;left:0;color:var(--muted)}
+.limit li b{color:var(--ink)}
+
+/* footer */
+footer{background:var(--ink-700);color:rgba(246,241,230,.7);padding:64px 0 34px;font-size:13.5px}
+footer .cols{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:36px;margin-bottom:40px}
+@media(max-width:820px){footer .cols{grid-template-columns:1fr}}
+footer h4{font-family:var(--serif);font-size:16px;color:#fff;font-weight:400;margin-bottom:14px}
+footer .accts{display:grid;gap:9px;font-size:12.5px}
+footer .accts code{background:rgba(246,241,230,.1);padding:2px 8px;border-radius:5px;color:#f6f1e6}
+footer .bot{border-top:1px solid rgba(246,241,230,.13);padding-top:22px;display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:rgba(246,241,230,.5)}
+footer a:hover{color:var(--cinnabar-lt)}
+
+/* 灯箱 */
+.lb{position:fixed;inset:0;z-index:100;background:rgba(16,27,49,.92);display:none;place-items:center;padding:4vh 4vw;backdrop-filter:blur(6px)}
+.lb.open{display:grid}
+.lb img{max-height:92vh;max-width:100%;border-radius:10px;box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.lb .x{position:absolute;top:22px;right:26px;font-size:30px;color:#f6f1e6;cursor:pointer;line-height:1;background:none;border:0}
+.lb .cap{position:absolute;bottom:20px;left:0;right:0;text-align:center;color:rgba(246,241,230,.72);font-size:13px}
+
+@media(max-width:980px){
+  .demo{transform:none}
+  .eyebrow{white-space:normal;line-height:1.55;font-size:11px;letter-spacing:.09em;padding:5px 12px}
+  .demo-body{min-height:340px}
+  .hero .lede{max-width:none}
+}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+  .reveal{opacity:1;transform:none}
+  .msg{opacity:1;transform:none}
+  .hero h1 em::after{transform:skewX(-8deg) scaleX(1)}
+}
+</style>
+<noscript><style>.reveal{opacity:1;transform:none}.msg{opacity:1;transform:none}.bar i{width:var(--w,100%)}</style></noscript>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="#top"><span class="seal">智</span>智枢 <span style="font-size:12px;letter-spacing:.18em;opacity:.7">NOVACAMPUS AGENT</span></a>
+    <nav>
+      <a href="#scene">场景</a><a href="#ui">界面</a><a href="#gates">防幻觉</a>
+      <a href="#retrieval">检索</a><a href="#rbac">权限</a><a href="#eval">评测</a><a href="#run">跑起来</a>
+    </nav>
+    <a class="cta" href="#run">5 分钟自托管</a>
+  </div>
+</header>
+
+<!-- ============ HERO：先给视觉冲击 ============ -->
+<section class="hero" id="top" style="padding-bottom:0">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow"><i></i>自研 RAG 校园智能体 · FastAPI + SQLite + 混合检索</span>
+      <h1>答错还很自信的<br>政策问答，<em>不如不答</em></h1>
+      <p class="lede">
+        智枢 Agent 把「政策问答 / 辅导员周报 / 系统故障诊断」装进一个能跑在自己电脑上的系统。
+        它最花力气的地方不是回答得多流畅，而是 <b>检索不到证据时，代码直接接管、不让模型开口</b>——
+        四层门控 + <b>59 条公开评测用例</b>，把「不瞎编」做成可验证的工程约束。
+      </p>
+      <div class="btns">
+        <a class="btn btn-primary" href="#run">现在就跑起来 →</a>
+        <a class="btn btn-ghost" href="#gates">看它怎么拒绝回答</a>
+      </div>
+      <p class="hint">Python 3.12 + 两个模型 Key（都有免费额度）· 不需要 Docker / Node / GPU / 云服务器 · MIT</p>
+    </div>
+
+    <figure class="demo" aria-label="演示对话">
+      <div class="demo-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <b>127.0.0.1:8900</b><span class="demo-role">counselor · 辅导员</span></div>
+      <div class="demo-body" id="demoBody"></div>
+      <div class="demo-foot">
+        <span>取自真实评测输出（qa-01 / refusal 用例）</span>
+        <button id="replay" type="button">↻ 重播</button>
+      </div>
+    </figure>
+  </div>
+
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="n" data-count="59">0</div><div class="l">人工校验评测用例（全部公开）</div></div>
+      <div class="stat"><div class="n" data-count="1.00" data-dec="2">0</div><div class="l">Recall@k 均值（最新一轮）</div></div>
+      <div class="stat"><div class="n" data-count="0.944" data-dec="3">0</div><div class="l">忠实度均值（LLM-judge）</div></div>
+      <div class="stat"><div class="n" data-count="4">0</div><div class="l">层代码级拒答 / 剥离 / 闸门</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 场景 ============ -->
+<section id="scene">
+  <div class="wrap">
+    <p class="kicker reveal">一个问询台，三种身份</p>
+    <h2 class="h2 reveal">不是「某个平台的插件」，<br>是从检索链路到前端都自己写的系统</h2>
+    <p class="sub reveal">校园里的「万能问询台」：<b>学生</b>问政策要引用，<b>辅导员</b>记碎片出周报，<b>校管理员</b>看告警找根因。
+      同一套检索与权限内核，按角色给出不同的入口与可见范围。</p>
+
+    <div class="roles">
+      <article class="role reveal d1" style="--rc:var(--jade);--rcb:#eaf4ef">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 2 8l10 5 10-5-10-5Z"/><path d="M4 10v6c0 1.5 3.6 4 8 4s8-2.5 8-4v-6"/></svg></div>
+        <p class="who">STUDENT</p>
+        <h3>学生 · 带引用的政策问答</h3>
+        <p>混合检索命中后按句标注 <code>[n]</code>，点开可看命中的知识库分块原文与相关度分数。</p>
+        <q>研究生申请休学要交哪些材料？</q>
+        <p style="margin-top:14px;color:var(--jade);font-size:13px">→ 答完附来源《研究生学籍管理规定》· 相关度 0.9971</p>
+      </article>
+
+      <article class="role reveal d2" style="--rc:var(--cinnabar);--rcb:var(--cinnabar-wash)">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
+        <p class="who">COUNSELOR</p>
+        <h3>辅导员 · 碎片到周报</h3>
+        <p>随手记一句 → AI 扩充成规范纪要 → 自动分类归整 → 结构化周报 → 归档回灌知识库。周报能力经 <b>MCP 协议</b>由独立服务提供。</p>
+        <q>和小王谈了补考压力，建议他规划复习。</q>
+        <p style="margin-top:14px;color:var(--cinnabar);font-size:13px">→ 周末一键生成本周概览 + 分类条目</p>
+      </article>
+
+      <article class="role reveal d3" style="--rc:var(--bronze);--rcb:#f7efdf">
+        <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 17l5-6 4 3 5-8 4 5"/><path d="M3 21h18"/></svg></div>
+        <p class="who">ADMIN</p>
+        <h3>校管理员 · AIOps 诊断</h3>
+        <p>对接模拟校园系统的 Prometheus 指标与容器日志：告警 → 取证 → 根因 → 中文诊断报告。</p>
+        <q>一卡通系统连接池耗尽，为什么？</q>
+        <p style="margin-top:14px;color:var(--bronze);font-size:13px">→ 独立 MCP Server，<b>尚未接入主对话流程</b>（路线图 P3c）</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 真实界面 ============ -->
+<section id="ui" style="background:var(--paper-2)">
+  <div class="wrap">
+    <p class="kicker reveal">真实界面 · 非设计稿</p>
+    <h2 class="h2 reveal">截图全部取自验收证据目录</h2>
+    <p class="sub reveal">零构建前端：原生 HTML / CSS / JS，无 <code>package.json</code>、无打包步骤。
+      工作记录类页面含真实事务描述，<b>未</b>放入本页。</p>
+
+    <div class="shots">
+      <figure class="shot big reveal" data-cap="同一段会话里的两种命运：有据可查时给出带 [1] 引用的答案，无据可查时由系统模板拒答并附缺口说明">
+        <div class="frame"><i></i><i></i><i></i><span>有据回答 vs 拒答 · 同屏对照</span></div>
+        <img src="assets/answer-with-citation.png" alt="带引用与拒答的对话界面" loading="lazy">
+        <figcaption><b>「引用溯源」和「拒绝瞎编」在同一屏</b>下方答案标注 <code>[1]《研究生学籍管理规定》· 相关度 0.9971</code>；上方报修电话一问，直接返回系统模板 + 缺口说明，右侧知识库面板可见分块与可见性标记。</figcaption>
+      </figure>
+
+      <figure class="shot reveal d1" data-cap="知识库管理：上传解析、文件夹分类、学段筛选、按角色分级可见">
+        <div class="frame"><i></i><i></i><i></i><span>知识库管理</span></div>
+        <img src="assets/kb-management.png" alt="知识库管理界面" loading="lazy">
+        <figcaption><b>文档级可见性分级</b>每篇文档可设「全体可见 / 辅导员及以上 / 仅管理员」，检索时按角色过滤。</figcaption>
+      </figure>
+
+      <figure class="shot reveal d2" data-cap="学生登录后的侧边栏：周报与工作记录入口按角色隐藏">
+        <div class="frame"><i></i><i></i><i></i><span>学生端 · 同一套界面</span></div>
+        <img src="assets/student-nav.png" alt="学生端导航" loading="lazy" style="object-position:0 0">
+        <figcaption><b>入口按角色收敛</b>左侧只剩「新会话 / 历史对话 / 知识库 / 辅导员」——但真正的校验在后端。</figcaption>
+      </figure>
+
+      <figure class="shot reveal d1" data-cap="周报页：碎片记录 → AI 扩充 → 生成 → 归档">
+        <div class="frame"><i></i><i></i><i></i><span>周报 · 碎片扩充与归档</span></div>
+        <img src="assets/weekly.png" alt="周报界面" loading="lazy">
+        <figcaption><b>四段式工作流</b>记录碎片、生成与归档、已归档列表三段同屏，归档周报可再读回知识库。</figcaption>
+      </figure>
+
+      <figure class="shot reveal d2" data-cap="注入一卡通 CPU 飙高故障后的 Grafana 实时曲线">
+        <div class="frame"><i></i><i></i><i></i><span>可选完整栈 · Grafana</span></div>
+        <img src="assets/grafana-fault.png" alt="故障注入监控大屏" loading="lazy">
+        <figcaption><b>故障注入大屏</b>注入「一卡通 CPU 飙高」后的实时曲线，作为 AIOps 诊断的取证数据源。</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 四层门控：技术硬实力主场 ============ -->
+<section class="on-dark" id="gates">
+  <div class="wrap">
+    <p class="kicker reveal">核心设计 · 四层防线</p>
+    <h2 class="h2 reveal">把「不要瞎编」从提示词<br>下沉为<b style="color:var(--cinnabar-lt)">代码约束</b></h2>
+    <p class="sub reveal">大模型答政策问题最大的风险不是「答不出」，而是<b>答错了还很自信</b>。
+      这四层不是 prompt 里的叮嘱，是可单测、可复现、可被评测打分的代码路径。</p>
+
+    <div class="gates">
+      <article class="gate reveal d1"><div class="num">01</div>
+        <h3>代码级拒答门控</h3>
+        <p>三种硬条件任一命中即返回系统模板，<b>不经过模型自由生成</b>。</p>
+        <code>检索为空 || top_rerank &lt; 阈值<br>|| 达标分块 &lt; 2 → 拒答</code>
+      </article>
+      <article class="gate reveal d2"><div class="num">02</div>
+        <h3>引用越界剥离</h3>
+        <p>答案里出现 <code>[7]</code> 但只检索到 3 条来源？代码删掉这个编号，并自动记一条 bad case。</p>
+        <code>ref &gt; len(sources) → strip()<br>+ badcases.json 追加</code>
+      </article>
+      <article class="gate reveal d3"><div class="num">03</div>
+        <h3>流式 grounding 闸门</h3>
+        <p>边生成边检查：整段回答里一个引用编号、一个数字都没有（在说空话），就重新生成一次。</p>
+        <code>NOVA_GROUNDING_GATE=1<br>scope: factual_turns | all_turns</code>
+      </article>
+      <article class="gate reveal d4"><div class="num">04</div>
+        <h3>联网只做兜底</h3>
+        <p>本地有据时<b>不出网</b>；出网时只发送当前问题文本，绝不携带知识库内容、会话历史或个人信息。</p>
+        <code>body keys = model / input /<br>tools / tool_choice  ← 有探针守着</code>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 检索链路 ============ -->
+<section id="retrieval">
+  <div class="wrap">
+    <p class="kicker reveal">检索链路</p>
+    <h2 class="h2 reveal">向量 + 关键词 RRF 融合 + 重排，<br>召回不达标就改写重试</h2>
+    <p class="sub reveal">一条提问请求在落到模型之前要过的关卡。每一步的耗时、命中数、最高重排分都会写进 <code>retrieval_trace</code>，评测时逐条可查。</p>
+
+    <div class="flow reveal">
+      <div class="node"><b>意图判定</b><span>LangGraph 状态机先分类：检索 / 闲聊 / 工具调用</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>双路召回</b><span>向量（bge-m3）+ 关键词 BM25，各取候选</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><b>RRF 融合</b><span>倒数排名融合去重，保留跨路一致证据</span></div>
+      <div class="arrow">→</div>
+      <div class="node alt"><b>重排打分</b><span>bge-reranker-v2-m3 出分 → 喂给拒答门控</span></div>
+      <div class="arrow">↺</div>
+      <div class="node"><b>查询改写</b><span>不达标自动改写关键词重试，上限 2 次</span></div>
+    </div>
+
+    <div class="split">
+      <div class="panel reveal d1">
+        <h3>为什么「措辞」会决定成败</h3>
+        <ul>
+          <li>同一件事，用户有 <b>8 种问法</b>，纯字面匹配只命中 <b>3 种</b>。</li>
+          <li>加上意图判定 + 召回不达标自动改写后，<b>实测 8/8 命中</b>。</li>
+          <li>上下文占用超过窗口 <b>65%</b> 时，按主题压缩较早内容再注入，多轮不丢关键约束。</li>
+          <li>提问时用 <b><code>@</code></b> 指定本次检索范围（文件夹多选），把「问哪一份文件」交给用户。</li>
+          <li>评测时把温度压到 <b>0</b>（<code>NOVAAGENT_EVAL_TEMPERATURE</code>），保证分数可复现。</li>
+        </ul>
+      </div>
+      <div class="reveal d2">
+        <h3 style="font-family:var(--serif);font-size:19px;color:var(--ink);margin-bottom:14px">一次真实请求的 trace 片段</h3>
+        <div class="mono"><span class="c"># qa-01 · student/counselor · 休学材料</span>
+intent     → retrieval      <span class="c">(llm_called=true, 681ms)</span>
+retrieve   → n_sources=<span class="k">2</span>  top_score=<span class="k">0.9953</span>
+             fused_candidates=<span class="k">12</span>  <span class="c">(1540ms)</span>
+gate       → <span class="k">PASS</span>  <span class="c"># 达标分块 ≥2，允许生成</span>
+answer     → <span class="c">"...本人书面申请、二级甲等以上医院</span>
+             <span class="c">诊断证明、导师意见</span> <span class="k">[1]</span><span class="c">。"</span>
+faithfulness → <span class="k">1.0</span>  <span class="c">(llm-judge)</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 权限 ============ -->
+<section id="rbac" style="background:var(--paper-2)">
+  <div class="wrap">
+    <p class="kicker reveal">权限模型</p>
+    <h2 class="h2 reveal">前端隐藏入口只是体验优化，<br>真正的校验在后端</h2>
+    <p class="sub reveal">三级角色 × 文档级可见性。<b>即使绕过界面直接调 API，学生也只会拿到 <code>403</code></b>；
+      被过滤掉的文档连检索结果都不会出现（<code>kb_hidden</code> 用例专门守这条）。</p>
+
+    <div class="reveal" style="overflow-x:auto">
+      <table class="matrix">
+        <thead><tr><th style="width:34%">能力</th><th>学生 student</th><th>辅导员 counselor</th><th>校管理员 admin</th></tr></thead>
+        <tbody>
+          <tr><td>带引用政策问答</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td></tr>
+          <tr><td>知识库浏览（按可见性过滤）</td><td class="y">只读 ✓</td><td class="y">✓</td><td class="y">最广范围 ✓</td></tr>
+          <tr><td>上传 / 解析 / 删除文档</td><td class="n">✕ 403</td><td class="y">✓</td><td class="y">✓</td></tr>
+          <tr><td>文档可见性设为「仅管理员」</td><td class="n">✕</td><td class="y">✓ 可设</td><td class="y">✓</td></tr>
+          <tr><td>周报 / 工作记录入口</td><td class="n">✕ 入口隐藏 + 接口 403</td><td class="y">✓</td><td class="y">✓</td></tr>
+          <tr><td>辅导员人设（全校可用 / 仅自己）</td><td class="y">使用 ✓</td><td class="y">创建 ✓</td><td class="y">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 案例研究：可信度高光 ============ -->
+<section class="on-dark" id="story">
+  <div class="wrap">
+    <p class="kicker reveal">案例研究 · 最有价值的一份文档</p>
+    <div class="story" style="align-items:start">
+      <div class="reveal">
+        <p class="quote" style="color:#f6f1e6">一个 26 用例全过、拒答准确率 <s>1.0</s>、忠实度 1.0 的 RAG 系统，
+          被一线辅导员的三个真实学生提问<s>当场打回原形</s>。</p>
+        <p style="font-size:14px;color:rgba(246,241,230,.7);margin-bottom:22px">
+          而所有指标对此完全失明。这份 <code>docs/CASE_STUDY.md</code> 记录的是「发现 → 量化归因 → 反向改造验收标准」的全过程，
+          过程中还证伪了作者自己先前提出的两个解释。文中数字全部可复现。</p>
+        <a class="btn btn-primary" href="#eval">看它如何改造评测集 →</a>
+      </div>
+      <div class="timeline reveal d1">
+        <div class="tl"><div class="d">失守</div><p><b>知识库里没有，它照样答，还标了引用编号。</b>
+          <code>sources = []</code>（零来源）却给出 5 步办理流程、材料清单、具体 APP 名称，句末标注 <code>[1]</code>——一个不存在的引用。</p></div>
+        <div class="tl"><div class="d">归因</div><p><b>失守不随机。</b>6 个问法的对照实验显示：与问句的<b style="color:#fff">情境丰富度正相关</b>——
+          越像真实用户会打的字，越容易被模型当成「可回答的通用问题」。</p></div>
+        <div class="tl"><div class="d">证伪</div><p><b>为什么指标看不见？</b>6 条 <code>refusal</code> 用例全是「今天天气怎么样」「微信的创始人是谁」这类
+          <b style="color:#fff">域外问题</b>。真正危险的「校园域内、但库里恰好没有」，一条用例都没有——所以拒答准确率长期 1.0。</p></div>
+        <div class="tl"><div class="d">改造</div><p><b>不是加 prompt 规则，而是补评测集与验收项。</b>
+          新增 <code>refusal_indomain</code> 6 条 + 追问拒答、历史假前提、多轮、上下文压缩等用例，把结论反向写进验收标准。</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 质量闭环 ============ -->
+<section id="eval">
+  <div class="wrap">
+    <p class="kicker reveal">质量闭环</p>
+    <h2 class="h2 reveal">59 条用例、三类指标、bad case 追踪<br>——分数和失败一起公开</h2>
+    <p class="sub reveal">最新一轮（v2.5，2026-10-02）：<b>58 / 59 通过</b>。
+      唯一的失败是 <code>ss-03</code>：它要验证 grounding 闸门，但运行时闸门未启用，属于「无法证明」而非「验证不通过」——报告里原样留着，不做粉饰。</p>
+
+    <div class="board">
+      <div class="metric reveal d1"><div class="top"><span class="name">Recall@k 均值</span><span class="val">1.00</span></div>
+        <div class="bar"><i style="--w:100%"></i></div><div class="foot">18 条 qa 用例逐条核对期望来源是否进 k</div></div>
+      <div class="metric reveal d2"><div class="top"><span class="name">忠实度均值</span><span class="val">0.944</span></div>
+        <div class="bar"><i style="--w:94.4%"></i></div><div class="foot">LLM-judge 打分，评测时温度压到 0 保证可复现</div></div>
+      <div class="metric reveal d3"><div class="top"><span class="name">拒答准确率</span><span class="val">1.00</span></div>
+        <div class="bar warn"><i style="--w:100%"></i></div><div class="foot">含 6 条「域内无据」用例——正是案例研究补进来的那一类</div></div>
+    </div>
+
+    <div class="split">
+      <div class="reveal">
+        <h3 style="font-family:var(--serif);font-size:19px;color:var(--ink);margin-bottom:14px">用例分布（共 16 类 / 59 条）</h3>
+        <div class="cases">
+          <span class="chip">qa 政策问答 <b>18</b></span><span class="chip">refusal 域外拒答 <b>6</b></span>
+          <span class="chip">refusal_indomain 域内无据 <b>6</b></span><span class="chip">permission_api 越权 <b>4</b></span>
+          <span class="chip">web_grounded 联网兜底 <b>4</b></span><span class="chip">kb_hidden 隐藏文档 <b>3</b></span>
+          <span class="chip">scoped_qa @范围检索 <b>3</b></span><span class="chip">stream_sse 流式 <b>3</b></span>
+          <span class="chip">persona 人设 <b>3</b></span><span class="chip">intent 意图 <b>2</b></span>
+          <span class="chip">rewrite 改写 <b>2</b></span><span class="chip">multiturn 多轮 <b>1</b></span>
+          <span class="chip">refusal_followup 追问 <b>1</b></span><span class="chip">history_false_premise 假前提 <b>1</b></span>
+          <span class="chip">context_compress 压缩 <b>1</b></span><span class="chip">persona_inject 注入 <b>1</b></span>
+        </div>
+      </div>
+      <div class="reveal d1">
+        <h3 style="font-family:var(--serif);font-size:19px;color:var(--ink);margin-bottom:14px">跑一遍评测</h3>
+        <div class="mono"><span class="c"># --base 是必填：防止误跑到机器上</span>
+<span class="c"># 另一个长期实例，得出「改了代码分数没变」</span>
+<span class="c"># 的假结论</span>
+$ python ../evals/run_evals.py \
+    <span class="k">--base</span> http://127.0.0.1:8900 \
+    <span class="k">--throttle-ms</span> 3000
+
+→ reports/eval_report_20261002_040015.json
+→ Recall@k 1.0 · 忠实度 0.9444 · 拒答 1.0
+→ 58/59 passed</div>
+        <p style="font-size:13px;color:var(--muted);margin-top:12px">另有 <code>evals/dashboard.html</code> 看板与 <code>docs/BADCASES.md</code> 失败追踪。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 跑起来 ============ -->
+<section id="run" style="background:linear-gradient(170deg,var(--ink-700),var(--ink) 55%,#131f38);color:#f6f1e6" class="on-dark">
+  <div class="wrap">
+    <p class="kicker reveal">自托管</p>
+    <h2 class="h2 reveal" style="color:#fff">5 分钟跑起来，<b style="color:var(--cinnabar-lt)">两个 Key 就够</b></h2>
+    <p class="sub reveal">对话模型用阿里云百炼 <code>qwen-flash</code>，向量与重排用硅基流动 <code>bge-m3</code> / <code>bge-reranker-v2-m3</code>，
+      注册后的免费额度就够跑通全部示例。<b>不需要 Docker、Node.js、GPU、云服务器。</b></p>
+
+    <div class="stack">
+      <div class="tech reveal"><b>FastAPI + Uvicorn</b><span>后端与 SSE 流式接口</span></div>
+      <div class="tech reveal d1"><b>SQLite</b><span>零外部数据库依赖</span></div>
+      <div class="tech reveal d2"><b>LangGraph</b><span>意图判定与检索编排状态机</span></div>
+      <div class="tech reveal d3"><b>MCP 2.2.0</b><span>周报 / AIOps 独立服务</span></div>
+      <div class="tech reveal d4"><b>NumPy + pypdf + docx</b><span>向量与文档解析</span></div>
+      <div class="tech reveal"><b>零构建前端</b><span>原生 HTML/CSS/JS，无打包</span></div>
+      <div class="tech reveal d1"><b>~10,700 行</b><span>自研 Python（novaagent 包 5,370 行）</span></div>
+      <div class="tech reveal d2"><b>WeKnora 基线</b><span>同语料「自研 vs 开源」对比，不参与运行</span></div>
+    </div>
+
+    <div class="split" style="align-items:start">
+      <div class="reveal">
+        <h3 style="font-family:var(--serif);font-size:19px;color:#fff;margin-bottom:14px">四步启动</h3>
+        <div class="mono" style="background:rgba(0,0,0,.32)"><span class="c"># 1) 后端依赖</span>
+$ cd novaagent && uv sync
+
+<span class="c"># 2) 填两个 Key（.env 已被 gitignore）</span>
+$ cp .env.example .env
+  LLM_API_KEY=sk-...        <span class="c"># 百炼</span>
+  EMBEDDING_API_KEY=sk-...  <span class="c"># 硅基流动</span>
+  RERANK_API_KEY=sk-...     <span class="c"># 同一把，留空则召回变差</span>
+
+<span class="c"># 3) 先起周报 MCP —— 不起主服务会直接失败</span>
+$ cd ../mcp/weekly && uv pip install "mcp==2.2.0"
+$ WEEKLY_PORT=18080 WEEKLY_HOST=127.0.0.1 python server.py
+
+<span class="c"># 4) 新开终端起主服务</span>
+$ cd ../../novaagent
+$ uv run uvicorn novaagent.main:app --port 8900
+→ 浏览器打开 http://127.0.0.1:8900</div>
+        <button class="btn btn-ghost" id="copy" type="button" style="margin-top:16px;font-size:13px;padding:9px 18px">复制命令</button>
+      </div>
+
+      <div class="reveal d1">
+        <h3 style="font-family:var(--serif);font-size:19px;color:#fff;margin-bottom:14px">新克隆的库是空的，这是对的</h3>
+        <p style="font-size:14px;color:rgba(246,241,230,.75);margin-bottom:18px">
+          <code>data/</code> 不随仓库分发。第一次提问会返回「知识库中暂无相关内容」——这说明<b style="color:#fff">拒答门控在工作</b>，不是装坏了。
+          上传一篇政策文档，就能看到带 <code>[n]</code> 引用的回答。</p>
+        <ul style="list-style:none;display:grid;gap:12px;font-size:13.5px;color:rgba(246,241,230,.78)">
+          <li>▸ 语料<b style="color:#fff">只用高校官网公开政策文件</b>，每篇 frontmatter 记 <code>source_url</code> 与 <code>doc_date</code>，可逐篇追溯。</li>
+          <li>▸ 仓库内<b style="color:#fff">不含真实学生个人信息</b>：姓名 / 学号 / 手机号 / 身份证号在受控文件中全量扫描 <b style="color:#fff">0 命中</b>。</li>
+          <li>▸ 联网出网请求体<b style="color:#fff">只含当前问题文本</b>，由自动化探针守着。</li>
+          <li>▸ 含学生姓名的公示名单页、登录页首页<b style="color:#fff">一律拒绝入库</b>。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 诚实的限制 ============ -->
+<section id="limits">
+  <div class="wrap">
+    <p class="kicker reveal">已知限制</p>
+    <h2 class="h2 reveal">没做完的部分，写在宣传页上</h2>
+    <p class="sub reveal">宣传页最容易撒谎的地方就是「只说做到的」。以下是当前<b>确实未完成</b>的部分。</p>
+    <div class="limits">
+      <div class="limit reveal">
+        <h3>功能与工程边界</h3>
+        <ul>
+          <li><b>P3c AIOps 未接入主流程</b>：MCP Server 已完成、可在任意 MCP 客户端独立调用，但主对话流程还不会自动调用它。</li>
+          <li><b>P3d 故障自动定位演示未做</b>：「注入故障 → 自动定位 → 出报告」的端到端演示还在路线图里。</li>
+          <li><b>T11 SQLite 线程安全未做</b>：单连接跨线程共享，高并发下会接口报错或挂起。</li>
+          <li><b>ss-03 未通过</b>：grounding 闸门用例在闸门未启用的运行下无法验证，报告保留原样。</li>
+        </ul>
+      </div>
+      <div class="limit reveal d1">
+        <h3>使用前请知悉</h3>
+        <ul>
+          <li>演示账号 <code>student / counselor / admin</code> <b>仅供本地演示</b>，不要暴露到公网。</li>
+          <li>导入本单位真实数据前，请先完成脱敏并遵守所在单位的数据管理规定；<b>本项目不提供合规担保</b>。</li>
+          <li>底座 <a href="https://github.com/Tencent/WeKnora" target="_blank" rel="noopener" style="color:var(--cinnabar);text-decoration:underline">Tencent WeKnora</a> 仅作为<b>对比基线</b>存在，源码不随本仓库分发。</li>
+          <li>免费模型通道会限流，评测建议加 <code>--throttle-ms 3000~5000</code>。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>智枢 Agent · NovaCampus</h4>
+        <p style="font-size:13px;line-height:1.85">面向高校场景的智能对话与运维 Agent。<br>
+          检索链路、权限模型、前端界面、评测体系均为从零实现。</p>
+        <p style="margin-top:16px"><a class="btn btn-primary" href="#top" style="font-size:13px;padding:10px 20px">回到顶部 ↑</a></p>
+      </div>
+      <div>
+        <h4>本地演示账号</h4>
+        <div class="accts">
+          <div><code>student</code> / <code>student123</code> — 问答、只读知识库</div>
+          <div><code>counselor</code> / <code>counselor123</code> — 最完整功能</div>
+          <div><code>admin</code> / <code>admin123</code> — 最广可见范围</div>
+        </div>
+      </div>
+      <div>
+        <h4>仓库内文档</h4>
+        <div class="accts">
+          <div><a href="../README.md"><code>README.md</code> 快速开始与 FAQ</a></div>
+          <div><a href="../docs/CASE_STUDY.md"><code>docs/CASE_STUDY.md</code> 指标之下的三类失败</a></div>
+          <div><a href="../docs/BADCASES.md"><code>docs/BADCASES.md</code> bad case 追踪</a></div>
+          <div><a href="../docs/EVAL_BASELINE.md"><code>docs/EVAL_BASELINE.md</code> 评测基线</a></div>
+          <div><a href="../PRIVACY-AUDIT.local.md"><code>PRIVACY-AUDIT</code> 隐私审计</a></div>
+        </div>
+      </div>
+    </div>
+    <div class="bot">
+      <span>MIT License</span><span>·</span><span>Python 3.12+</span><span>·</span>
+      <span>59 条评测用例全部公开</span><span>·</span>
+      <span>本页零外部依赖：单文件 HTML/CSS/JS，无 CDN、无埋点、无网络请求</span>
+    </div>
+  </div>
+</footer>
+
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="截图预览">
+  <button class="x" type="button" aria-label="关闭">×</button>
+  <img alt="" id="lbImg">
+  <p class="cap" id="lbCap"></p>
+</div>
+
+<script>
+/* ============ 1. 滚动显影 ============ */
+const io=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+},{threshold:.12,rootMargin:'0px 0px -8% 0px'});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ============ 2. 导航状态 ============ */
+const nav=document.getElementById('nav');
+const links=[...document.querySelectorAll('.nav nav a')];
+addEventListener('scroll',()=>{nav.classList.toggle('solid',scrollY>70);},{passive:true});
+nav.classList.toggle('solid',scrollY>70);
+const spy=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){
+    links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id));}});
+},{rootMargin:'-45% 0px -50% 0px'});
+document.querySelectorAll('section[id]').forEach(s=>spy.observe(s));
+
+/* ============ 3. 指标数字滚动 ============ */
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const ease=t=>1-Math.pow(1-t,3);
+const countIO=new IntersectionObserver(es=>{
+  es.forEach(e=>{
+    if(!e.isIntersecting)return;
+    const el=e.target, target=parseFloat(el.dataset.count), dec=+(el.dataset.dec||0);
+    if(reduce){el.textContent=target.toFixed(dec);countIO.unobserve(el);return;}
+    const t0=performance.now(), dur=1250;
+    (function step(now){
+      const p=Math.min((now-t0)/dur,1);
+      el.textContent=(target*ease(p)).toFixed(dec);
+      if(p<1)requestAnimationFrame(step);
+      else if(dec===0&&target>=10)el.innerHTML=target.toLocaleString();
+    })(t0);
+    countIO.unobserve(el);
+  });
+},{threshold:.6});
+document.querySelectorAll('[data-count]').forEach(el=>countIO.observe(el));
+
+/* ============ 4. 首屏对话演示（真实评测输出） ============ */
+const script=[
+  {t:'q',html:'研究生申请休学需要提交哪些材料？',d:260},
+  {t:'typing',d:900},
+  {t:'a',html:'研究生申请休学需提交以下材料：本人书面申请、二级甲等以上医院诊断证明（因病休学）、导师意见。<div class="src"><b>引用来源</b><br>[1]《研究生学籍管理规定》· 相关度 <b>0.9971</b></div>',d:0},
+  {t:'q',html:'宿舍空调坏了怎么报修，维修师傅电话多少？',d:1500},
+  {t:'typing',d:800},
+  {t:'a',cls:'refuse',html:'<span class="tag sys">系统模板 · 未经模型生成</span>知识库中暂无相关内容，无法就该问题给出有依据的回答。<br><span style="color:#7c7466;font-size:12.5px">缺口说明：知识库中未检索到与该问题相关的分块。为避免误导，本回答由系统模板生成，未采用模型自由发挥。</span><br><br>建议通过学校官方网站或对应职能部门页面查询联系方式。<div class="src"><b>sources = []</b> · 命中分块 0 · 最高重排分低于阈值 → 门控拦截</div>',d:0}
+];
+const body=document.getElementById('demoBody');
+let timers=[];
+function clearTimers(){timers.forEach(clearTimeout);timers=[];}
+function play(){
+  clearTimers();body.innerHTML='';
+  let t=reduce?0:300;
+  script.forEach(step=>{
+    t+=step.d;
+    timers.push(setTimeout(()=>{
+      if(step.t==='typing'){
+        const el=document.createElement('div');el.className='typing';el.innerHTML='<i></i><i></i><i></i>';
+        body.appendChild(el);
+        timers.push(setTimeout(()=>el.remove(),reduce?1:420));
+        return;
+      }
+      const el=document.createElement('div');
+      el.className='msg '+step.t+(step.cls?' '+step.cls:'');
+      el.innerHTML=step.html;body.appendChild(el);
+      requestAnimationFrame(()=>el.classList.add('show'));
+      body.scrollTop=body.scrollHeight;
+    },t));
+  });
+  if(!reduce)timers.push(setTimeout(play,t+11000));
+}
+play();
+document.getElementById('replay').addEventListener('click',play);
+
+/* ============ 5. 截图灯箱 ============ */
+const lb=document.getElementById('lb'),lbImg=document.getElementById('lbImg'),lbCap=document.getElementById('lbCap');
+document.querySelectorAll('.shot').forEach(f=>{
+  f.addEventListener('click',()=>{
+    lbImg.src=f.querySelector('img').src;
+    lbImg.alt=f.querySelector('img').alt;
+    lbCap.textContent=f.dataset.cap||'';
+    lb.classList.add('open');document.body.style.overflow='hidden';
+  });
+});
+function closeLb(){lb.classList.remove('open');document.body.style.overflow='';}
+lb.addEventListener('click',e=>{if(e.target!==lbImg)closeLb();});
+addEventListener('keydown',e=>{if(e.key==='Escape')closeLb();});
+
+/* ============ 6. 复制启动命令 ============ */
+document.getElementById('copy').addEventListener('click',async e=>{
+  const cmd='cd novaagent\nuv sync\ncp .env.example .env   # Windows: copy\n# 填入 LLM_API_KEY / EMBEDDING_API_KEY / RERANK_API_KEY\ncd ../mcp/weekly\nuv venv .venv && uv pip install "mcp==2.2.0"\nWEEKLY_PORT=18080 WEEKLY_HOST=127.0.0.1 python server.py\n# 新开终端\ncd ../../novaagent\nuv run uvicorn novaagent.main:app --port 8900';
+  try{await navigator.clipboard.writeText(cmd);e.target.textContent='✓ 已复制';}
+  catch{e.target.textContent='请手动选择复制';}
+  setTimeout(()=>e.target.textContent='复制命令',2200);
+});
+</script>
+</body>
+</html>

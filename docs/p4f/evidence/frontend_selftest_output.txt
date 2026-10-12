@@ -12,6 +12,7 @@
 [PASS] F 引用的 chat.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 kb.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 weekly.js 真实存在(404 会静默半瘫)
+[PASS] F 引用的 minutes.js 真实存在(404 会静默半瘫)
 [PASS] F 引用的 theme.css 真实存在
 [PASS] F 引用的 persona.css 真实存在
 [PASS] F 引用的 shell.css 真实存在
@@ -112,4 +113,4 @@
 [PASS] F 会话列表人设徽标经 esc()
 [PASS] F textarea 回填已转义(</textarea> 截断攻击)
 ==============================================================================
-[RESULT] 112/112 passed
+[RESULT] 113/113 passed

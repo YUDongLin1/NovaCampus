@@ -2,6 +2,9 @@
 # 缘由（HANDOFF 坑 36）：core.autocrlf=true 时，同一个文件存在「LF 版」与「CRLF 版」两种字节数，
 # 复核时按字节数对账会得到两个都"看起来对"的值；eol=lf 让这个歧义从根上消失。
 * text=auto eol=lf
+# .bat 例外：cmd.exe 解析 LF 批处理时括号块和 :标签 会失效，必须保留 CRLF。
+# start.bat 同时是 ANSI/GBK 编码，见该文件头部说明。
+*.bat text eol=crlf
 # 明确二进制，避免 git 试图转换而损坏
 *.png binary
 *.jpg binary

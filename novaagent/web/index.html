@@ -74,6 +74,9 @@
       <li class="nav-item" data-page="records" data-staff="1">
         <a href="#/records"><span class="ni">✎</span>工作记录</a>
       </li>
+      <li class="nav-item" data-page="minutes" data-staff="1">
+        <a href="#/minutes"><span class="ni">▣</span>会议纪要</a>
+      </li>
     </ul>
 
     <div class="rail-history">
@@ -206,26 +209,46 @@
     <div class="tabpane page" id="pane-records">
       <div class="page-head">
         <h2>工作记录</h2>
-        <span class="page-sub">碎片记录与分类统计</span>
+        <span class="page-sub">日 / 月 / 年看板与分类统计</span>
       </div>
       <div class="panel">
-        <h2>筛选</h2>
+        <h2>看板</h2>
+        <div class="row">
+          <button class="btn ghost board-tab" id="bt-day" onclick="switchBoard('day')">日看板</button>
+          <button class="btn ghost board-tab" id="bt-month" onclick="switchBoard('month')">月看板</button>
+          <button class="btn ghost board-tab" id="bt-year" onclick="switchBoard('year')">年看板</button>
+          <span class="page-sub" id="board-tip">按发生日期统计；切换看板会带入该范围的默认值</span>
+        </div>
         <div class="row">
           <select id="rec-cat">
             <option value="">全部分类</option>
             <option>谈心谈话</option><option>事务办理</option><option>活动组织</option>
             <option>异常突发</option><option>其他</option>
           </select>
-          <input id="rec-start" type="date" title="开始日期">
-          <input id="rec-end" type="date" title="结束日期">
+          <span class="scope-row" id="rec-scope-day">
+            <input id="rec-start" type="date" title="开始日期">
+            <input id="rec-end" type="date" title="结束日期">
+          </span>
+          <input id="rec-month" type="month" title="统计月份" onchange="loadRecords()" style="display:none">
+          <select id="rec-year" title="统计年份" onchange="loadRecords()" style="display:none"></select>
           <button class="btn ghost" onclick="loadRecords()">查询</button>
         </div>
-        <div class="stats" id="rec-stats"></div>
+        <div class="board-stats" id="rec-stats"></div>
       </div>
-      <table>
-        <thead><tr><th style="width:64px">日期</th><th style="width:70px">分类</th><th>内容</th><th>操作</th></tr></thead>
-        <tbody id="recs"><tr><td colspan="4" class="empty">—</td></tr></tbody>
-      </table>
+      <div class="panel">
+        <h2>按月导出谈心谈话</h2>
+        <div class="row">
+          <input id="rec-export-month" type="month" title="导出月份">
+          <button class="btn ghost" onclick="exportTalkMonth()">导出本月记录（CSV）</button>
+          <span class="page-sub">每条一行台账整句；缺姓名/摘要的记录保留占位，不跳过</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="c-date">日期</th><th class="c-cat">分类</th><th class="c-name">学生</th><th class="c-main">内容</th><th class="c-ops">操作</th></tr></thead>
+          <tbody id="recs"><tr><td colspan="5" class="empty">—</td></tr></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="tabpane page" id="pane-weekly">
@@ -236,27 +259,90 @@
       <div class="panel">
         <h2>记录碎片（可先 AI 扩充再保存）</h2>
         <div class="row">
-          <select id="w-cat"><option>谈心谈话</option><option>事务办理</option><option>活动组织</option><option>异常突发</option><option>其他</option></select>
+          <select id="w-cat" onchange="onTalkCatChange()"><option>谈心谈话</option><option>事务办理</option><option>活动组织</option><option>异常突发</option><option>其他</option></select>
           <input id="w-date" type="date" title="发生日期，默认今天">
+        </div>
+        <div class="row" id="w-name-row">
+          <input id="w-name" placeholder="学生姓名（谈心谈话必填）" maxlength="40">
+          <span class="page-sub" id="w-name-tip">谈心谈话类记录必须登记学生姓名</span>
         </div>
         <div class="row"><textarea id="w-content" placeholder="简短记录即可，如：和小王谈了补考压力，已转介心理中心。点「AI 扩充」生成规范纪要，核对修改后保存。"></textarea></div>
         <div class="row">
           <button class="btn ghost" id="expand-btn" onclick="expandFragment()">✨ AI 扩充</button>
+          <button class="btn ghost" id="summarize-btn" onclick="summarizeTalk()">✨ 生成摘要</button>
           <button class="btn" onclick="addFragment()">保存记录</button>
+        </div>
+        <div class="row">
+          <input id="w-summary" placeholder="谈话摘要（自动生成，可手动修改），如：就该学生职业规划情况进行谈心谈话" maxlength="200">
         </div>
       </div>
       <div class="panel">
         <h2>生成与归档</h2>
         <div class="row">
-          <input id="w-start" type="date" title="周起始日期">
+          <input id="w-week" type="week" title="选择周（周一至周日）" onchange="onWeekChange()">
+          <button class="btn ghost" onclick="shiftWeek(-1)" title="上一周">◀ 上周</button>
+          <button class="btn ghost" onclick="shiftWeek(1)" title="下一周">下周 ▶</button>
           <button class="btn ghost" onclick="renderReport()">生成周报</button>
         </div>
+        <div class="row"><span class="page-sub" id="w-week-tip">—</span></div>
+        <div class="board-stats" id="w-week-stats"></div>
         <div class="row"><button class="btn ghost" id="archive-btn" onclick="archiveReport()" disabled>归档上方周报</button></div>
         <div id="weekly-out"></div>
       </div>
       <div class="panel">
         <h2>已归档周报</h2>
         <ul id="archived" style="list-style:none"><li class="empty">—</li></ul>
+      </div>
+    </div>
+
+    <div class="tabpane page" id="pane-minutes">
+      <div class="page-head">
+        <h2>会议纪要</h2>
+        <span class="page-sub">零散内容 / 笔记 / 录音 → 规范纪要（可编辑、复制、导出）</span>
+      </div>
+      <div class="panel">
+        <h2>1. 会议原始内容</h2>
+        <div class="row">
+          <input type="file" id="mt-file" onchange="onMinutesFile()">
+          <button class="btn ghost" id="mt-clear-btn" onclick="clearMinutesRaw()">清空</button>
+        </div>
+        <div class="row"><textarea id="mt-raw" placeholder="直接粘贴零碎的会议记录，或上传 .txt / .md 笔记、上传录音文件。&#10;例：下午班委会，张三李四都在。讨论了助学金材料要补一张表。名单本周公示。运动会报名李四负责，15号前交。"></textarea></div>
+        <div class="row" id="mt-audio-row" style="display:none">
+          <span class="page-sub" id="mt-audio-state">—</span>
+        </div>
+        <div class="row" id="mt-consent-row">
+          <label class="radio-line"><input type="checkbox" id="mt-consent" onchange="onMinutesConsent()"> 我同意把本次会议内容发往外部模型服务处理</label>
+          <span class="page-sub" id="mt-consent-tip">录音会上传转写、正文会发给大模型整理；未勾选时下方按钮不可用</span>
+        </div>
+        <div class="row">
+          <button class="btn" id="mt-organize-btn" onclick="organizeMinutes()" disabled>🧩 AI 整理成纪要</button>
+        </div>
+      </div>
+      <div class="panel" id="mt-result" style="display:none">
+        <h2>2. 整理结果（可编辑）</h2>
+        <div class="row" id="mt-untraced" style="display:none"></div>
+        <div class="detail-label">会议主题</div>
+        <div class="row"><input id="mt-title" maxlength="200"></div>
+        <div class="detail-label">会议时间</div>
+        <div class="row"><input id="mt-time" maxlength="100" placeholder="原文没提到就留空，导出时会标为待补充"></div>
+        <div class="detail-label">参会人员</div>
+        <div class="row"><input id="mt-attendees" maxlength="1000"></div>
+        <div class="detail-label">讨论要点（一行一条）</div>
+        <div class="row"><textarea id="mt-discussion"></textarea></div>
+        <div class="detail-label">决议事项（一行一条）</div>
+        <div class="row"><textarea id="mt-resolutions"></textarea></div>
+        <div class="detail-label">待办任务</div>
+        <div id="mt-todos"></div>
+        <div class="row"><button class="btn ghost" onclick="addTodoRow()">＋ 加一条待办</button></div>
+        <div class="row">
+          <button class="btn" id="mt-save-btn" onclick="saveMinutes(false)">保存纪要</button>
+          <button class="btn ghost" onclick="saveMinutes(true)">保存并导出 .docx</button>
+          <button class="btn ghost" onclick="copyMinutes()">复制文本</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>已存纪要</h2>
+        <ul id="mt-list" style="list-style:none"><li class="empty">—</li></ul>
       </div>
     </div>
 
@@ -284,6 +370,7 @@
 <script src="/js/chat.js"></script>
 <script src="/js/kb.js"></script>
 <script src="/js/weekly.js"></script>
+<script src="/js/minutes.js"></script>
 <script>
 (async function boot() {
   if (!TOKEN) return;

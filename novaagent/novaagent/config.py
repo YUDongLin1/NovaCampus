@@ -187,6 +187,33 @@ WEB_SEARCH_TOTAL_TIMEOUT_S = float(env("NOVA_WEB_SEARCH_TOTAL_TIMEOUT_S", "45"))
 WEB_SEARCH_TIMEOUT_S = WEB_SEARCH_IDLE_TIMEOUT_S
 WEB_SEARCH_MAX_SOURCES = int(env("NOVA_WEB_SEARCH_MAX_SOURCES", "8"))
 
+# ---------- 会议纪要:录音转写(ASR) ----------
+# 链路:百炼「上传本地文件获取临时 URL」(getUploadPolicy → OSS 表单上传 → oss:// 临时 URL)
+# → 录音文件识别异步任务(提交 → 轮询 task_id → 下载识别结果 JSON)。
+# ⚠ 三条来自官方文档的硬限制,写在这里是为了让"为什么我的录音转不了"有处可查:
+#   · 临时存储**仅限「中国内地(北京)」地域的 API Key**,且文件与模型绑定(上传与调用须同模型);
+#   · 临时 URL **有效期 48 小时**,过期无法使用 → 转写必须在本次请求内完成,不做"稍后重转";
+#   · 上传凭证接口限流 100 QPS 且不支持扩容,官方明确**请勿用于生产环境**
+#     —— 本项目的定位是辅导员单机自用,不是高并发服务端,故可接受,但不得据此对外提供服务。
+ASR_ENABLED = env("NOVA_ASR_ENABLED", "1") not in ("0", "false", "False")
+# DashScope 原生 REST 基址(与 LLM_BASE_URL 的 compatible-mode 端点不同,别混用)
+DASHSCOPE_BASE_URL = env("NOVA_DASHSCOPE_BASE_URL", "https://dashscope.aliyuncs.com").rstrip("/")
+ASR_MODEL = env("NOVA_ASR_MODEL", "paraformer-v2")
+# 说话人分离:默认关。开启后官方建议音频 ≤2 小时,且需给出/推断说话人数,识别失败率上升。
+ASR_DIARIZATION = env("NOVA_ASR_DIARIZATION", "0") not in ("0", "false", "False")
+ASR_SPEAKER_COUNT = int(env("NOVA_ASR_SPEAKER_COUNT", "0"))  # 0 = 不指定,交给模型自动判
+# 上传上限(MB)。官方上限 2GB,这里按单机自用的合理余量收紧,超限直接拒绝而不是默默传爆。
+ASR_MAX_MB = int(env("NOVA_ASR_MAX_MB", "200"))
+ASR_POLL_INTERVAL_S = float(env("NOVA_ASR_POLL_INTERVAL_S", "3"))
+# 总时限(秒):提交 + 轮询 + 取结果的整体上限,到点必断(与联网搜索双层超时同一口径:
+# 给用户一个可预期的等待上限,而不是"尽量等")。
+ASR_TOTAL_TIMEOUT_S = float(env("NOVA_ASR_TOTAL_TIMEOUT_S", "900"))
+# 允许上传的音频/视频容器后缀(录音文件识别支持的常见格式)
+ASR_AUDIO_EXTS = {
+    ".aac", ".amr", ".avi", ".flac", ".flv", ".m4a", ".mkv", ".mov", ".mp3",
+    ".mp4", ".mpeg", ".ogg", ".opus", ".wav", ".webm", ".wma", ".wmv",
+}
+
 
 
 def configured() -> list[str]:

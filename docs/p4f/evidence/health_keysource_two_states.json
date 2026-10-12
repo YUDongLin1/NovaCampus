@@ -20,7 +20,14 @@
         "llm_model": "qwen-flash",
         "llm_key_source": "repo_dotenv",
         "embedding_key_source": "repo_dotenv",
-        "eval_temperature": ""
+        "eval_temperature": "",
+        "asr_enabled": true,
+        "asr_model": "paraformer-v2",
+        "asr_diarization": false,
+        "asr_max_mb": 200,
+        "asr_total_timeout_s": 900.0,
+        "asr_key_source": "repo_dotenv",
+        "asr_base_url": "https://dashscope.aliyuncs.com"
       }
     },
     "session_injected": {
@@ -41,7 +48,14 @@
         "llm_model": "qwen-flash",
         "llm_key_source": "session_env",
         "embedding_key_source": "session_env",
-        "eval_temperature": ""
+        "eval_temperature": "",
+        "asr_enabled": true,
+        "asr_model": "paraformer-v2",
+        "asr_diarization": false,
+        "asr_max_mb": 200,
+        "asr_total_timeout_s": 900.0,
+        "asr_key_source": "session_env",
+        "asr_base_url": "https://dashscope.aliyuncs.com"
       }
     }
   },
@@ -65,22 +79,22 @@
     {
       "ok": true,
       "name": "health flags 含 llm_key_source(不注入态)",
-      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+      "detail": "keys=['asr_base_url', 'asr_diarization', 'asr_enabled', 'asr_key_source', 'asr_max_mb', 'asr_model', 'asr_total_timeout_s', 'embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
     },
     {
       "ok": true,
       "name": "health flags 含 llm_key_source(注入态)",
-      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+      "detail": "keys=['asr_base_url', 'asr_diarization', 'asr_enabled', 'asr_key_source', 'asr_max_mb', 'asr_model', 'asr_total_timeout_s', 'embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
     },
     {
       "ok": true,
       "name": "health flags 含 embedding_key_source(不注入态)",
-      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+      "detail": "keys=['asr_base_url', 'asr_diarization', 'asr_enabled', 'asr_key_source', 'asr_max_mb', 'asr_model', 'asr_total_timeout_s', 'embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
     },
     {
       "ok": true,
       "name": "health flags 含 embedding_key_source(注入态)",
-      "detail": "keys=['embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
+      "detail": "keys=['asr_base_url', 'asr_diarization', 'asr_enabled', 'asr_key_source', 'asr_max_mb', 'asr_model', 'asr_total_timeout_s', 'embedding_key_source', 'eval_temperature', 'graph_enabled', 'grounding_early_window_chars', 'grounding_gate_enabled', 'grounding_gate_scope_mode', 'grounding_stream_force_ungrounded', 'llm_key_source', 'llm_model', 'max_rewrite', 'web_search_enabled_default', 'web_search_idle_timeout_s', 'web_search_max_sources', 'web_search_timeout_s', 'web_search_total_timeout_s']"
     },
     {
       "ok": true,

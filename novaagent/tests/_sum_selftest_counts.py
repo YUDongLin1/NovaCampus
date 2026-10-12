@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""现算各自测的断言条数合计，并断言它 == 文档里写的那个数（当前 **八个**：P5 起加入 test_p5_shell.py）。
+"""现算各自测的断言条数合计，并断言它 == 文档里写的那个数（当前 **九个**：谈心谈话姓名/摘要/按月导出 + 会议纪要起加入 test_talk_minutes.py）。
 
 【为什么需要这个文件（第 4 回 · Qoder 的顺手一条，同一形状第四次复发）】
    汇总数是**手抄**的：文档里写「七个自测 NNN条 exit 全 0」，
@@ -59,6 +59,8 @@ SELFTESTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # P5 第 8 个(外壳重构 + 辅导员页 + 头像库):外壳一改,前端契约自测的条数会**跟着变**
     # (它按 DOM 里的 id/脚本清单展开断言),所以这两个必须一起现算,不能手抄其中一个。
     ("test_p5_shell.py", ()),
+    # 谈心谈话(姓名/摘要/按月导出) + 会议纪要(整理/防虚构/转写参数/docx)
+    ("test_talk_minutes.py", ()),
 )
 
 # ── 文档里写的聚合数 ──────────────────────────────────────────────────
@@ -85,7 +87,10 @@ SELFTESTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 #          test_p4f_frontend_contract 107 → 112（+5：静态 id 不变量 ——
 #          JS 里每个 $('xxx')/getElementById('xxx') 字面量都必须能在 index.html
 #          找到，它在**实现阶段**就能判红，不必等到真浏览器）
-EXPECTED_TOTAL = 720   # 676(P5 第 1 回) + 5(③ 静态 id 不变量) + 39(② enter() 真执行)
+EXPECTED_TOTAL = 885   # 843(上一轮) + 42(test_talk_minutes 119→161：静态资源缓存头 /
+                       # 内联事件函数存在性 / 摘要三态反馈 / 工作记录页响应式四条闸门)
+#   上一轮的构成留档：720(P5 第 2 回) + 119(test_talk_minutes) + 3(test_p5_shell 加 minutes 入口)
+#   + 1(test_p4f_frontend_contract 随新 DOM id / 新脚本自动展开)
 
 # ── 文档里逐条写的分项数（报错时用于定位「哪一条抄错了」）──────────────
 # ⚠ 这份表本身也可能抄错 —— 它存在的意义是**报错时立刻指出是哪一条**，
@@ -97,9 +102,10 @@ DOCUMENTED_PER_FILE: dict[str, int] = {
     "test_p4f_persona_eval_wiring.py": 66,
     "test_p4f_c0.py": 91,# 第 5 回：64 → 91（⑨ 通道守卫 20 + ⑩ F3 上传原子性 7 + C0-⑥ 条件断言改无条件 +1；
                        #  两种环境下都是 91，不再随 LLM_API_KEY 是否注入而漂移）
-    "test_p4f_frontend_contract.py": 112,   # P5 第1回 99→107(+8 随外壳展开)；第2回 107→112(+5 静态 id 不变量)
+    "test_p4f_frontend_contract.py": 113,   # P5 第1回 99→107(+8 随外壳展开)；第2回 107→112(+5 静态 id 不变量)；纪要单 112→113(新增 minutes.js 与新 DOM id 随表展开)
     "probe_health_keysource.py": 20,
-    "test_p5_shell.py": 148,                # P5 新增(壳层接线/路由/头像库/分组/迁移/RBAC)；第2回 109→148(+39 enter() 真执行)
+    "test_p5_shell.py": 151,                # P5 新增(壳层接线/路由/头像库/分组/迁移/RBAC)；第2回 109→148(+39 enter() 真执行)；纪要单 148→151(左栏第 7 个入口进断言)
+    "test_talk_minutes.py": 161,            # 谈心谈话姓名/摘要/按月导出 + 会议纪要整理/防虚构守卫/转写参数/docx(全程零额度,模型输出用固定样本)；缺陷单 +42：静态资源 no-cache + 条件请求 304 + 内联事件函数存在性 + 摘要三态反馈 + 工作记录页响应式
 }
 
 # 各自测最近一次落盘的证据文件，用于 --no-run 模式

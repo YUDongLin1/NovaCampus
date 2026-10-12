@@ -13,7 +13,9 @@ import re
 import time
 from typing import Any
 
-from . import config, db, graph, llm, rag, refusal, websearch
+from . import asr, config, db, graph, llm, rag, refusal, websearch
+from . import minutes as minutes_lib
+from . import talk_summary
 from .weekly_client import WeeklyMCP
 
 logger = logging.getLogger(__name__)
@@ -627,13 +629,15 @@ WEEKLY_TOOLS = [
         "type": "function",
         "function": {
             "name": "add_fragment",
-            "description": "记录一条辅导员工作碎片。category 必须是 谈心谈话/事务办理/活动组织/异常突发/其他 之一,由你根据内容判断;occurred_at 为事件发生日期 YYYY-MM-DD,缺省今天。",
+            "description": "记录一条辅导员工作碎片。category 必须是 谈心谈话/事务办理/活动组织/异常突发/其他 之一,由你根据内容判断;occurred_at 为事件发生日期 YYYY-MM-DD,缺省今天。分类为谈心谈话时,把用户提到的学生姓名原样传 student_name,并把摘要传 summary(形如「就该学生职业规划情况进行谈心谈话」,只依据用户原话,不确定就留空)。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "content": {"type": "string", "description": "碎片内容,含时间/对象/事项/结果"},
                     "category": {"type": "string", "description": "碎片分类"},
                     "occurred_at": {"type": "string", "description": "发生日期 YYYY-MM-DD,可省略"},
+                    "student_name": {"type": "string", "description": "谈心谈话对象(学生)姓名,可省略"},
+                    "summary": {"type": "string", "description": "一句话规范摘要,可省略"},
                 },
                 "required": ["content"],
             },
@@ -814,6 +818,64 @@ class AgentService:
             api_key=api_key,
         )
         return (msg.get("content") or "").strip()
+
+    async def summarize_talk(self, content: str, model: str,
+                             base_url: str = "", api_key: str = "") -> str:
+        """谈心谈话自动摘要:模型**只选主题**,整句由 `talk_summary` 拼装。
+
+        失败(调用异常 / 返回不在枚举内 / 返回空)一律返回空串,**绝不抛错**:
+        摘要只是锦上添花,不能因为它把"保存一条记录"这个主动作打断;
+        前端拿到空摘要就显示占位串,辅导员可手填。
+        """
+        try:
+            msg = await llm.chat(
+                [{"role": "user",
+                  "content": talk_summary.TOPIC_PROMPT.format(content=content[:3000])}],
+                model=model,
+                max_tokens=16,
+                temperature=0.1,
+                base_url=base_url,
+                api_key=api_key,
+            )
+        except Exception as e:  # noqa: BLE001 — 摘要失败不阻断保存(见 docstring)
+            logger.warning("谈心谈话摘要失败(留空): %s", e)
+            return ""
+        topic = talk_summary.normalize_topic((msg.get("content") or "").strip())
+        if not topic:
+            logger.info("谈心谈话摘要:模型返回无法归一到枚举,留空")
+            return ""
+        return talk_summary.build_summary(topic)
+
+    async def organize_minutes(self, raw_text: str, model: str,
+                               base_url: str = "", api_key: str = "") -> tuple[dict, list[str]]:
+        """零散会议内容 → (结构化纪要, untraced 说明)。
+
+        与 `summarize_talk` 相反,这里**失败即抛**:整理整段纪要就是这一轮的主动作,
+        静默返回空纪要比报错更坏(用户会以为"这份会议没内容")。
+        """
+        msg = await llm.chat(
+            [{"role": "user",
+              "content": minutes_lib.MINUTES_PROMPT.format(raw=raw_text[:12000])}],
+            model=model,
+            max_tokens=2500,
+            temperature=0.2,
+            base_url=base_url,
+            api_key=api_key,
+        )
+        text = (msg.get("content") or "").strip()
+        if not text:
+            raise RuntimeError("整理结果为空,请重试或手动编辑")
+        try:
+            parsed = minutes_lib.parse_minutes_output(text)
+        except ValueError as e:
+            raise RuntimeError(f"整理结果解析失败:{e}") from e
+        # 防虚构守卫:责任人与截止时间须能在原文中溯源,溯不到回落占位
+        return minutes_lib.guard(parsed, raw_text)
+
+    async def transcribe_audio(self, filename: str, data: bytes,
+                               api_key: str = "") -> str:
+        """录音 → 转写文本(会出网,调用方须已获用户确认)。"""
+        return await asr.transcribe(filename, data, api_key=api_key)
 
     async def summarize_document(self, title: str, chunks: list[str], model: str = "",
                                  base_url: str = "", api_key: str = "") -> str:
@@ -1300,13 +1362,27 @@ class AgentService:
             raise
 
     # 周报 REST 直调(供前端周报页与评测脚本确定性使用,不依赖 LLM 决策)
-    async def weekly_add(self, content: str, category: str, occurred_at: str) -> dict:
-        return await self.weekly.call("add_fragment", {
-            "content": content, "category": category, "occurred_at": occurred_at,
+    async def weekly_add(self, content: str, category: str, occurred_at: str,
+                         student_name: str = "", summary: str = "") -> dict:
+        args = {"content": content, "category": category, "occurred_at": occurred_at}
+        # 只在非空时传:空串交给 MCP 层默认值,避免"传了空串"与"没传"在两端语义分叉
+        if student_name:
+            args["student_name"] = student_name
+        if summary:
+            args["summary"] = summary
+        return await self.weekly.call("add_fragment", args)
+
+    async def weekly_update(self, fragment_id: int, student_name: str = "",
+                            summary: str = "") -> dict:
+        return await self.weekly.call("update_fragment", {
+            "fragment_id": fragment_id, "student_name": student_name, "summary": summary,
         })
 
     async def weekly_list(self, start_date: str = "", end_date: str = "") -> dict:
         return await self.weekly.call("list_fragments", {"start_date": start_date, "end_date": end_date})
+
+    async def weekly_export_talk(self, month: str) -> dict:
+        return await self.weekly.call("export_talk_records", {"month": month})
 
     async def weekly_delete(self, fragment_id: int) -> dict:
         return await self.weekly.call("delete_fragment", {"fragment_id": fragment_id})
@@ -1326,3 +1402,21 @@ class AgentService:
 
     async def weekly_report_detail(self, report_id: int) -> dict:
         return await self.weekly.call("read_report", {"report_id": report_id})
+
+    # ---------- 会议纪要存取(同库:周报 MCP 的 minutes 表) ----------
+
+    async def minutes_add(self, fields: dict) -> dict:
+        return await self.weekly.call("add_minutes", fields)
+
+    async def minutes_list(self, start_date: str = "", end_date: str = "") -> dict:
+        return await self.weekly.call("list_minutes",
+                                      {"start_date": start_date, "end_date": end_date})
+
+    async def minutes_get(self, minutes_id: int) -> dict:
+        return await self.weekly.call("get_minutes", {"minutes_id": minutes_id})
+
+    async def minutes_update(self, minutes_id: int, fields: dict) -> dict:
+        return await self.weekly.call("update_minutes", {"minutes_id": minutes_id, **fields})
+
+    async def minutes_delete(self, minutes_id: int) -> dict:
+        return await self.weekly.call("delete_minutes", {"minutes_id": minutes_id})
