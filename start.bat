@@ -137,7 +137,7 @@ exit /b 0
 
 :venv_ok
 REM %~1=python.exe 绝对路径。返回 0=可用 1=不可用
-"%~1" -c "import sys" >nul 2>nul
+"%~1" -c "import uvicorn, mcp" >nul 2>nul
 if errorlevel 1 exit /b 1
 exit /b 0
 
