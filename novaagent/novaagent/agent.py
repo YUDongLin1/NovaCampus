@@ -110,6 +110,46 @@ def est_tokens(text: str) -> int:
     return math.ceil(len(text or "") / 1.6)
 
 
+# ---------- 成本可见性与工具结果护栏(T13 成本审计) ----------
+#
+# 【为什么护栏定在 12,000 tok 而不是 2,000】工具返回值会进 messages 并在**后续每一轮
+#   工具调用**里重发(非流式 ≤3 轮 / 流式 ≤4 轮)。实测现库一次 `list_fragments` 全表
+#   返回 ≈8.5k~9.9k tok(`data/weekly/weekly.db` 93 条 fragments),相当于 6 个典型请求
+#   (输入 p50=1,580 tok)的量。把上限压到 2k 能省最多,但那会**改变模型可见内容**
+#   (它看不到全部碎片),必须先有评测对比才能动 —— 见成本审计报告「待验证」。
+#   12,000 高于现库实测最大值,因此**不改变现网任何一次输出**,只兜住未来的异常增长。
+TOOL_RESULT_MAX_TOKENS = int(config.env("NOVA_TOOL_RESULT_MAX_TOKENS", "12000"))
+TOOL_RESULT_MAX_CHARS = int(TOOL_RESULT_MAX_TOKENS * 1.6)
+
+
+def cap_tool_result(payload: object) -> str:
+    """序列化工具结果;超硬上限则截断并**留下可见标记**(坑 46:静默截断=丢内容没人知道)。"""
+    text = json.dumps(payload, ensure_ascii=False)
+    if len(text) <= TOOL_RESULT_MAX_CHARS:
+        return text
+    logger.warning("工具结果被硬上限截断: %d 字 > %d 字(上限 %d tok)",
+                   len(text), TOOL_RESULT_MAX_CHARS, TOOL_RESULT_MAX_TOKENS)
+    return (text[:TOOL_RESULT_MAX_CHARS]
+            + f"\n…[已截断:原结果 {len(text)} 字。需要完整内容请用 start_date/end_date "
+              f"缩小日期范围后重新调用本工具]")
+
+
+def request_token_profile(messages: list[dict]) -> dict:
+    """按项目口径估一次请求的输入构成。**只读数,不改内容、不发请求。**
+    存在的理由:此前全项目没有任何一处能看到"这一轮到底发了多少 token",
+    成本只能靠事后估算(见 reports/ 与成本审计);有了它,trace 里就能直接读。"""
+    by_role = {"system": 0, "user": 0, "assistant": 0, "tool": 0}
+    total = 0
+    for m in messages:
+        t = est_tokens(str(m.get("content") or "")) + 4
+        total += t
+        role = m.get("role")
+        if role in by_role:
+            by_role[role] += t
+    return {"est_input_tokens": total, "by_role": by_role, "messages": len(messages)}
+
+
+
 # P4e M4:生成出口的**确定性闸门**——「有来源却零可核查事实」判为无效答案,触发**一次**重生。
 #
 # 【为什么放代码不放 prompt】本项目铁律「判定放代码,不放 prompt」(P4a C1 / 坑 21):
@@ -904,6 +944,8 @@ class AgentService:
                          "content": build_system_prompt(persona, context)}]
             messages += hist_msgs
             messages.append({"role": "user", "content": question})
+            # 成本可见:把这一轮实际要发的输入量记进 trace(纯读数,不影响任何内容)
+            ctx_info["request_tokens"] = request_token_profile(messages)
             tool_trace: list[dict] = []
             answer = ""
             for _ in range(3):  # 最多 3 轮工具调用
@@ -920,7 +962,7 @@ class AgentService:
                     result = await self.weekly.call(name, args)
                     tool_trace.append({"tool": name, "args": args, "result": result})
                     messages.append(
-                        {"role": "tool", "tool_call_id": tc["id"], "content": json.dumps(result, ensure_ascii=False)}
+                        {"role": "tool", "tool_call_id": tc["id"], "content": cap_tool_result(result)}
                     )
             else:
                 answer = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
@@ -1111,6 +1153,8 @@ class AgentService:
                          "content": build_system_prompt(persona, context)}]
             messages += hist_msgs
             messages.append({"role": "user", "content": question})
+            # 成本可见:把这一轮实际要发的输入量记进 trace(纯读数,不影响任何内容)
+            ctx_info["request_tokens"] = request_token_profile(messages)
             tool_trace: list[dict] = []
             answer_parts: list[str] = []
             # P4e S1-①:早窗提交——delta 默认直接放行(gate.feed 返回本次应下发的片段),
@@ -1161,7 +1205,7 @@ class AgentService:
                     tool_trace.append({"tool": c["name"], "args": json.loads(c["args"] or "{}"), "result": result})
                     yield {"type": "tools", "trace": tool_trace}
                     messages.append({"role": "tool", "tool_call_id": c["id"],
-                                     "content": json.dumps(result, ensure_ascii=False)})
+                                     "content": cap_tool_result(result)})
             else:
                 timeout_msg = "抱歉,这个问题处理超时了,请换个问法或稍后再试。"
                 answer_parts.append(timeout_msg)
