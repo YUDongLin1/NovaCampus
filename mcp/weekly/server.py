@@ -113,14 +113,20 @@ _migrate()
 mcp = MCPServer(
     "weekly-report",
     instructions=(
-        "辅导员周报助手。标准流程:"
-        "1) 用户随口说工作碎片时,调用 add_fragment 记录——若用户未明确分类,"
-        f"由你根据内容从 {CATEGORIES} 中选择最贴切的一类传入 category;"
-        "2) 分类为「谈心谈话」时,同时传 student_name(用户提到的学生姓名)与 summary"
-        "(一句规范摘要,形如「就该学生职业规划情况进行谈心谈话」,只依据用户原话,"
-        "不确定就留空,不要编造主题);"
-        "3) 用户要写周报时,先用 render_weekly_report 生成草稿,基于草稿润色输出给用户;"
-        "4) 用户确认后调用 archive_report 归档定稿。"
+        "辅导员周报助手。标准流程(每步一个动作,按顺序执行):\n"
+        "1) 用户随口说工作碎片 → 调用 add_fragment 记录。"
+        "分类未明说时,从 "
+        f"{CATEGORIES}"
+        " 中选最贴切的一类传入 category。\n"
+        "2) 分类为「谈心谈话」→ 同时传 student_name(用户原话里提到的学生姓名;"
+        "没提到就留空)与 summary(一句规范摘要,形如「就该学生职业规划情况进行谈心谈话」,"
+        "主题只能取自用户原话)。\n"
+        "3) 用户要写周报 → 先 render_weekly_report 生成草稿,再基于草稿润色输出给用户。\n"
+        "4) 用户确认定稿 → 调用 archive_report 归档。\n"
+        "边界:一句话里含多条互不相关的碎片 → 分多次调用 add_fragment,每次一条;"
+        "用户要改或删已有记录 → 用 update_fragment / delete_fragment,不要新增重复记录;"
+        "用户要整理会议内容 → 走 add_minutes / list_minutes,不要塞进工作碎片;"
+        "问题与工作记录无关(闲聊、问政策) → 直接回答,不调用任何工具。"
     ),
 )
 

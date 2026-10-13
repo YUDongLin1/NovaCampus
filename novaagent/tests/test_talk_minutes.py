@@ -10,6 +10,7 @@
 """
 from __future__ import annotations
 
+import ast
 import importlib.util
 import io
 import json
@@ -307,7 +308,14 @@ check(json.loads(main_mod._minutes_payload({"discussion": "[坏 JSON"})["discuss
       "看起来像数组但解析失败的字符串按原文保留,不静默丢内容", "")
 
 src_agent = (NOVA / "novaagent" / "agent.py").read_text(encoding="utf-8")
-check("student_name" in src_agent.split("EXPAND_PROMPT")[0].split("WEEKLY_TOOLS")[1],
+# 用 AST 取 WEEKLY_TOOLS 的源码段,而不是靠"到 EXPAND_PROMPT 为止"这种位置切片 ——
+# 提示词已搬进 prompts.py,位置切片会因索引越界而崩(而且它本来也只是个近似)。
+_wt_src = ""
+for _n in ast.walk(ast.parse(src_agent)):
+    if isinstance(_n, ast.Assign) and any(getattr(_t, "id", "") == "WEEKLY_TOOLS" for _t in _n.targets):
+        _wt_src = ast.get_source_segment(src_agent, _n) or ""
+check(bool(_wt_src), "agent.py 里能找到 WEEKLY_TOOLS 定义(取不到则下面那条会假通过)", _wt_src[:40])
+check("student_name" in _wt_src,
       "WEEKLY_TOOLS 的 JSON Schema 带上了 student_name(漏了则对话链路静默丢字段)", "")
 check("render_docx" not in src_main or "minutes_lib.render_docx" in src_main,
       "docx 渲染只有一个入口", "")

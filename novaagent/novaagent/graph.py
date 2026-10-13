@@ -28,6 +28,7 @@ from typing import Any, TypedDict
 from langgraph.graph import END, StateGraph
 
 from . import config, llm, rag
+from .prompts import INTENT_PROMPT, REWRITE_PROMPT
 
 
 class GraphState(TypedDict, total=False):
@@ -77,35 +78,7 @@ def time_direct_answer(question: str) -> str | None:
             "请告诉我具体事项，我在知识库里查。")
 
 
-INTENT_PROMPT = """你是意图分类器。判断用户这句话是否需要检索学校知识库来回答。
 
-只输出严格 JSON,不要解释(**下面 JSON 示例中的花括号是字面量,已按 str.format 规则写成双花括号**):
-{{"intent":"chitchat|time|retrieval","need_retrieval":true|false,
- "audience_hint":"undergrad|postgrad|common|","normalized_query":"..."}}
-
-规则:
-1. 打招呼、闲聊、问你是谁、问能力 → intent="chitchat", need_retrieval=false;
-2. 问当前时间/日期/星期 → intent="time", need_retrieval=false;
-3. 需要学校政策/流程/材料/金额/时限/条款等事实 → intent="retrieval", need_retrieval=true;
-4. normalized_query:把口语问法改写成**材料里会出现的规范表述**——
-   - 展开同义术语(学平险→学生平安保险/大学生意外伤害保险,医保→大学生医疗保险);
-   - 去掉称呼与情境噪声("老师我想问下""我看计财处只有医保这项"这类铺垫);
-   - 保留学段限定(本科生/研究生)与核心意图词(办理/投保/理赔/材料/时限);
-   - 只输出一条检索式短句,**不要回答用户的问题**。
-
-用户原话:{q}"""
-
-REWRITE_PROMPT = """你是高校知识库的检索式改写器。上一次检索没召回到达标材料。
-
-把问句改写成**材料正文里更可能出现的规范表述**:
-1. 同义术语展开(学平险 ↔ 学生平安保险 ↔ 大学生意外伤害保险;医保 ↔ 大学生医疗保险 ↔ 城乡居民基本医疗保险);
-2. 意图归一("在哪里买/怎么办的/是否统一办理" → "办理 投保 参保";"怎么报/能报多少" → "理赔 报销");
-3. 去掉情境噪声与称呼(老师/我想问下/我看计财处…这类与检索无关的表述);
-4. 保留学段与对象限定(本科生/研究生/新生);
-5. 只输出**一条**检索式短句(8~30 字,关键词式,不要问号,不要解释)。
-
-原始问句:{q}
-上一次改写(若无可忽略):{prev}"""
 
 
 def _strip_noise(q: str) -> str:
