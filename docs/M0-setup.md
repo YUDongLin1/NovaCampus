@@ -3,7 +3,7 @@
 > 状态(2026-09-27 更新):✅ WSL2 + Docker Desktop 已安装(引擎 29.8.0,镜像加速已生效);
 > ✅ WeKnora v0.8.2 默认栈已部署且全部 healthy(前端 http://localhost,API 8080);
 > ✅ `.env` 已配置并生效:Embedding/Rerank 走硅基流动(key 已验证有效),LLM 已切换为阿里云百炼 qwen-flash(OpenAI 兼容模式);
-> ⏳ **唯一待办:`LLM_API_KEY` 当前粘贴的字符串无效(sk-sp- 开头 116 位,不是百炼 key),需回百炼控制台重新复制(sk- 开头 35 位左右),再执行 `docker compose up -d app`(注意:改 .env 后不能用 restart,必须 up -d 重建才会重新读环境变量)**;
+> ⏳ **唯一待办:`LLM_API_KEY` 当前粘贴的字符串无效,需回服务商控制台重新复制并确认已生效,再执行 `docker compose up -d app`(注意:改 .env 后不能用 restart,必须 up -d 重建才会重新读环境变量)**;
 > ⚠️ 排错经验:文档"解析失败"但 docreader 阶段正常、embedding 阶段 401 = key 未加载进容器,先看 `docker exec WeKnora-app sh -c 'echo ${#EMBEDDING_API_KEY}'` 是否为 0。
 
 ## 1. 已就绪

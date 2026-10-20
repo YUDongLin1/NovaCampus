@@ -49,7 +49,7 @@
   - [x] 建 `corpus/clean/ops/` 运维分库类目 + 1~2 篇自建占位（完整运维手册留 P3）
   - [x] 抽查问答命中新语料且带 [n] 引用（如"研究生专项奖助学金""离校请假流程""宿舍矛盾怎么谈心"）
 - **验收命令**：`python corpus/split_cases.py` → `python corpus/anonymize.py` → 导入后查 `/api/kb/documents` 计数 ≥50
-- **合规红线**：只用 Tier A（训练材料）+ 公开政策；**严禁**引入 `E:\<internal-affairs-dir>\` 的 Tier B 真实运营数据（帮扶台账/含真名申报书）。
+- **合规红线**：只用 Tier A（训练材料）+ 公开政策；**严禁**引入 `<内部学工数据目录>\` 的 Tier B 真实运营数据（帮扶台账/含真名申报书）。
 - **依赖**：无（政策语料已由 Qoder 备好）
 
 #### 交接回执（Zcode → Qoder，2026-09-27）
@@ -741,7 +741,7 @@ git diff --name-only master...HEAD | grep -E "^evals/|^corpus/|^sims/|^mcp/|^nov
 - **C1 claim→字段对账**：他声称导航页"81 行 / 短行 61.73% / 长行 9"，我用 `index_page_stats` 独立实算得 `{total_lines:81, short_lines:50, short_ratio:0.6173, long_lines:9, long_ratio:0.1111}` —— **逐字段完全吻合** ✅；拒绝返回体 `{code:"index_page", reason/hint}` 结构正确
 - **C2 零误伤（我扫得更广）**：他扫 policy+ops 37 篇 + 6 语料；我另含 `corpus/clean/guide/` 共 **40 篇公开语料，0 误伤**；KB 内 `doc_id 110~115` 六篇全部放行 ✅
 - **C3**：`smoke [U7]` 与 `[16a]`（cwc/自家前端 → `deny_url`；infpub 索引页 → `index_page`）我复跑全过
-- **C4 守恒**：`smoke` 自清理 4 篇、**65→65**；我另做**实站四 URL 测试**，含我自己加的一条红线用例 `hospital…/info/1013/5558.htm`（含学生姓名的名单公示页）→ **`deny_url` 拦住**；全程 `documents` 65→65 无写入；`kb_doctor` **danger=0**（warn=2 为 EVAL 种子短正文，预期内）
+- **C4 守恒**：`smoke` 自清理 4 篇、**65→65**；我另做**实站四 URL 测试**，含我自己加的一条红线用例 `hospital…/info/1013/5558.htm`（名单/公示类页面）→ **`deny_url` 拦住**；全程 `documents` 65→65 无写入；`kb_doctor` **danger=0**（warn=2 为 EVAL 种子短正文，预期内）
 - **C5 零回归**：我复跑 2 轮 **36/36 ×2、R@k 0.9412 ×2、拒答 1.0**；忠实度 1.0 / 0.9118（judge 方差 = 已裁决移交 P4d 的学段声明盲区）。加他 3 轮 → **本单相关 5 轮全过**
 - **附带修复经双向验证**：`RE_IDCARD` 换带出生日期校验版后，保单号 `PECD201651010000000351` **放行**、日期合法的真 18 位样式**仍拦截**、`19901307`（13 月）不误拦、学号不误拦 → **修的是我上一轮合并进去的真缺陷，且未削弱检测力** ✅
 
@@ -2175,7 +2175,7 @@ F3 `/api/kb/upload` **不是原子的**：先 `insert_document` + `insert_chunks
 - **口径变更**：`docs/P4B0.md` 的「前端行为零变化」不变量在 P5 **替换**为「**后端行为零变化**」（`theme.css` 设计令牌仍不动；这条修订要写进 P4B0 末尾，不许偷偷改基线）
 - **一次后端小改**：`personas.avatar TEXT DEFAULT ''` 走既有幂等加列（库副本连跑两遍验幂等）
 - **拆单**：P5-1 壳层与页面搬迁 → P5-2 辅导员页 + 头像 + RBAC 矩阵断言（**一张单两阶段交回**，不拆五张）
-- **红线**：全程零额度（假 key 护身符）；走查用库副本 + 独立端口并按属主杀净；`E:\<internal-affairs-dir>\` 不入库；头像不含真实人脸/校徽
+- **红线**：全程零额度（假 key 护身符）；走查用库副本 + 独立端口并按属主杀净；`<内部学工数据目录>\` 不入库；头像不含真实人脸/校徽
 
 #### P5 交回回执（WorkBuddy → Qoder，2026-10-02）—— **IN_REVIEW**，持棒交回 Qoder
 

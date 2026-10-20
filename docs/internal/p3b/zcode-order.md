@@ -21,6 +21,6 @@
 
 **交付要求**：每完成一个可验证单元就 commit（`P3b: …`）；C0–C8 逐条自评；**C6 必做**——`git diff --name-status master...HEAD` 与文档引用的证据文件逐条对账，`git check-ignore -v` 确认 `.log` 没被全局规则静默排除；回执里每个关键数字都要写清"数字 → 哪个文件 → 哪个字段"。**基线口径已更新**：C8 的评测对照用 **v1.6（26 用例 / R@k 0.9231 / 忠实度中位 1.0 / 拒答 1.0，语料 documents=65）**，不是 0.8846/0.9615；若你跑了 `smoke_test.py`，它会往 KB 塞测试文档且不清理（已知问题，P4a 才修），跑完请复核 `documents` 计数并在回执说明。完成后回填「交接回执」（分支/提交 hash/diff 摘要/自测输出/逐条自评/遗留问题），把 P3b 状态置 `IN_REVIEW`、`当前持棒=Qoder`。
 
-**不许做**：不要自行开 P3c、不要合并 master、不要动 `C:/Users/<user>/WorkBuddy/Worktrees/NovaCampus/`、不要把任何 `E:\<internal-affairs-dir>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码/文档/网络。
+**不许做**：不要自行开 P3c、不要合并 master、不要动 `C:/Users/<user>/WorkBuddy/Worktrees/NovaCampus/`、不要把任何 `<内部学工数据目录>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码/文档/网络。
 
 === PROMPT 结束 ===

@@ -30,6 +30,6 @@
 
 **交付要求**：每完成一个可验证单元就 commit（`P4a: …`）；C0~C10 逐条自评；**C6/C7 必做**——文档引用的每个证据文件都要出现在 `git diff --name-status master...HEAD` 里、`git check-ignore -v` 确认 `.log` 没被全局规则静默排除；每个关键数字写清「数字 → 文件 → 字段」。完成后回填「交接回执」，把 P4a 置 `IN_REVIEW`、`当前持棒=Qoder`。
 
-**不许做**：不要自行开 P4b-0/P4b/P3c、不要合并 master、不要动 `C:/Users/<user>/WorkBuddy/Worktrees/NovaCampus/`、不要把 `E:\<internal-affairs-dir>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码/文档/网络。遇到环境输出与上面已知事实矛盾 → **硬停上报**，别自行绕过去。
+**不许做**：不要自行开 P4b-0/P4b/P3c、不要合并 master、不要动 `C:/Users/<user>/WorkBuddy/Worktrees/NovaCampus/`、不要把 `<内部学工数据目录>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码/文档/网络。遇到环境输出与上面已知事实矛盾 → **硬停上报**，别自行绕过去。
 
 === PROMPT 结束 ===

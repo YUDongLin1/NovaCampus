@@ -93,6 +93,6 @@ git diff --name-only master...HEAD | grep -vE "^novaagent/(web/|novaagent/(db|ag
 
 ## 不要做的事
 
-不要顺手做 P4c 的文件夹与 `@` 指定库、不要做 P4d 的 LangGraph 编排、不要做 P4f 的 persona（`conversations.persona_id` **建表时留列即可**，本单不实现人设逻辑）；不要改 `RERANK_MIN_SCORE` / SYSTEM_PROMPT 的防幻觉规则；不要为了压缩效果去删 `messages` 原文；不要合并 master；不要动 WorkBuddy 工作树；不要把 `E:\<internal-affairs-dir>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码、文档、日志或任何网络请求。环境输出与已知事实矛盾 → **硬停上报**，不要绕过去。
+不要顺手做 P4c 的文件夹与 `@` 指定库、不要做 P4d 的 LangGraph 编排、不要做 P4f 的 persona（`conversations.persona_id` **建表时留列即可**，本单不实现人设逻辑）；不要改 `RERANK_MIN_SCORE` / SYSTEM_PROMPT 的防幻觉规则；不要为了压缩效果去删 `messages` 原文；不要合并 master；不要动 WorkBuddy 工作树；不要把 `<内部学工数据目录>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码、文档、日志或任何网络请求。环境输出与已知事实矛盾 → **硬停上报**，不要绕过去。
 
 === PROMPT 结束 ===

@@ -64,6 +64,6 @@
 
 ## 不要做的事
 
-不要顺手做 P4d 的 LangGraph 编排与查询改写；不要动 `RERANK_MIN_SCORE`、`MAX_PER_DOC`、SYSTEM_PROMPT 防幻觉规则；不要单独调 `MAX_PER_DOC`（T10 实测 =1 会挤出关键块）；不要合并 master；不要动 `C:/Users/<user>/WorkBuddy/Worktrees/` 那棵树（只读）；不要把 `E:\<internal-affairs-dir>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码、文档、日志或任何网络请求；杀进程别用命令行子串匹配（坑 37）。环境输出与已知事实矛盾 → **硬停上报**。
+不要顺手做 P4d 的 LangGraph 编排与查询改写；不要动 `RERANK_MIN_SCORE`、`MAX_PER_DOC`、SYSTEM_PROMPT 防幻觉规则；不要单独调 `MAX_PER_DOC`（T10 实测 =1 会挤出关键块）；不要合并 master；不要动 `C:/Users/<user>/WorkBuddy/Worktrees/` 那棵树（只读）；不要把 `<内部学工数据目录>\` 真实学工数据或 `corpus/*/affairs/` 内容带进代码、文档、日志或任何网络请求；杀进程别用命令行子串匹配（坑 37）。环境输出与已知事实矛盾 → **硬停上报**。
 
 === PROMPT 结束 ===

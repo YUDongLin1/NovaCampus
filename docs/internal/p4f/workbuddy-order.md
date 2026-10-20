@@ -25,7 +25,7 @@
   `novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4F.md`、`docs/p4f/**`、`docs/p4d/run_with_server.sh`（C0-⑤ 用）、
   `docs/EVAL_BASELINE.md`（**仅限** C0 记账需要的那一节，别再扩范围）。
 - `agent.db` 不得被脚本改动：迁移只写进 `db.py` 启动期 `_migrate()`（幂等加表/加列），并在**库副本**上验证连跑两遍结果一致。
-- **绝对红线不变**：`E:\<internal-affairs-dir>\` 真实学工数据永不入库/上传；`corpus/*/affairs/` 只本地不提交；
+- **绝对红线不变**：`<内部学工数据目录>\` 真实学工数据永不入库/上传；`corpus/*/affairs/` 只本地不提交；
   含学生姓名的公示/名单页禁止抓取或入库；演示口令（admin123/counselor123/student123、Grafana）不得进 KB 或任何出网请求；
   **联网请求只发送当前问题文本**（C0-① 就是把这条的形状补严）。
 

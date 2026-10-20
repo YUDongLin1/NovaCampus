@@ -9,7 +9,7 @@
 
 ## 一、我们在做什么
 
-**NovaCampus(智枢 Agent)**——用户的简历项目(用户=某高校辅导员，个人项目)。三轨:
+**NovaCampus(智枢 Agent)**——用户的简历项目(某高校辅导员，个人项目)。三轨:
 - **NovaAgent**(自研,`novaagent/`):FastAPI + SQLite 的校园智能体,三角色 RBAC(学生/辅导员/管理员)、RAG 问答(混合检索+rerank+拒答阈值)、流式 SSE、会话持久化、周报助手(经 MCP 调用)。
 - **WeKnora**(腾讯开源,`weknora/`,git 忽略):评测基线,已部署但不开发。
 - **P3 AIOps**(`sims/` + `mcp/aiops/`,进行中):模拟校园系统 + 故障注入 + Prometheus/Grafana,让 Agent 能"收到告警→查指标→定位根因→出中文诊断报告"。**这是简历第二亮点。**
@@ -18,7 +18,7 @@
 
 ## ⚠ 硬约束(违反即事故,不可协商)
 
-1. **真实学工数据严禁入库/外发**:`E:\<internal-affairs-dir>\` 下的 Tier B 材料(一人一策帮扶台账、含真实姓名的申报书/发言稿/推荐表)**永不进 corpus、永不提交、永不上传**任何外部服务/知识库/网络。只允许已脱敏的 Tier A 政策文件入库。
+1. **真实学工数据严禁入库/外发**:`<内部学工数据目录>\` 下的 Tier B 材料(一人一策帮扶台账、含真实姓名的申报书/发言稿/推荐表)**永不进 corpus、永不提交、永不上传**任何外部服务/知识库/网络。只允许已脱敏的 Tier A 政策文件入库。
 2. **`corpus/raw/affairs/`、`corpus/clean/affairs/` 已 gitignore**(第三方「萌哥说案例」):只本地导入 KB 撑 demo,**不得提交、不得公开发布**。
 3. **写权限**:TASKS.md 头部"当前持棒"不是你 → 只读不写。任务白名单外的文件(尤其 `novaagent/**`)一律不碰。
 4. **不要动** `C:/Users/<user>/WorkBuddy/Worktrees/NovaCampus/`(用户另开的 workbuddy 工作树)和别人的未合并分支。
@@ -33,7 +33,7 @@
 3. `docs/EVAL_BASELINE.md` —— 评测基线演进(v1.0→**v1.5**;第九节记 KB 清理与拒答门控盲区)
 4. `docs/BADCASES.md` —— bad case 档案机制
 5. `docs/P3A.md` —— **P3 地基**:模拟系统架构/指标清单/故障注入原理/验收证据(§七是 Review 修正记录)
-6. `corpus/MANIFEST.md` —— 语料合规分层(Tier A/B;**严禁引入 E:\<internal-affairs-dir>\ 的 Tier B 真实数据**)
+6. `corpus/MANIFEST.md` —— 语料合规分层(Tier A/B;**严禁引入 <内部学工数据目录>\ 的 Tier B 真实数据**)
 7. `docs/P4.md` —— **用户反馈驱动的产品升级设计**(M1~M9 模块划分、实测证据、排期、合规红线);任务规格在 `docs/TASKS.md` 的 P4a~P4g
 8. `docs/p4/corpus-candidates.md` —— 医保/学平险/校医院/计财处语料候选(**已获批准并入库**,含禁抓清单)
 9. `docs/CASE_STUDY.md` —— **简历叙事素材**:指标 1.0 之下的三类真实失败(无据作答+虚构引用 / rerank 措辞崩塌 3-8 命中 / 测试污染生产库)、归因过程、含我自己一次过早归因被证伪的记录与复现命令

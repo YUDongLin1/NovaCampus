@@ -26,7 +26,7 @@
 
 **取证先于清理（我这次自己踩的坑，你别踩）**：做导入回归测试会往 KB 写文档。测之前先把要引用的数字/特征落盘，再删测试文档；`documents` 计数最终必须回到 65。
 
-**不要做的事**：**不要顺手动 `RERANK_MIN_SCORE`、不要实现查询改写或分级阈值**（那是 P4d 的活，我已把两处待裁决移交 P4d）；不要动 SYSTEM_PROMPT 文案；不要合并 master；不要开 P4b-0；不要动 WorkBuddy 工作树；不要把 `E:\<internal-affairs-dir>\` 真实数据或 `corpus/*/affairs/` 带进代码/文档/网络。
+**不要做的事**：**不要顺手动 `RERANK_MIN_SCORE`、不要实现查询改写或分级阈值**（那是 P4d 的活，我已把两处待裁决移交 P4d）；不要动 SYSTEM_PROMPT 文案；不要合并 master；不要开 P4b-0；不要动 WorkBuddy 工作树；不要把 `<内部学工数据目录>\` 真实数据或 `corpus/*/affairs/` 带进代码/文档/网络。
 
 **交付**：commit 前缀 `P4a-1:`；完成后回填「交接回执」（分支/提交/diff 摘要/自测输出/C1~C5 逐条自评/误伤清单/遗留），把 P4a-1 置 `IN_REVIEW`、`当前持棒=Qoder`。
 

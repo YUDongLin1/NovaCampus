@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -43,33 +44,97 @@ SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", "weknora",
 # ---------------------------------------------------------------------------
 # 规则一：全局文本替换（正则 → 替换）
 # 每条规则都要写清"防的是什么"，便于日后审阅
+#
+# ⚠ 重要：本文件会随仓库一起开源，因此**规则表里不能出现真实的敏感字面量**。
+#   早期的版本把本机账户名、真实目录名、经办人姓名直接写在正则里，
+#   等于"脱敏工具自己变成泄露源"。现在改成：
+#     · 机器账户名 → 从 os.environ 取当前用户名，再构造正则
+#     · 真实目录名 / 人名 → 用「字符类通配 + 长度校验」匹配，不写死具体字
+#     · 需要精确匹配的 → 走本地覆盖文件 tools/.redact.local.json（不入库）
 # ---------------------------------------------------------------------------
+
+def _cur_user() -> str:
+    """当前本机账户名（Windows: %USERNAME% / POSIX: $USER）。取不到则返回空串。"""
+    return os.environ.get("USERNAME") or os.environ.get("USER") or ""
+
+
+def _user_pat(lit: str) -> str:
+    """把本机账户名转成正则片段。取不到账户名时退化为通用的 Windows 账户名模式。"""
+    u = _cur_user()
+    if u:
+        return re.escape(u)
+    # 通用兜底：任意 3~20 位的 Windows 账户名段（保守：要求不是常见的系统目录名）
+    return r"(?!(?:Windows|System|Users|Program Files|AppData)\b)[A-Za-z0-9._-]{3,20}"
+
+
+def _local_overrides() -> dict[str, str]:
+    """读取本地覆盖文件（不入库）里的精确匹配项。
+
+    格式：{"R5": "真实目录名", "R9": "真实人名", ...}
+    文件不存在时返回空 dict —— 此时依赖通配规则。
+    """
+    p = Path(__file__).resolve().parent / ".redact.local.json"
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return {}
+
+
+_OVR = _local_overrides()
+
+
+def _dir_pat() -> str:
+    """真实学工数据目录名。用覆盖文件优先，否则用通配。"""
+    if "R5" in _OVR:
+        return re.escape(_OVR["R5"])
+    # 通配：E:\ 开头 + 2~8 个汉字 + 结尾的"文件"二字
+    return r"[A-Za-z]:[\\\\/][\u4e00-\u9fa5]{2,8}[\u4e00-\u9fa5]{2,8}[\\\\/]"
+
+
+def _person_pat() -> str:
+    """官网公开经办人姓名。覆盖文件优先，否则用「固定前缀 + 3~4 个汉字」的通配。
+
+    前缀「国际部」是官网公开的部门名（不是个人信息），用它做锚点可把
+    误伤面压到最小：只匹配「国际部」紧跟 3~4 个汉字的情形。
+    用捕获组只替换姓名部分，保留「国际部」前缀。
+    """
+    if "R9" in _OVR:
+        return re.escape(_OVR["R9"])
+    return r"(国际部)[\u4e00-\u9fa5]{3,4}"
+
+
 REDACTIONS: list[tuple[str, str, str, str]] = [
     # (编号, 匹配正则, 替换为, 说明)
-    ("R1", r"C:\\\\Users\\\\<user>", r"C:\\\\Users\\\\<user>",
+    ("R1", r"C:\\\\Users\\\\" + _user_pat(""), r"C:\\\\Users\\\\<user>",
      "JSON 转义形式的 Windows 用户目录"),
-    ("R2", r"C:\\Users\\<user>", r"C:\\Users\\<user>",
+    ("R2", r"C:\\Users\\" + _user_pat(""), r"C:\\Users\\<user>",
      "Windows 用户目录，泄露本机账户名"),
-    ("R3", r"C:/Users/<user>", r"C:/Users/<user>",
+    ("R3", r"C:/Users/" + _user_pat(""), r"C:/Users/<user>",
      "正斜杠形式的 Windows 用户目录"),
-    ("R4", r"/c/Users/<user>", r"/c/Users/<user>",
+    ("R4", r"/c/Users/" + _user_pat(""), r"/c/Users/<user>",
      "Git Bash 形式的用户目录"),
-    ("R5", r"E:\\<internal-affairs-dir>\\", r"<内部学工数据目录>\\",
+    ("R5", _dir_pat(), r"<内部学工数据目录>\\",
      "真实学工数据目录路径（其内容清单亦属隐私）"),
-    ("R6", r"E:/<internal-affairs-dir>/", r"<内部学工数据目录>/",
+    ("R6", r"[A-Za-z]:[\\\\/][\u4e00-\u9fa5]{2,16}[\\\\/]", r"<内部学工数据目录>/",
      "同上，正斜杠形式"),
-    ("R7", r"用户=某高校辅导员，个人项目",
+    ("R7", r"用户=[^\n]{0,40}辅导员[^\n]{0,20}求职[^\n]{0,20}",
      "某高校辅导员，个人项目",
      "真实单位+岗位+求职意图，等同实名去匿名化"),
-    ("R8", r"用户\(某高校辅导员，个人项目\)",
+    ("R8", r"用户\([^\n]{0,40}辅导员[^\n]{0,20}求职[^\n]{0,20}\)",
      "某高校辅导员（个人项目）",
      "同上，全角标点版本"),
-    ("R9", r"国际部（收件人以官网原文为准）", "国际部（收件人以官网原文为准）",
-     "把官网公开经办人姓名写进了受控代码"),
+    ("R9", _person_pat(), r"\1（收件人以官网原文为准）",
+     "把官网公开经办人姓名写进了受控代码（保留部门前缀）"),
     # 真实学生原话（仅匿城市）→ 同长度同语义的合成改写句
+    # ⚠ 这里**不写死原话**：本文件会随仓库开源，写死即等于"脱敏工具自己成为泄露源"。
+    #   做法：用「城市占位符 + 医保问句结构」的通配匹配，再替换为合成句。
+    #   若本机有更精确的原文，放进 tools/.redact.local.json 的 "R10" 键即可（该文件不入库）。
     ("R10",
-     r"导员你好，我想咨询一下医保的事情。我目前的参保地还显示为本科学校所在地某市，"
-     r"我后续该如何把这个改为现在这个地方呢。本学期的医保我是交了的",
+     (r"导员你好，我想咨询一下医保的事情。我目前的参保地还显示为本科学校所在地"
+      + (re.escape(_OVR["R10"]) if "R10" in _OVR else r"[^\n。，]{2,10}")
+      + r"，我后续该如何把这个改为现在这个地方呢。本学期的医保我是交了的"),
      "老师您好，想咨询一下医保的事。我的参保地目前还挂在原来学校所在的某市，"
      "想问下要怎么办才能转到现在这边？这学期的医保我已经交了",
      "真实学生原话逐字引用，改为合成改写句（评测效果不变）"),

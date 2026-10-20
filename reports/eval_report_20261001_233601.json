@@ -1769,17 +1769,17 @@
       "sources_summary": [
         {
           "ref": 1,
-          "title": "S1-NO47-学生因恋爱问题遭遇死亡威胁,辅导员应该如何应对",
+          "title": "AFF-S1-NO47",
           "role_min": "counselor"
         },
         {
           "ref": 2,
-          "title": "QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她",
+          "title": "AFF-Q02",
           "role_min": "counselor"
         },
         {
           "ref": 3,
-          "title": "QA-Q02-学生小静来自独生子女家庭，经常与宿舍同学产生口角，这天她",
+          "title": "AFF-Q02",
           "role_min": "counselor"
         },
         {
@@ -1789,7 +1789,7 @@
         },
         {
           "ref": 5,
-          "title": "S1-NO47-学生因恋爱问题遭遇死亡威胁,辅导员应该如何应对",
+          "title": "AFF-S1-NO47",
           "role_min": "counselor"
         }
       ],

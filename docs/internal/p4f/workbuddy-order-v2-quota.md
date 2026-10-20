@@ -42,7 +42,7 @@
   `novaagent/tests/**`、`evals/{cases.json,run_evals.py}`、`docs/P4F.md`、`docs/p4f/**`、
   `docs/p4d/run_with_server.sh`（C0-⑤）、`docs/EVAL_BASELINE.md`（**仅限** C0-⑥ 那一节，别扩范围）。
 - `agent.db` 不得被脚本改：迁移只进 `db.py` 启动期 `_migrate()`（幂等），并在**库副本**上验证连跑两遍一致。
-- 数据红线不变：`E:\<internal-affairs-dir>\` 不入库不外发；`corpus/*/affairs/` 只本地；含学生姓名的名单页禁止抓取/入库；
+- 数据红线不变：`<内部学工数据目录>\` 不入库不外发；`corpus/*/affairs/` 只本地；含学生姓名的名单页禁止抓取/入库；
   演示口令不进 KB 与任何出网请求；**联网请求只发送当前问题文本**。
 
 ## 2. C0 前置收口（**merge-blocking：C0-①、C0-③、C0-⑥**）
