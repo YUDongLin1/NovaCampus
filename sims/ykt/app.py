@@ -130,4 +130,8 @@ async def fault_status() -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # 默认只监听回环地址（与 MCP Server 同口径）。这两个是纯模拟服务，
+    # 但仍无鉴权；用 Docker 跑时由 compose 的端口映射对外暴露即可，
+    # 无需在本进程里绑全网卡。
+    import os
+    uvicorn.run(app, host=os.environ.get("SIMS_HOST", "127.0.0.1"), port=8000)
