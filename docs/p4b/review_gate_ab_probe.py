@@ -11,12 +11,30 @@ Review 时我认可了"可采信池只收带 sources 的 assistant 回答+摘要
 选句原则:与历史主题词面高度相邻(必然命中门控),但知识库确实没覆盖。
     /d/anaconda3/python.exe docs/p4b/review_gate_ab_probe.py
 """
+import os
 import io
 import json
 import re
 import sys
 
 import httpx
+
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -60,7 +78,7 @@ def classify(d):
 
 
 def main():
-    H = login("counselor", "counselor123")
+    H = login("counselor", COUNSELOR_PW)
     res = {}
     # 先确定哪一句真的"知识库无覆盖"(首问被拒),用它做 A/B
     probe = {}

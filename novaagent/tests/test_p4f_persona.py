@@ -19,12 +19,30 @@
 """
 from __future__ import annotations
 
+import os
 import asyncio
 import shutil
 import sys
 import tempfile
 from pathlib import Path
 from typing import Callable
+
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "novaagent"))
@@ -328,9 +346,9 @@ def test_c3_permissions() -> None:
         main.db = db
         restore_llm = install_llm_probe(main)
         client = make_client(main)
-        H_c = login(client, "counselor", "counselor123")
-        H_s = login(client, "student", "student123")
-        H_a = login(client, "admin", "admin123")
+        H_c = login(client, "counselor", COUNSELOR_PW)
+        H_s = login(client, "student", STUDENT_PW)
+        H_a = login(client, "admin", ADMIN_PW)
 
         # 第二个辅导员:验证「辅导员只管自己的 persona」
         db.add_user("counselor2", "counselor2123", "counselor")
@@ -444,8 +462,8 @@ def test_c4_no_privilege_escalation() -> None:
         main.db = db
         restore_llm = install_llm_probe(main)
         client = make_client(main)
-        H_c = login(client, "counselor", "counselor123")
-        H_s = login(client, "student", "student123")
+        H_c = login(client, "counselor", COUNSELOR_PW)
+        H_s = login(client, "student", STUDENT_PW)
 
         # 两个夹:counselor 自建 private(彼此不可见于对方,但本人可见)
         fa = client.post("/api/kb/folders", json={"name": "P4f夹A", "visibility": "private"},
@@ -572,7 +590,7 @@ def test_c5_llm_tripwire_covers_both_paths() -> None:
         pristine = getattr(main.agent, "chat_stream_for", None)
         restore_llm = install_llm_probe(main)
         client = make_client(main)
-        H_c = login(client, "counselor", "counselor123")
+        H_c = login(client, "counselor", COUNSELOR_PW)
 
         fa = client.post("/api/kb/folders", json={"name": "C5夹A", "visibility": "private"},
                          headers=H_c)
@@ -859,8 +877,8 @@ def test_c6_response_projection() -> None:
 def _tok(client, username: str) -> str:
     """演示账号口令统一在演示脚本里,登录一次拿token。零额度(不碰 LLM)。"""
     from novaagent import config
-    pwd = {"admin": "admin123", "counselor": "counselor123",
-           "student": "student123"}.get(username, "student123")
+    pwd = {"admin": ADMIN_PW, "counselor": COUNSELOR_PW,
+           "student": STUDENT_PW}.get(username, STUDENT_PW)
     r = client.post("/api/login", json={"username": username, "password": pwd})
     if r.status_code != 200:
         raise RuntimeError(f"login {username} failed: {r.status_code} {r.text[:120]}")

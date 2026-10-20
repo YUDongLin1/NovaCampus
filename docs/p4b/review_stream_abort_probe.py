@@ -15,6 +15,23 @@ import time
 
 import httpx
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -26,7 +43,7 @@ Q = "研究生申请休学需要提交哪些材料?"
 
 
 def login():
-    r = httpx.post(BASE + "/api/login", json={"username": "counselor", "password": "counselor123"}, timeout=20)
+    r = httpx.post(BASE + "/api/login", json={"username": "counselor", "password": COUNSELOR_PW}, timeout=20)
     r.raise_for_status()
     return {"Authorization": "Bearer " + r.json()["token"]}
 

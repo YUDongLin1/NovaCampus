@@ -561,7 +561,10 @@ if __name__ == "__main__":
     import uvicorn
     from starlette.applications import Starlette
 
-    host = os.environ.get("WEEKLY_HOST", "0.0.0.0")
+    # 默认只监听回环地址:本服务无鉴权层,默认对外全网卡监听等于把
+    # 周报原始记录暴露到局域网。确需容器/跨机访问时由部署方显式设
+    # WEEKLY_HOST=0.0.0.0,并自行在前置层加认证。
+    host = os.environ.get("WEEKLY_HOST", "127.0.0.1")
     port = int(os.environ.get("WEEKLY_PORT", "8000"))
 
     sse_asgi = mcp.sse_app(sse_path="/sse", message_path="/messages/", host=host)

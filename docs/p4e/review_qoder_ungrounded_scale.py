@@ -31,6 +31,23 @@ from novaagent import config, db  # noqa: E402
 
 import run_evals as R  # noqa: E402
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
+
 OUT = ROOT / "docs" / "p4e" / "evidence" / "review" / "qoder_ungrounded_scale.json"
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
@@ -48,7 +65,7 @@ async def main():
     async with httpx.AsyncClient(timeout=240) as c:
         for case in QA:
             role = case.get("role", "student")
-            pw = {"admin": "admin123", "counselor": "counselor123", "student": "student123"}[role]
+            pw = {"admin": ADMIN_PW, "counselor": COUNSELOR_PW, "student": STUDENT_PW}[role]
             tok = (await c.post("http://127.0.0.1:8923/api/login",
                                 json={"username": role, "password": pw})).json()["token"]
             j = (await c.post("http://127.0.0.1:8923/api/chat",

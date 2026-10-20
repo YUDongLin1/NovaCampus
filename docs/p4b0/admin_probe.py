@@ -15,6 +15,19 @@ import time
 import requests
 import websocket
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -91,7 +104,7 @@ cmd("Page.enable"); cmd("Runtime.enable"); cmd("Log.enable")
 cmd("Emulation.setDeviceMetricsOverride", width=1440, height=900, deviceScaleFactor=1, mobile=False)
 cmd("Page.navigate", url=BASE + "/")
 drain(3.0)
-ev("(function(){document.getElementById('u').value='admin';document.getElementById('p').value='admin123';return 1;})()")
+ev("(function(){document.getElementById('u').value='admin';document.getElementById('p').value='%s';return 1;})()" % _demo_pw("admin"))
 ev("login()")
 drain(4.0)
 for _ in range(20):

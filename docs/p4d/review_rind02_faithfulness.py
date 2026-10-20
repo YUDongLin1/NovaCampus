@@ -8,12 +8,30 @@
 
     NO_PROXY="127.0.0.1,localhost" novaagent/.venv/Scripts/python.exe -X utf8 docs/p4d/review_rind02_faithfulness.py
 """
+import os
 import io
 import json
 import re
 import sys
 
 import httpx
+
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -34,7 +52,7 @@ def main():
         if c["id"] in CASES:
             CASES[c["id"]] = c["question"]
     H = {"Authorization": "Bearer " + httpx.post(BASE + "/api/login",
-         json={"username": "student", "password": "student123"}, timeout=20).json()["token"]}
+         json={"username": "student", "password": STUDENT_PW}, timeout=20).json()["token"]}
     res = {}
     for cid, q in CASES.items():
         r = httpx.post(BASE + "/api/chat", json={"question": q}, headers=H, timeout=180)

@@ -38,6 +38,12 @@ const PAGES = [
 
 /* 在页面里跑的体检脚本:重叠 + 截断 + 关键元素读数 */
 const PROBE = () => {
+
+// ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+const ADMIN_PW = process.env.NOVA_SEED_ADMIN_PASSWORD || process.env.NOVA_DEMO_PASSWORD || '';
+const COUNSELOR_PW = process.env.NOVA_SEED_COUNSELOR_PASSWORD || process.env.NOVA_DEMO_PASSWORD || '';
+const STUDENT_PW = process.env.NOVA_SEED_STUDENT_PASSWORD || process.env.NOVA_DEMO_PASSWORD || '';
+
   const vis = (el) => {
     const r = el.getBoundingClientRect();
     return r.width > 0 && r.height > 0;
@@ -227,8 +233,8 @@ async function openLogin(page) {
   });
 
   /* 第一遍:前进/后退/刷新回位(单独一个 context,避免与截图循环的状态互相污染) */
-  for (const who of [{ role: 'counselor', u: 'counselor', p: 'counselor123' },
-                     { role: 'student', u: 'student', p: 'student123' }]) {
+  for (const who of [{ role: 'counselor', u: 'counselor', p: COUNSELOR_PW },
+                     { role: 'student', u: 'student', p: STUDENT_PW }]) {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await ctx.newPage();
     await openLogin(page);
@@ -240,8 +246,8 @@ async function openLogin(page) {
   }
 
   for (const vp of VIEWPORTS) {
-    for (const who of [{ role: 'counselor', u: 'counselor', p: 'counselor123' },
-                       { role: 'student', u: 'student', p: 'student123' }]) {
+    for (const who of [{ role: 'counselor', u: 'counselor', p: COUNSELOR_PW },
+                       { role: 'student', u: 'student', p: STUDENT_PW }]) {
       const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
       const page = await ctx.newPage();
       const pageErrors = [];

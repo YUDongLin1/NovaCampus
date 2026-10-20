@@ -21,6 +21,19 @@ import time
 import requests
 import websocket
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -194,14 +207,14 @@ def main():
     print("[01-fail] bytes=", cdp.shot("01_login_fail.png"))
 
     # ---------- 02 student ----------
-    login(cdp, "student", "student123")
+    login(cdp, "student", _demo_pw("student"))
     wait_docs(cdp)
     probes["02_student_main"] = cdp.ev(COMMON)
     print("[02] student kb_rows=", probes["02_student_main"]["kb_rows"],
           "bytes=", cdp.shot("02_student_main.png"))
 
     # ---------- counselor 登录:03 问答 / 04 KB 分块 / 05 设置 / 06 周报 / 07 拒答 ----------
-    login(cdp, "counselor", "counselor123")
+    login(cdp, "counselor", _demo_pw("counselor"))
     wait_docs(cdp)
     probes["10_counselor_main"] = cdp.ev(COMMON)
     cdp.shot("10_counselor_main.png")

@@ -235,3 +235,107 @@ mcp/weekly/.venv/
 mcp/weekly/data-weekly/
 mcp/aiops/.venv/
 reports/*.pid
+
+
+# -----------------------------------------------------------------------------
+# 14. 补充防护 —— 上一轮审计发现的规则盲区
+#     这一节补的是「前 13 节没覆盖到、但确实可能带敏感内容」的形态。
+# -----------------------------------------------------------------------------
+
+# 14.1 环境变量变体：.env.local / .env.prod / .env.development 等
+#      前面的 `.env.*` 只匹配**文件名**以 .env. 开头的；像 `app.env.local`
+#      这种把 .env 藏在中间的命名不会被覆盖。
+*.env.local
+*.env.prod
+*.env.development
+*.env.staging
+*.env.*.local
+
+# 14.2 密钥/凭据文件的其它常见命名
+#      前面的 `secret.yaml` 是精确匹配；`*.secret.yaml` 这类带前缀的会漏。
+*.secret.yaml
+*.secret.yml
+*.secrets.json
+*_secret.json
+*_secrets.json
+.secrets/
+.aws/
+.credentials
+.netrc
+.npmrc
+.pypirc
+.docker/config.json
+
+# 14.3 证书类：前文覆盖了私钥容器格式(.pem/.p12/.jks…)，但证书本身
+#      (含公钥、可能含 subject 组织名)与 DER 编码也一并排除。
+*.crt
+*.cer
+*.der
+*.csr
+*.p7b
+*.p8
+
+# 14.4 向量库 / 索引 / 序列化产物
+#      本项目把向量以 JSON 存 BLOB，但换用 sqlite-vec / faiss / hnsw 时
+#      索引文件就是「知识库本体」，一旦入库等于把语料内容公开。
+*.faiss
+*.hnsw
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.index
+*.idx
+*.ann
+*.vectordb/
+
+# 14.5 数据库转储与迁移快照（含真实业务数据）
+*.dump
+*.sql.gz
+*.sql.zip
+dump.sql
+*.sqlite-journal
+*.duckdb.wal
+
+# 14.6 归档包（打包分享时最容易把 .env / db 一起带走）
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.rar
+
+# 14.7 依赖目录的其它形态
+#      `node_modules/` 只覆盖根与一级；pnpm/yarn 的虚拟store 需单独排除。
+.pnpm/
+.yarn/cache
+.yarn/unplugged
+.hyperfine/
+__pypackages__/
+pip-wheel-metadata/
+
+# 14.8 工具链与调试器产物
+.pyre/
+.pytype/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytest_cache/
+.cache/
+.parcel-cache/
+.eslintcache
+*.eslintcache
+.stylelintcache
+*.stylelintcache
+*.tsbuildinfo
+*.pydev*
+*.bak.[0-9]*
+
+# 14.9 本地密钥管理 / 会话文件（部分工具会把凭据写在项目内）
+.secrets-store/
+.local/
+*.age
+*.sops.yaml
+.gitleaks.toml.local
+.trivy/
+*.sarif

@@ -695,9 +695,11 @@ $ uv run uvicorn novaagent.main:app --port 8900
       <div>
         <h4>本地演示账号</h4>
         <div class="accts">
-          <div><code>student</code> / <code>student123</code> — 问答、只读知识库</div>
-          <div><code>counselor</code> / <code>counselor123</code> — 最完整功能</div>
-          <div><code>admin</code> / <code>admin123</code> — 最广可见范围</div>
+          <div><code>student</code> — 问答、只读知识库</div>
+          <div><code>counselor</code> — 最完整功能</div>
+          <div><code>admin</code> — 最广可见范围</div>
+          <div style="opacity:.8">本项目不提供默认口令。在 <code>.env</code> 中设置
+            <code>NOVA_DEMO_PASSWORD</code> 后重启即可创建上述账号。</div>
         </div>
       </div>
       <div>
@@ -707,7 +709,7 @@ $ uv run uvicorn novaagent.main:app --port 8900
           <div><a href="../docs/CASE_STUDY.md"><code>docs/CASE_STUDY.md</code> 指标之下的三类失败</a></div>
           <div><a href="../docs/BADCASES.md"><code>docs/BADCASES.md</code> bad case 追踪</a></div>
           <div><a href="../docs/EVAL_BASELINE.md"><code>docs/EVAL_BASELINE.md</code> 评测基线</a></div>
-          <div><a href="../PRIVACY-AUDIT.local.md"><code>PRIVACY-AUDIT</code> 隐私审计</a></div>
+          <div><a href="../SECURITY.md"><code>SECURITY.md</code> 安全说明与部署前必读</a></div>
         </div>
       </div>
     </div>

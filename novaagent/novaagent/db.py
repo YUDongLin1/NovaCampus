@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import sqlite3
 import threading
 from datetime import datetime, timezone
@@ -63,6 +64,14 @@ def connect() -> sqlite3.Connection:
 
 def _migrate() -> None:
     """轻量迁移:补齐旧库新增列/表。"""
+    # users.password_salt:口令哈希改为逐用户随机盐后新增。
+    # 旧库该列为空 → verify_user 会走旧格式兼容分支(需显式开关)。
+    u_cols = [r["name"] for r in _conn.execute("PRAGMA table_info(users)")]
+    if "password_salt" not in u_cols:
+        with _lock:
+            _conn.execute("ALTER TABLE users ADD COLUMN password_salt TEXT NOT NULL DEFAULT ''")
+            _conn.commit()
+
     cols = [r["name"] for r in _conn.execute("PRAGMA table_info(documents)")]
     if "category" not in cols:
         with _lock:
@@ -376,35 +385,83 @@ def update_document_summary(doc_id: int, summary: str) -> None:
 
 
 def seed_users() -> None:
-    """开发种子账号(演示用,生产应改为注册+强密码)。"""
+    """开发种子账号(演示用,生产应改为注册+强密码)。
+
+    口令来源全部走环境变量(config.NOVA_SEED_*_PASSWORD / NOVA_DEMO_PASSWORD),
+    源码与文档中不落任何明文。三个口令都没配置时**不创建任何账号**——
+    公开仓库的默认状态必须是「没有默认账号」。
+    """
     if _conn.execute("SELECT COUNT(*) c FROM users").fetchone()["c"] > 0:
         return
-    for username, password, role in [
-        ("admin", "admin123", "admin"),
-        ("counselor", "counselor123", "counselor"),
-        ("student", "student123", "student"),
-    ]:
+    seeds = [
+        ("admin", "admin"),
+        ("counselor", "counselor"),
+        ("student", "student"),
+    ]
+    created = 0
+    for username, role in seeds:
+        # 调用时实时读取(而不是 import 时的模块级快照):
+        # 允许在进程启动后才注入环境变量,也让测试更容易构造场景。
+        password = (config.env(f"NOVA_SEED_{role.upper()}_PASSWORD")
+                    or config.env("NOVA_DEMO_PASSWORD"))
+        if not password:
+            continue
         add_user(username, password, role)
+        created += 1
+    if created == 0:
+        # 明确告知,避免使用者以为"装坏了"
+        print(
+            "[novaagent] 未设置 NOVA_DEMO_PASSWORD / NOVA_SEED_<ROLE>_PASSWORD，"
+            "已跳过种子账号创建。设置后重启即可创建演示账号。"
+        )
+
+
+def _hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
+    """返回 (hash_hex, salt_hex)。逐用户随机盐 + PBKDF2-HMAC-SHA256。
+
+    旧实现是 sha256(固定全局盐 + 口令),无逐用户盐、无迭代因子,
+    公开仓库里等于把口令哈希的破解成本降到最低,故已废弃。
+    """
+    if salt is None:
+        salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, config.PASSWORD_HASH_ITERATIONS
+    )
+    return dk.hex(), salt.hex()
+
+
+def _legacy_hash(password: str) -> str:
+    """已废弃的旧哈希格式,仅用于升级本地旧库(需显式开启开关)。"""
+    return hashlib.sha256(("novacampus-dev" + password).encode()).hexdigest()
 
 
 def add_user(username: str, password: str, role: str) -> None:
-    salt = "novacampus-dev"
-    h = hashlib.sha256((salt + password).encode()).hexdigest()
+    h, salt_hex = _hash_password(password)
     with _lock:
         _conn.execute(
-            "INSERT OR IGNORE INTO users (username, password_hash, role, created_at) VALUES (?,?,?,?)",
-            (username, h, role, _now()),
+            "INSERT OR IGNORE INTO users "
+            "(username, password_hash, password_salt, role, created_at) VALUES (?,?,?,?,?)",
+            (username, h, salt_hex, role, _now()),
         )
         _conn.commit()
 
 
 def verify_user(username: str, password: str) -> sqlite3.Row | None:
-    salt = "novacampus-dev"
-    h = hashlib.sha256((salt + password).encode()).hexdigest()
     row = _conn.execute(
-        "SELECT * FROM users WHERE username=? AND password_hash=?", (username, h)
+        "SELECT * FROM users WHERE username=?", (username,)
     ).fetchone()
-    return row
+    if row is None:
+        return None
+    salt_hex = row["password_salt"] if "password_salt" in row.keys() else None
+    if salt_hex:
+        h, _ = _hash_password(password, bytes.fromhex(salt_hex))
+        if h == row["password_hash"]:
+            return row
+        return None
+    # 旧库兼容:无 salt 列,退化为旧格式比对(仅在显式开关下生效)
+    if config.PASSWORD_HASH_LEGACY_ENABLED and _legacy_hash(password) == row["password_hash"]:
+        return row
+    return None
 
 
 def create_session(user_id: int) -> str:

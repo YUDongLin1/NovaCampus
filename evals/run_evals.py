@@ -56,6 +56,23 @@ except (AttributeError, ValueError, OSError):
 
 import faithfulness  # LLM-as-judge:复用 novaagent 模型配置(只读导入)
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
+
 # ⚠ 不留可用的默认端口(坑 57 的同源陷阱)::8900 上长期有别人的常驻实例,
 #   漏--base 就会去审那个进程 —— 拿到代码版本不对的服务,造出假红。
 #   run_with_server.sh 已在包装层强制 --base,这里再做一道,双保险。
@@ -1791,9 +1808,9 @@ def run() -> int:
     cases = spec["cases"]
 
     with httpx.Client(timeout=180) as c:
-        admin = login(c, "admin", "admin123")
-        counselor = login(c, "counselor", "counselor123")
-        student = login(c, "student", "student123")
+        admin = login(c, "admin", ADMIN_PW)
+        counselor = login(c, "counselor", COUNSELOR_PW)
+        student = login(c, "student", STUDENT_PW)
         tokens = {"admin": admin, "counselor": counselor, "student": student}
         # P4e S2-②: **服务端**配置才是权威(客户端 env 可能与服务端不一致,坑 57 同源)
         server_flags: dict = {}

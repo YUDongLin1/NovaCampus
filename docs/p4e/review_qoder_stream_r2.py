@@ -18,6 +18,23 @@ import time
 
 import httpx
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
+
 ROOT = r"E:/AILearn/NovaCampus"
 PY = os.path.join(ROOT, "novaagent", ".venv", "Scripts", "python.exe")
 Q = u"研究生申请休学需要提交哪些材料？审批流程又是怎样的？"
@@ -118,7 +135,7 @@ print(u"=== A 档：默认（早窗 80 + 闸门开）===")
 pA = start(8920, {})
 try:
     c = httpx.Client(timeout=120); baseA = "http://127.0.0.1:8920"
-    tokA = token(c, baseA, "student", "student123")
+    tokA = token(c, baseA, "student", STUDENT_PW)
     a_runs = [measure(baseA, tokA) for _ in range(3)]
     report["early80"] = a_runs
     spans = [r["span"] for r in a_runs]
@@ -144,7 +161,7 @@ print(u"=== B 档：NOVA_GROUNDING_EARLY_WINDOW_CHARS=0（退回全缓冲）==="
 pB = start(8921, {"NOVA_GROUNDING_EARLY_WINDOW_CHARS": "0"})
 try:
     c = httpx.Client(timeout=120); baseB = "http://127.0.0.1:8921"
-    tokB = token(c, baseB, "student", "student123")
+    tokB = token(c, baseB, "student", STUDENT_PW)
     b_runs = [measure(baseB, tokB) for _ in range(2)]
     report["full_buffer"] = b_runs
     spans = [r["span"] for r in b_runs]

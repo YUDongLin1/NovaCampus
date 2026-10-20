@@ -46,6 +46,23 @@ sys.path.insert(0, str(ROOT / "novaagent"))
 
 from novaagent import agent, config, db, llm, rag  # noqa: E402
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
+
 FAILS: list = []
 
 
@@ -120,7 +137,7 @@ async def main() -> int:
         return FAKE_SOURCES, {"top_score": 0.98, "n_above_threshold": 2,
                               "rerank_available": True}
     rag.search_with_quality = _fake_search       # type: ignore[assignment]
-    user = db.verify_user("student", "student123")
+    user = db.verify_user("student", STUDENT_PW)
     print(f"[env] DATA_DIR={config.DATA_DIR}(库副本) user={user and user['username']}")
 
     # ---- U1~U4:空话首版 → 必然重生 ----

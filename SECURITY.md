@@ -24,25 +24,25 @@
 
 ## ⚠️ 部署者必读：默认配置只适合本机演示
 
-本项目的定位是**教学/演示与个人作品集**，代码里保留了一整套**开箱即用的演示账号与默认口令**，方便零基础用户跑起来。这些默认值一旦被部署到公网，等同于把系统敞开。
+本项目的定位是**教学/演示与个人作品集**。仓库**不提供任何默认账号与默认口令**——口令一律通过环境变量注入，不设置就不创建账号。
 
-**如果你要把它放到任何人能访问的网络里，必须先完成下面全部 6 项：**
+即便如此，如果你要把它放到任何人能访问的网络里，仍须完成下面全部 6 项：
 
-| # | 必做项 | 位置 | 原因 |
+| # | 必做项 | 位置 | 状态 |
 |---|--------|------|------|
-| 1 | **改掉三个演示账号的口令，或删掉它们** | `novaagent/novaagent/db.py` 的 `seed_users()` | 默认口令 `admin123` / `counselor123` / `student123` 写在源码里，且会显示在登录页上 |
-| 2 | **登录页去掉演示口令提示** | `novaagent/web/index.html` 登录框下方 | 不改等于把口令印在首页 |
-| 3 | **改掉 Grafana 管理口令** | `docker-compose.sims.yml` 的 `GF_SECURITY_ADMIN_PASSWORD` | 默认 `simsadmin123`，且匿名 Viewer 是打开的 |
-| 4 | **把两个 MCP Server 绑回本机** | `mcp/weekly/server.py`、`mcp/aiops/server.py` | 默认监听 `0.0.0.0` **且没有任何鉴权**，同网段任何人都能调用；`aiops` 的 `query_logs` 会返回容器日志原文 |
-| 5 | **为生产环境重新生成 WeKnora 密钥** | `weknora/.env` 的 `JWT_SECRET` / `SYSTEM_AES_KEY` / `SYSTEM_SIGNING_KEY` / `DB_PASSWORD` / `REDIS_PASSWORD` | 前三个若沿用了示例或开发值，会话令牌与落盘加密都不再可信 |
-| 6 | **给 `.env` 收紧文件权限并确认它没被提交** | `novaagent/.env` | 里面是付费 API Key |
+| 1 | **设置你自己的账号口令** | `novaagent/.env` 的 `NOVA_DEMO_PASSWORD`（或分角色的 `NOVA_SEED_*_PASSWORD`） | ✅ 源码无默认口令；不设置则不建号 |
+| 2 | **登录页不显示口令提示** | `novaagent/web/index.html` 登录框下方 | ✅ 已改为提示去 `.env` 设置 |
+| 3 | **设置 Grafana 管理口令** | `.env` 的 `GRAFANA_ADMIN_PASSWORD`（compose 用 `${VAR:?}` 强制注入，缺则报错退出） | ✅ 无默认值；匿名访问默认关闭 |
+| 4 | **保持两个 MCP Server 绑在本机** | `mcp/weekly/server.py`、`mcp/aiops/server.py` | ✅ 默认已改 `127.0.0.1`；两服务**无鉴权**，跨机访问须自行加前置认证 |
+| 5 | **为生产环境重新生成 WeKnora 密钥** | `weknora/.env` 的 `JWT_SECRET` / `SYSTEM_AES_KEY` / `SYSTEM_SIGNING_KEY` / `DB_PASSWORD` / `REDIS_PASSWORD` | ⬜ 需你自行执行（WeKnora 为独立仓库，不随本项目分发） |
+| 6 | **给 `.env` 收紧文件权限并确认它没被提交** | `novaagent/.env` | ⬜ 需你自行执行；`.env` 已被 `.gitignore` 忽略 |
 
 ### 已知的设计性弱点（非漏洞，但你应该知道）
 
-- **口令哈希强度不足**：`db.py` 使用 `sha256(固定盐 + 口令)`，盐是源码里的常量 `novacampus-dev`，**没有逐用户盐、也没有慢哈希**。拿到数据库文件即可低成本撞库。生产使用请改为 `bcrypt` / `argon2`。
-- **自定义 API Key 明文落库**：用户在设置页填写的 `llm_api_key` 以明文存进 `user_settings` 表，未加密。
+- **自定义 API Key 明文落库**：用户在设置页填写的 `llm_api_key` 以明文存进 `user_settings` 表，未加密。本机演示可接受，公网部署请改为加密存储或改用服务端保管的 key 引用。
 - **知识库为单机 SQLite**：`db.py` 使用单个模块级连接（`check_same_thread=False`）被多线程共享，高并发下可能出现 `sqlite3.InterfaceError` 或请求挂起（已登记为待办 T11）。
 - **MCP 工具为只读设计**：`mcp/aiops` 的预案只输出建议命令，不会真的执行变更；请勿把它改成会写生产环境的版本后直接暴露。
+- **口令哈希**：已改为 **PBKDF2-HMAC-SHA256 + 逐用户随机盐**（`PASSWORD_HASH_ITERATIONS` 默认 200000）。本地旧库如需沿用旧格式口令，可在 `.env` 里设 `NOVA_LEGACY_PASSWORD_HASH=1`（仅迁移用，新部署不要开）。
 
 ## 数据处理与合规说明
 

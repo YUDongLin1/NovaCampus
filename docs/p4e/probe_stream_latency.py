@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import os
 import argparse
 import json
 import statistics
@@ -33,6 +34,23 @@ except (AttributeError, ValueError, OSError):
 import httpx  # noqa: E402
 
 import run_evals as R  # noqa: E402
+
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
 
 OUT_DIR = ROOT / "docs" / "p4e" / "evidence"
 # 与 stream_sse 用例同一问句(两问合并 → 答案长,渐进性可客观测量)
@@ -89,8 +107,8 @@ def main() -> int:
 
     rows: list = []
     with httpx.Client(timeout=180) as c:
-        tok = R.login(c, "student", "student123")
-        n = R.seed_corpus_if_needed(c, R.login(c, "counselor", "counselor123"))
+        tok = R.login(c, "student", STUDENT_PW)
+        n = R.seed_corpus_if_needed(c, R.login(c, "counselor", COUNSELOR_PW))
         if n:
             print(f"[seed] 播种 {n} 篇")
         for i in range(-1, args.runs):  # 第 -1 次为 warmup,不计入统计

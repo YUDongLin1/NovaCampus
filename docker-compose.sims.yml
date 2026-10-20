@@ -49,10 +49,13 @@ services:
   grafana:
     image: grafana/grafana:11.1.0
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: simsadmin123
-      GF_AUTH_ANONYMOUS_ENABLED: "true"
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      # 管理口令一律外部注入:${VAR:?...} 表示未设置时 compose 直接报错退出,
+      # 避免出现"默认值人人皆知"的公开仓库默认凭据。用法见 .env.example。
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?必须显式设置 GRAFANA_ADMIN_PASSWORD,例如在 .env 中写入}
+      # 匿名只读访问默认关闭;确需本地演示时在 .env 里显式开启。
+      GF_AUTH_ANONYMOUS_ENABLED: "${GRAFANA_ANONYMOUS_ENABLED:-false}"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: ${GRAFANA_ANONYMOUS_ORG_ROLE:-Viewer}
     volumes:
       - ./sims/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./sims/grafana/dashboards:/var/lib/grafana/dashboards:ro

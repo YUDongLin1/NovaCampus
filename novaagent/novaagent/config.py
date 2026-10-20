@@ -56,6 +56,34 @@ def key_source(key: str) -> str:
     return SOURCE_UNSET
 
 
+# ---------- 演示账号口令:一律由环境变量注入,源码里不落明文 ----------
+# 开源前的硬性要求:种子账号的口令不得硬编码在源码或文档里。
+# 约定(按优先级):
+#   1) NOVA_SEED_<ROLE>_PASSWORD —— 显式注入某个角色的口令
+#   2) NOVA_DEMO_PASSWORD         —— 三个角色共用同一个口令
+#   3) 都没有                     —— 不创建任何种子账号(首次部署必须自行注册/注入)
+# 这样"直接 clone 就能登录"的演示便利只在显式设置口令时成立,
+# 公开仓库的默认状态是**安全的**(无默认账号、无默认口令)。
+#
+# ⚠ 这里刻意用**函数**而不是模块级常量:模块级常量在 import 时求值一次,
+#   若在 import 之后才注入环境变量就读不到;函数是调用时实时求值。
+def demo_password(role: str) -> str:
+    """返回指定角色的演示口令(调用时实时读取环境变量)。未配置时返回空串。"""
+    r = role.lower()
+    return env(f"NOVA_SEED_{r.upper()}_PASSWORD") or env("NOVA_DEMO_PASSWORD")
+
+
+def demo_passwords() -> dict[str, str]:
+    """返回 {'admin': ..., 'counselor': ..., 'student': ...} 的口令映射(未配置者为空串)。"""
+    return {r: demo_password(r) for r in ("admin", "counselor", "student")}
+
+# 口令哈希的 KDF 参数。默认 PBKDF2-HMAC-SHA256,迭代次数可调(高并发部署可适当降低)。
+PASSWORD_HASH_ITERATIONS = int(env("PASSWORD_HASH_ITERATIONS", "200000"))
+
+# 口令哈希盐:逐用户随机生成并存库(不再用全局固定盐)。
+# 兼容开关:NOVA_LEGACY_PASSWORD_HASH=1 时才启用已废弃的旧格式校验(仅供本地旧库升级用)。
+PASSWORD_HASH_LEGACY_ENABLED = env("NOVA_LEGACY_PASSWORD_HASH", "") == "1"
+
 LLM_BASE_URL = env("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 LLM_MODEL = env("LLM_MODEL", "qwen-flash")
 LLM_API_KEY = env("LLM_API_KEY")

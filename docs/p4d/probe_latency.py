@@ -9,11 +9,29 @@
   时间类(intent=time,不调 LLM)、闲聊(intent=chitchat,一次 LLM)、
   普通 qa(单遍检索即达标)、改写路径(需要 2 轮检索)。
 """
+import os
 import json
 import sys
 import time
 
 import httpx
+
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
 
 sys.path.insert(0, ".")
 try:
@@ -54,7 +72,7 @@ def ttfd(client: httpx.Client, headers: dict, q: str) -> int | None:
 
 
 def main() -> None:
-    tok = httpx.post(f"{BASE}/api/login", json={"username": "student", "password": "student123"},
+    tok = httpx.post(f"{BASE}/api/login", json={"username": "student", "password": STUDENT_PW},
                      timeout=30).json()["token"]
     headers = {"Authorization": f"Bearer {tok}"}
     rows = []

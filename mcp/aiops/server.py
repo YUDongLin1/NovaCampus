@@ -695,7 +695,10 @@ if __name__ == "__main__":
     import uvicorn
     from starlette.applications import Starlette
 
-    host = os.environ.get("AIOPS_HOST", "0.0.0.0")
+    # 默认只监听回环地址:本服务无鉴权层,且 query_logs 会返回容器日志原文,
+    # 默认对外全网卡监听等于把日志内容暴露到局域网。确需跨机访问时由部署方
+    # 显式设 AIOPS_HOST=0.0.0.0,并自行在前置层加认证。
+    host = os.environ.get("AIOPS_HOST", "127.0.0.1")
     port = int(os.environ.get("AIOPS_PORT", "18081"))
 
     sse_asgi = mcp.sse_app(sse_path="/sse", message_path="/messages/", host=host)

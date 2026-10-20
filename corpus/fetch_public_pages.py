@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -282,7 +283,14 @@ def do_fetch() -> int:
 def do_import() -> int:
     import httpx
 
-    tok = httpx.post(BASE + "/api/login", json={"username": "counselor", "password": "counselor123"},
+    # 口令一律从环境变量读,源码里不落明文。
+    # 用 NOVA_DEMO_PASSWORD(或 NOVA_SEED_COUNSELOR_PASSWORD)指定本地演示账号口令。
+    pwd = os.environ.get("NOVA_SEED_COUNSELOR_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        print("[ERR] 未设置 NOVA_DEMO_PASSWORD / NOVA_SEED_COUNSELOR_PASSWORD,无法登录导入。"
+              "请先在 novaagent/.env 中设置后重试。")
+        return 2
+    tok = httpx.post(BASE + "/api/login", json={"username": "counselor", "password": pwd},
                      timeout=30).json()["token"]
     H = {"Authorization": "Bearer " + tok}
     before = len(httpx.get(BASE + "/api/kb/documents", headers=H, timeout=30).json()["documents"])

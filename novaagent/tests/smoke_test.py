@@ -23,6 +23,10 @@ from urllib.parse import urlsplit
 
 import httpx
 
+# 演示口令一律从环境变量读,源码内不落明文(开源前脱敏要求)。
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _demo_creds import demo_password  # noqa: E402
+
 # P4e M5 ②:默认端口仍是 8900(保持既有调用方式不变),但**必须能用 --base 指到别处**——
 # 此前 BASE 硬编码,服务跑在 :8905 时,「自家前端禁抓」断言会假红
 # (期望 code=deny_url、实得 index_page),而质量门代码一行没变。
@@ -261,9 +265,9 @@ def main() -> int:
     BASE = args.base.rstrip("/")
 
     with httpx.Client(timeout=180) as c:
-        admin = login(c, "admin", "admin123")
-        counselor = login(c, "counselor", "counselor123")
-        student = login(c, "student", "student123")
+        admin = login(c, "admin", demo_password("admin"))
+        counselor = login(c, "counselor", demo_password("counselor"))
+        student = login(c, "student", demo_password("student"))
         print(f"[1] 三角色登录 OK: {admin['role']}/{counselor['role']}/{student['role']}")
 
         def doc_count() -> int:

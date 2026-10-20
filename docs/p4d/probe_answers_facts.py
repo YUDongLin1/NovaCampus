@@ -12,12 +12,30 @@
 """
 from __future__ import annotations
 
+import os
 import json
 import re
 import sys
 from pathlib import Path
 
 import httpx
+
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -63,7 +81,7 @@ def main() -> int:
     out: list[dict] = []
     with httpx.Client(timeout=180, trust_env=False) as c:
         toks = {}
-        for u, p in (("student", "student123"), ("counselor", "counselor123"), ("admin", "admin123")):
+        for u, p in (("student", STUDENT_PW), ("counselor", COUNSELOR_PW), ("admin", ADMIN_PW)):
             toks[u] = c.post(f"{BASE}/api/login", json={"username": u, "password": p}).json()["token"]
         for cid, role, q, why in QUESTIONS:
             r = c.post(f"{BASE}/api/chat",

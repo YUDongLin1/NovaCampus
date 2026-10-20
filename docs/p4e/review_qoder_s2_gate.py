@@ -19,6 +19,23 @@ import time
 
 import httpx
 
+
+# ---- 演示口令:一律从环境变量读,源码内不落明文(开源前脱敏要求) ----
+def _demo_pw(role: str) -> str:
+    r = role.upper()
+    pwd = os.environ.get(f"NOVA_SEED_{r}_PASSWORD") or os.environ.get("NOVA_DEMO_PASSWORD", "")
+    if not pwd:
+        raise RuntimeError(
+            f"未设置演示口令:请在 novaagent/.env 中写入 NOVA_DEMO_PASSWORD"
+            f"(或 NOVA_SEED_{r}_PASSWORD)。")
+    return pwd
+
+
+ADMIN_PW = _demo_pw("admin")
+COUNSELOR_PW = _demo_pw("counselor")
+STUDENT_PW = _demo_pw("student")
+
+
 ROOT = r"E:/AILearn/NovaCampus"
 PY = os.path.join(ROOT, "novaagent", ".venv", "Scripts", "python.exe")
 OUT_DIR = os.path.join(ROOT, "docs", "p4e", "evidence", "review")
@@ -74,7 +91,7 @@ def span_runs(base, n=3):
             q = c["question"]
     assert q, "cases.json 里取不到 ss-01 问句"
     c = httpx.Client(timeout=240)
-    tok = c.post(base + "/api/login", json={"username": "student", "password": "student123"}).json()["token"]
+    tok = c.post(base + "/api/login", json={"username": "student", "password": STUDENT_PW}).json()["token"]
     res = []
     for _ in range(n):
         t0 = time.time(); ttfb = None; nd = 0

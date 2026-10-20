@@ -228,13 +228,24 @@ uv run uvicorn novaagent.main:app --port 8900
 
 访问 <http://127.0.0.1:8900>
 
-登录页会显示三个演示账号（**仅本地演示用**）：
+登录需要你自己指定口令。**本项目不提供任何默认账号与默认口令**——在 `novaagent/.env` 里写入一行即可：
 
-| 账号 | 密码 | 角色 | 能看到什么 |
+```bash
+# novaagent/.env
+NOVA_DEMO_PASSWORD=<你自己设的口令>
+```
+
+设置后重启服务，会自动创建三个角色的账号（口令相同）：
+
+| 账号 | 口令 | 角色 | 能看到什么 |
 |------|------|------|-----------|
-| `student` | `student123` | 学生 | 问答、知识库（只读）、辅导员人设 |
-| `counselor` | `counselor123` | 辅导员 | 上述 + 知识库管理 + 周报 + 工作记录 |
-| `admin` | `admin123` | 校管理员 | 全部数据的最广可见范围 |
+| `student` | 你设置的口令 | 学生 | 问答、知识库（只读）、辅导员人设 |
+| `counselor` | 你设置的口令 | 辅导员 | 上述 + 知识库管理 + 周报 + 工作记录 |
+| `admin` | 你设置的口令 | 校管理员 | 全部数据的最广可见范围 |
+
+也可以按角色分别设置（优先级更高）：`NOVA_SEED_ADMIN_PASSWORD` / `NOVA_SEED_COUNSELOR_PASSWORD` / `NOVA_SEED_STUDENT_PASSWORD`。
+
+> ⚠ 不设置 `NOVA_DEMO_PASSWORD` 就**不会创建任何账号**（这是刻意的安全默认值）。首次部署请先设口令再启动。
 
 **用 `counselor` 登录**能看到最完整的功能。
 
@@ -262,7 +273,7 @@ NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe tests/smoke_test.py
 
 **用界面做：**
 
-1. 用 `counselor / counselor123` 登录；
+1. 用 `counselor` + 你在 `.env` 里设置的口令登录；
 2. 左侧点「知识库」→ 在「上传文档」区域选一个 `.md` 或 `.pdf` 文件；
 3. 可见性选「全体可见」，分类选「政策文件」，点上传；
 4. 等状态变成解析完成（约几秒）；
@@ -277,7 +288,7 @@ NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe tests/smoke_test.py
 # 1) 登录，拿 token
 curl -s -X POST http://127.0.0.1:8900/api/login ^
   -H "Content-Type: application/json" ^
-  -d "{\"username\":\"counselor\",\"password\":\"counselor123\"}"
+  -d "{\"username\":\"counselor\",\"password\":\"<你的口令>\"}"
 # macOS / Linux 把行尾的 ^ 换成 \
 ```
 
@@ -307,7 +318,7 @@ import httpx
 BASE = "http://127.0.0.1:8900"
 with httpx.Client(timeout=120) as c:
     tok = c.post(f"{BASE}/api/login", json={
-        "username": "counselor", "password": "counselor123"
+        "username": "counselor", "password": "<你的口令>"
     }).json()["token"]
     h = {"Authorization": f"Bearer {tok}"}
     conv = c.post(f"{BASE}/api/conversations", json={"title": "上手测试"}, headers=h).json()["id"]
@@ -453,7 +464,7 @@ docker compose -f docker-compose.sims.yml up -d --build
 | 教务系统（jiaowu） | <http://127.0.0.1:9101> | 模拟教务，含连接池与指标接口 |
 | 一卡通（ykt） | <http://127.0.0.1:9102> | 模拟一卡通，故障叙事主角 |
 | Prometheus | <http://127.0.0.1:9090> | 指标采集，5 秒一次 |
-| Grafana | <http://127.0.0.1:3000> | 总览大屏，账号 `admin` / `simsadmin123` |
+| Grafana | <http://127.0.0.1:3000> | 总览大屏。管理口令需在 `.env` 里设置 `GRAFANA_ADMIN_PASSWORD`（不设置则 compose 直接报错，不会用默认值） |
 
 **注入故障**（两种：连接池耗尽、CPU 飙高）：
 
