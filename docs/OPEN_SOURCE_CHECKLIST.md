@@ -1,7 +1,7 @@
 # 开源前隐私与敏感信息清理 —— 汇总清单
 
 > 生成时间：2026-10-20
-> 发布主体仓库：`E:/AILearn/NovaCampus/NovaCampus/NovaCampus`（独立 git 仓库，188 提交 / 710 文件）
+> 发布主体仓库：`E:/AILearn/NovaCampus/NovaCampus/NovaCampus`（独立 git 仓库，189 提交 / 710 文件）
 > 外层 `E:/AILearn/NovaCampus` 为旧工作副本（186 提交 / 687 文件），已同步清理但**不作为发布主体**
 
 ---
@@ -14,7 +14,7 @@
 | 硬编码凭据 | ✅ 已改造 | 全部改为环境变量注入 |
 | `.gitignore` 覆盖 | ✅ 已补全 | 内层 341 行 / 外层 357 行，误伤 0 |
 | 知识库/数据文件 | ✅ 未入库 | 仅 45 个有意入库的公开语料与模板 |
-| Git 历史 | ✅ 已重写 | 188 提交全部重写，敏感项 0 残留 |
+| Git 历史 | ✅ 已重写 | 189 提交全部重写，敏感项 0 残留 |
 | 仓库可发布性 | ✅ 可发布 | 结构完整，功能无损 |
 
 ---
@@ -33,6 +33,7 @@
 | 归档包 | `*.zip` / `*.tar` / `*.tgz` / `*.7z` / `*.rar` | 打包产物 |
 | 依赖形态 | `.pnpm/` / `.yarn/cache` / `__pypackages__/` | 依赖缓存 |
 | 工具链 | `.pyre/` / `.cache/` / `*.eslintcache` / `.mypy_cache/` / `*.pytest_cache/` / `*.ruff_cache/` | 各类缓存 |
+| IDE / 操作系统 | `.idea/` / `.vscode/` / `.DS_Store` / `Thumbs.db` | 编辑器与系统杂项（含本地调试配置） |
 | 密钥管理 | `.secrets-store/` / `*.age` / `*.sops.yaml` / `.trivy/` / `*.sarif` | 密钥与扫描报告 |
 | 数据目录 | `data/` / `novaagent/data/` / `corpus/raw/affairs/` / `corpus/clean/affairs/` / `mcp/weekly/data-weekly/` / `weknora/` | 本地/受限数据 |
 
@@ -50,7 +51,7 @@
 
 | 路径 | 数量 | 保留理由 |
 |---|---|---|
-| `corpus/clean/` | 40 篇 | 学校**公开发布**的政策文件，35 篇带 `source_url` 可核验 |
+| `corpus/clean/` | 40 篇 | 学校**公开发布**的政策文件与办事指引，38 篇带 `source_url` 可回源核验 |
 | `evals/seed_corpus/` | 4 篇 | 评测种子语料 |
 | `novaagent/.env.example` | 1 | 纯模板，值为空 |
 
@@ -140,11 +141,13 @@
 
 | 内容 | 位置 | 保留理由 |
 |---|---|---|
-| 4 个合成演示口令（`admin`/`counselor`/`student`/`simsadmin` 前缀 + 数字后缀） | `novaagent/novaagent/main.py:432`（质量门正则）、`novaagent/tests/smoke_test.py:156`（测试夹具）、`docs/p4b/evidence/`（复现命令） | 这些值是**合成演示口令**，且是**质量门检测规则的语义组成部分** —— 替换会直接破坏检测逻辑与单测断言（功能性回归）。已在提交信息中替换。 |
+| 4 个合成演示口令（`admin`/`counselor`/`student`/`simsadmin` 前缀 + 数字后缀） | 源码：`novaagent/novaagent/main.py:432`（质量门正则）、`novaagent/tests/smoke_test.py:156`（测试夹具）；文档：`docs/internal/`、`docs/P3A.md`、`docs/P4*.md`、`docs/p4*/evidence/`（历史工单、交接记录与复现证据） | 这些值是**合成演示口令**，且是**质量门检测规则的语义组成部分** —— 替换会直接破坏检测逻辑与单测断言（功能性回归）。更关键的是：`db.py:seed_users()` 已改为**只从环境变量读取**、三个口令都未配置时**不创建任何账号**，因此这些字面量**已不具备登录能力**，仅是历史文档里的记录。已在提交信息中替换。 |
+| 4 个演示账号的"埋点"测试夹具（`埋点-姓名…` / `埋点-学号…` / `埋点-手机号…` 三条） | `docs/internal/p4e/probe_web_compliance.py:52` | 个人信息合规检测的**故意埋点**，全部带 `埋点-` 前缀与 `9999` 占位尾数，用于验证 PII 拦截是否生效 |
+| 校医院公开座机号（如 `028-87600480` 等） | `corpus/clean/guide/西南交通大学校医院联系方式(各科室咨询电话).md` | 来源为官网 `hospital.swjtu.edu.cn/lxwm.htm`，**机构对外公开电话**，非个人号码；语料保留 `source_url` 可回源核验 |
 | 机构域名与校名 | `corpus/MANIFEST.md`、`THIRD_PARTY_NOTICES.md`、40 篇公开政策语料 | 学校公开域名，语料本身即公开发布文件，保留可核验性 |
-| 2 个手机号占位符 | `novaagent/tests/smoke_test.py` | 质量门测试夹具（文档明确要求用"明显的占位符"） |
-| 2 个身份证号串 | `novaagent/novaagent/main.py` 身份证检测用例 | **GB11643 校验位无效**，为合成数据（已用校验算法逐位验证） |
-| 2 个 `sk-` 负样本串 | `novaagent/novaagent/main.py` | 密钥泄漏检测的负样本（故意构造） |
+| 2 个手机号占位符 | `novaagent/tests/smoke_test.py:167` | 质量门测试夹具（文档明确要求用"明显的占位符"） |
+| 3 个身份证号串 | `docs/p4/evidence/review_p4a1_independent_check.py:88-89`（独立复核脚本）与 `docs/P4A1.md:31` | **GB11643 校验位全部无效**，为合成数据（已用校验算法逐位验证：应为 1 / 4 / 5，实为 9 / 2 / 9） |
+| 3 个 `sk-` 负样本串 | `novaagent/tests/probe_port_check.py:363`、`novaagent/tests/test_p4f_c0.py:53,75` | 密钥泄漏检测的**负样本**（故意构造，断言"必须被检出/必须被屏蔽"） |
 
 ### 3.4 邮箱 / 手机号 / 身份证 / IP 深度扫描结论
 
@@ -153,18 +156,20 @@
 | 模式 | 命中 | 结论 |
 |---|---|---|
 | 邮箱 | 389 处 / 5 值 | 377 = GitHub noreply（作者身份，安全）；9 = 机构邮箱（已掩码）；1 = 第三方平台文档示例地址；2 = 哈希片段误报 |
-
-> 说明：上表为**本报告泛化后**的终态统计。首版报告曾直接写出机构邮箱原值与平台示例地址，导致这些字面量随报告重新进入历史 —— 这正是第 3.2 节第 4 条记录的"报告自身回归"问题，现已消除。
-| 手机号 | 29 处 / 14 值 | **全部误报**：12 个值为 PyPI wheel URL 的 SHA256 片段，2 个值为测试夹具占位符 |
-| 身份证 | 5 处 / 2 值 | 全部为质量门拦截测试夹具，**GB11643 校验位无效** |
+| 手机号 | 27 处 / 14 值 | **全部误报**：12 个值为 PyPI wheel URL 的 SHA256 片段，2 个值为测试夹具占位符 |
+| 身份证 | 3 处 / 2 值 | 全部为质量门拦截测试夹具，**GB11643 校验位无效** |
 | 非回环 IP:端口 | **0** | ✅ |
 | 回环 IP:端口 | 60 个去重值 | 全部为 `127.0.0.1`（本地回环） |
 | GitHub token / AWS key / 私钥块 / SSH 私钥 / JWT | **0** | ✅ |
 | 真实 API Key（`sk-ws-`/`sk-zak`/`sk-or-v1-`） | **0** | ✅ 从未入库 |
+| 截图（52 张 PNG）中的可见文本 | 2 张命中邮箱正则 | **误报**：命中位于 IDAT 压缩像素数据内的随机字节（`Q@D.vVM` / `uj@xF.GAC`），非真实邮箱。人工目视核验两张界面截图，仅含公开政策文档标题、演示问题与 `swjtu.edu.cn` 官网地址，无姓名 / 学号 / 个人电话 |
+| 座机 / 分机号 | 仅 1 篇语料 | 校医院各科室对外公开电话，来源为官网页面，属机构公开信息 |
+
+> 说明：上表为**本报告泛化后**的终态统计。首版报告曾直接写出机构邮箱原值与平台示例地址，导致这些字面量随报告重新进入历史 —— 这正是第 3.2 节第 4 条记录的"报告自身回归"问题，现已消除。
 
 ### 3.5 作者身份
 
-188 次提交的 author/committer **全部**为 `YUDongLin1 <155050346+YUDongLin1@users.noreply.github.com>` —— GitHub noreply 格式，**不泄露真实邮箱**。已附带 `mailmap` 固化。
+189 次提交的 author/committer **全部**为 `YUDongLin1 <155050346+YUDongLin1@users.noreply.github.com>` —— GitHub noreply 格式，**不泄露真实邮箱**。已附带 `mailmap` 固化。
 
 ---
 
@@ -176,7 +181,7 @@
 cd E:/AILearn/NovaCampus/NovaCampus/NovaCampus
 
 # 结构完整性
-git rev-list --all --count          # 期望 188
+git rev-list --all --count          # 期望 189
 git ls-files | wc -l                # 期望 710
 git status --porcelain              # 期望空（工作区干净）
 
@@ -238,7 +243,7 @@ git push origin --tags
 ## 五、遗留提示
 
 1. **`.gitignore` 规则不含 `corpus/raw/` 本身**（只忽略其下的 `affairs/`）。当前 `corpus/raw/` 只有空的 `affairs/` 子目录，安全；若将来放入原始抓取件，请确认不含真实学生数据。
-2. **linked worktree**（位于本机用户目录下的 WorkBuddy 工作区，路径含本机账户名）已重新注册到内层仓库，但 `git worktree list` 会显示 `prunable`（Windows 路径分隔符导致的展示问题，不影响功能）。其历史未提交改动已完整备份至 `E:/AILearn/_prepublish_backup_20261020/worktree_backup_task-t10/`。
+2. **linked worktree**（位于本机用户目录下的 WorkBuddy 工作区，路径含本机账户名）已重新注册到内层仓库并恢复索引（105 个已跟踪文件），功能完好：可提交、可查历史、未跟踪文件与未提交改动完整保留。其历史未提交改动另有一份完整备份至 `E:/AILearn/_prepublish_backup_20261020/worktree_backup_task-t10/`。
 3. **外层旧副本**（`E:/AILearn/NovaCampus`，186 提交）已同步清理，但**不是发布主体**。建议：要么删除，要么明确标注为非发布仓库，避免误推。
 4. **本报告自身曾引入回归**：首版报告正文为说明"清理了哪些内容"而写出了真实敏感字面量，且提交于首次历史重写之后。现已泛化并二次重写 —— 这也说明**清理报告本身必须自证不含敏感词**。
 
@@ -251,6 +256,12 @@ git push origin --tags
 | `3683a70` | chore(security): 开源前凭据改造 —— 口令改环境变量注入、哈希升级 PBKDF2、MCP 默认绑定回环、Grafana 强制外部注入 |
 | `db74724` | chore(privacy): 开源前脱敏 —— 移除身份标识/本机路径/求职叙事/第三方版权正文 |
 | `73b4c31` | chore(security): 模拟栈默认只监听回环地址 |
+| HEAD | docs(privacy): 开源前隐私与敏感信息清理汇总清单（本文件；hash 随 amend 变动，以 `git log -1` 为准） |
 | `9cca1b4`（外层） | chore(ignore): 排除嵌套仓库与工作副本目录 |
 
 > 上述 hash 为历史重写**之后**的 hash。重写前的 hash 已全部失效，不可用于 GitHub PR 链接。
+> 仓库当前共 **3 分支 + 1 标签 / 189 提交 / 710 文件**：
+> - `master` @ `374d323`
+> - `wip/asr-minutes-20261012` = HEAD（**发布分支**，hash 以 `git rev-parse HEAD` 为准）
+> - `workbuddy/task-t10-retrieval-d910a267` @ `e0859fc`（linked worktree 检出中）
+> - tag `prepublish-backup-20261020-103113` @ `3683a70`
