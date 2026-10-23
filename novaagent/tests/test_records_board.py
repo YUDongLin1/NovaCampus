@@ -94,6 +94,16 @@ const ctx = {
   URLSearchParams,
 };
 ctx.window = ctx;
+// 冻结「今天」为 2026-10-08(ISO 第 41 周的周四):initWeek / switchBoard 的
+// 「默认本周 / 本月 / 本年」类断言只依赖今天落在哪一周,不该随运行日期漂移。
+// 不冻结就会每周过期一次 —— 曾出现 41/47,6 条红全是这个原因。
+const _RealDate = Date;
+const _FIXED_NOW = _RealDate.UTC(2026, 9, 8, 4, 0, 0); // = 北京时间 12:00,常见时区里都是 10-05~10-11 这一周
+class FrozenDate extends _RealDate {
+  constructor(...args) { super(...(args.length ? args : [_FIXED_NOW])); }
+  static now() { return _FIXED_NOW; }
+}
+ctx.Date = FrozenDate;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(JS + '/api.js', 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(JS + '/weekly.js', 'utf8'), ctx);
