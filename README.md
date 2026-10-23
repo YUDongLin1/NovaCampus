@@ -8,6 +8,8 @@
   <img alt="Python" src="https://img.shields.io/badge/Python-3.12%2B-blue">
   <img alt="License" src="https://img.shields.io/badge/License-MIT-green">
   <img alt="Tests" src="https://img.shields.io/badge/Eval-59%20cases-informational">
+
+  <img alt="CI" src="https://github.com/YUDongLin1/NovaCampus/actions/workflows/ci.yml/badge.svg">
   <img alt="RAG" src="https://img.shields.io/badge/RAG-Hybrid%20Retrieval-orange">
   <img alt="Backend" src="https://img.shields.io/badge/Backend-FastAPI-009688">
 </p>
@@ -291,9 +293,9 @@ RERANK_API_KEY=sk-同一把硅基流动Key（没有可先留空）
 
 > ⚠️ `.env` 已被 `.gitignore` 忽略，**不要**提交它，也不要贴进截图或 issue。
 
-### 第 5 步：启动周报 MCP 服务（不能跳过）
+### 第 5 步：启动周报 MCP 服务（建议先起）
 
-> **为什么必须先起它？** NovaAgent 启动时会连接周报服务，连不上就**起不来**（代码里没有容错）。这是新手最容易卡住的地方。
+> **为什么建议先起它？** 周报功能靠这个服务工作。没起它主服务也能正常启动，只是周报页会提示「weekly MCP 未连接」；把周报服务起来之后**不用重启主服务**，再打开周报页就会自动连上。
 
 ```bash
 cd ../mcp/weekly
@@ -613,6 +615,7 @@ docker compose ps         # 全部 healthy 即可
 | 想做什么 | 命令 |
 |----------|------|
 | 冒烟测试（三角色权限 + 检索引用 + 周报链路） | `cd novaagent && NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe tests/smoke_test.py` |
+| 离线自测套件（零额度、不起服务，CI 同款） | 清单见 `.github/workflows/ci.yml`；本地逐个用 `.venv` 的 python 跑 `tests/test_*.py` 即可（部分套件需先在 `.env` 里设演示口令）。另有 3 个套件依赖本机真实数据（`test_talk_minutes` / `test_p4f_c0` / `test_p5_shell` 的少数断言），只能在本机跑，不进 CI |
 | 只清理历史残留测试文档 | `... tests/smoke_test.py --cleanup-only` |
 | 跑完整评测（59 用例） | `PYTHONIOENCODING=utf-8 ... ../evals/run_evals.py --base http://127.0.0.1:8900` |
 | 知识库体检（重复标题 / 超短正文 / 疑似登录页 / 个人信息） | `PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe ../evals/kb_doctor.py` |
@@ -635,9 +638,9 @@ docker compose ps         # 全部 healthy 即可
 **Q：启动报 `RuntimeError: 缺少配置项: ['LLM_API_KEY']`**
 没填 Key。检查 `novaagent/.env` 是否存在、变量名是否拼对。注意文件必须叫 **`.env`** 且放在 **`novaagent/` 目录下**（路径是写死的）。
 
-**Q：服务起不来，日志里有 `ConnectError` / `CancelledError`，或者干脆没报错就退出**
-**九成是周报 MCP 没启动。** 这是最常见的坑：NovaAgent 启动时会连接周报服务，连不上直接失败。回到[第 5 步](#第-5-步启动周报-mcp-服务不能跳过)把它起来。
-确认方法：访问 <http://127.0.0.1:8900/api/health>，看 `weekly_mcp` 是不是 `true`。
+**Q：周报页提示 `weekly MCP 未连接`（主服务本身能正常打开）**
+周报 MCP 没启动，或端口没对上（主服务默认连 `127.0.0.1:18080`）。回到[第 5 步](#第-5-步启动周报-mcp-服务建议先起)把周报服务起来，**不用重启主服务**，再打开周报页就会自动重连。
+确认方法：打开一次周报页触发重连后，访问 <http://127.0.0.1:8900/api/health>，看 `weekly_mcp` 是不是 `true`。
 
 **Q：改了 `.env` 但没生效**
 `.env` 只在进程启动时读一次。**必须重启进程**。如果用 Docker，要用 `docker compose up -d app`，**`restart` 不会重新读取环境变量**。
@@ -729,7 +732,7 @@ Docker Desktop 没有常驻运行。先手动启动它，**不要**在 daemon �
 **Q：`docker-compose.weekly.yml` 起不来，提示网络不存在**
 该文件依赖一个**已存在的外部网络** `weknora_WeKnora-network`（由 WeKnora 的 compose 创建）。两种解法：
 1. 先部署 WeKnora；或
-2. **不用 Docker**，按[第 5 步](#第-5-步启动周报-mcp-服务不能跳过)用 Python 直接跑周报服务——推荐给只想体验核心功能的人。
+2. **不用 Docker**，按[第 5 步](#第-5-步启动周报-mcp-服务建议先起)用 Python 直接跑周报服务——推荐给只想体验核心功能的人。
 
 **Q：3000 端口冲突**
 `docker-compose.sims.yml` 把 Grafana 发布在 `3000`，而 WeKnora 的 Langfuse 也在 `3000`。两个栈同时跑会有一个起不来。改掉其中一个的端口映射即可。
