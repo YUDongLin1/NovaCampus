@@ -26,6 +26,18 @@ jobs:
         working-directory: novaagent
         run: uv sync
 
+      - name: 生成种子数据库
+        working-directory: novaagent
+        env:
+          PYTHONIOENCODING: utf-8
+          NOVA_DEMO_PASSWORD: ci-dummy-password
+          NOVA_SEED_ADMIN_PASSWORD: ci-dummy-admin
+          NOVA_SEED_COUNSELOR_PASSWORD: ci-dummy-counselor
+          NOVA_SEED_STUDENT_PASSWORD: ci-dummy-student
+        # test_p4f_persona 会把 data/agent.db 复制到临时目录跑数据层/权限用例:
+        # 本机有现成库、CI 干净检出没有,先用应用自身的 init 建一个种子库(口令即上面的 CI 假口令)
+        run: .venv/bin/python -c "from novaagent import db; db.connect()"
+
       - name: 离线自测套件
         working-directory: novaagent
         env:
