@@ -1,0 +1,60 @@
+name: CI
+
+# 只跑「离线自测套件」:零额度、不起服务、不需要任何真实 API Key。
+# 需要真实数据 / 真实服务的套件不在此列(见文件末尾注释),仍在本机手动跑。
+on:
+  push:
+  pull_request:
+
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: 安装依赖
+        working-directory: novaagent
+        run: uv sync
+
+      - name: 离线自测套件
+        working-directory: novaagent
+        env:
+          PYTHONIOENCODING: utf-8
+          # 部分套件在 import 时校验演示口令存在(只校验、不真登录),给 CI 专用假口令即可
+          NOVA_DEMO_PASSWORD: ci-dummy-password
+          NOVA_SEED_ADMIN_PASSWORD: ci-dummy-admin
+          NOVA_SEED_COUNSELOR_PASSWORD: ci-dummy-counselor
+          NOVA_SEED_STUDENT_PASSWORD: ci-dummy-student
+        run: |
+          suites="
+            test_p4b_fix_gate
+            test_p4f_frontend_contract
+            test_p4f_persona
+            test_p4f_persona_eval
+            test_p4f_persona_eval_wiring
+            test_prompts_hygiene
+            test_records_board
+          "
+          failed=0
+          for t in $suites; do
+            echo "===== $t ====="
+            .venv/bin/python "tests/$t.py" || failed=1
+          done
+          exit $failed
+
+# 未纳入 CI 的套件及原因(均为本机手动运行):
+#   tests/smoke_test.py        —— 打真实服务、耗模型额度
+#   tests/probe_*.py           —— 需要服务已在运行
+#   tests/test_talk_minutes.py —— 迁移守恒校验要在本机真实 weekly.db 上跑(data/ 不入库)
+#   tests/test_p4f_c0.py       —— 2 条「非空前置」断言依赖本机真实语料副本
+#   tests/test_p5_shell.py     —— 同上,2 条断言依赖本机真实语料副本
