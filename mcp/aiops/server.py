@@ -16,7 +16,7 @@ stdout/stderr、playbook 只做取证序列;**绝不执行 restart/rm/exec 等�
 
 运行(宿主机 venv 形态,P3b 环境决策——容器内无 docker CLI/socket,实测见 docs/P3B.md):
   uv venv .venv && uv pip install "mcp==2.2.0"
-  NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe server.py   # :18081 /sse /mcp
+  NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe server.py   # :18081 /mcp(无状态)
 环境变量:PROMETHEUS_URL(默认 http://127.0.0.1:9090)、AIOPS_PORT(18081)、
   AIOPS_DOCKER_CONTAINER_MAP(service→容器名,逗号分隔)
 """
@@ -689,7 +689,9 @@ def gather_diagnosis(service: str, minutes: float = 15) -> str:
 
 
 if __name__ == "__main__":
-    # 双传输并存:SSE(/sse)+ Streamable HTTP(/mcp)——与 mcp/weekly 同构
+    # 2026-07-28 协议:只提供 Streamable HTTP(/mcp)无状态端点。
+    # 旧 HTTP+SSE 传输(/sse)已正式弃用,本服务不再挂载——与 mcp/weekly 同构。
+    # stateless_http=True:每个请求独立处理,不建协议会话、不接受 initialize 握手。
     from contextlib import asynccontextmanager
 
     import uvicorn
@@ -701,16 +703,14 @@ if __name__ == "__main__":
     host = os.environ.get("AIOPS_HOST", "127.0.0.1")
     port = int(os.environ.get("AIOPS_PORT", "18081"))
 
-    sse_asgi = mcp.sse_app(sse_path="/sse", message_path="/messages/", host=host)
-    http_asgi = mcp.streamable_http_app(streamable_http_path="/mcp", host=host)
+    http_asgi = mcp.streamable_http_app(streamable_http_path="/mcp", host=host, stateless_http=True)
 
     @asynccontextmanager
     async def lifespan(_app):
-        # streamable_http_app 的 lifespan 负责 StreamableHTTPSessionManager 启动,
-        # 必须带着跑,否则 /mcp 请求会报 task group 未初始化(weekly 同款)
+        # streamable_http_app 的 lifespan 负责任务组启动,必须带着跑,
+        # 否则 /mcp 请求会报 task group 未初始化(weekly 同款)
         async with http_asgi.router.lifespan_context(http_asgi):
-            async with sse_asgi.router.lifespan_context(sse_asgi):
-                yield
+            yield
 
-    app = Starlette(routes=[*http_asgi.routes, *sse_asgi.routes], lifespan=lifespan)
+    app = Starlette(routes=[*http_asgi.routes], lifespan=lifespan)
     uvicorn.run(app, host=host, port=port)

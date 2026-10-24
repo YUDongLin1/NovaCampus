@@ -32,7 +32,8 @@ split_date: 2026-09-27
 1. **NovaAgent 起不来/接口 500**:先看启动日志;缺配置项(LLM_API_KEY 等)会在 lifespan 直接报错;改过 `.env` 必须重建进程(环境变量仅在启动时读取)。
 2. **对话报"per-response output limit"**:思考模式耗尽输出预算——会话关闭思考,或在智能体设置把"最大生成Token数"调大到 8192。
 3. **文档解析失败但 docreader 阶段正常**:embedding 阶段 401 = key 未加载进容器,`docker exec WeKnora-app sh -c 'echo ${#EMBEDDING_API_KEY}'` 验证后 `docker compose up -d app` 重建(不是 restart)。
-4. **weekly MCP 工具刷新失败**:WeKnora 走 SSE(`http://weekly-mcp:8000/sse`);404 说明容器还是旧镜像,`docker compose -f docker-compose.weekly.yml up -d --build` 重建。
+4. **weekly MCP 工具刷新失败**:WeKnora 应走 Streamable HTTP(`http://weekly-mcp:8000/mcp`);`/sse` 已下线,
+   走旧 SSE 地址会 404;若 `/mcp` 也 404,说明容器还是旧镜像,`docker compose -f docker-compose.weekly.yml up -d --build` 重建。
 5. **本机代理干扰**:系统代理(VPN)会把 Python 客户端访问 localhost 的请求转发出去返回 502;测试时设置 `NO_PROXY=127.0.0.1,localhost`。
 
 ## 四、升级与回滚

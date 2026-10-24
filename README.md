@@ -583,7 +583,7 @@ cd mcp/aiops
 uv venv .venv && uv pip install "mcp==2.2.0"
 # 需要 sims 栈在跑，且宿主机有 docker 命令（查日志要用）
 NO_PROXY="127.0.0.1,localhost" PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe server.py
-# → http://127.0.0.1:18081（同时提供 /sse 与 /mcp 两种传输）
+# → http://127.0.0.1:18081（仅 Streamable HTTP /mcp 无状态端点）
 ```
 
 自测：

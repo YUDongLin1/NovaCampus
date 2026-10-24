@@ -1,4 +1,4 @@
-"""冒烟测试(P3b C3):同时验证 SSE(/sse)与 Streamable HTTP(/mcp)双传输下
+"""冒烟测试(P3b C3):验证 Streamable HTTP(/mcp,无状态)下
 7 个 AIOps 工具可见可调用(仿 mcp/weekly/tests/smoke_test.py)。
 
 用法:python tests/smoke_test.py http://127.0.0.1:18081
@@ -10,7 +10,7 @@ import json
 import sys
 
 from mcp import ClientSession
-from mcp.client.sse import sse_client
+from mcp.client._probe import negotiate_auto
 from mcp.client.streamable_http import streamable_http_client
 
 EXPECTED_TOOLS = {"get_service_status", "list_alerts", "query_metrics", "query_logs",
@@ -65,13 +65,9 @@ async def exercise(session, label: str) -> None:
 
 
 async def main(base: str) -> int:
-    async with sse_client(f"{base}/sse") as (r1, w1):
-        async with ClientSession(r1, w1) as s:
-            await s.initialize()
-            await exercise(s, "SSE")
     async with streamable_http_client(f"{base}/mcp") as (r2, w2):
         async with ClientSession(r2, w2) as s:
-            await s.initialize()
+            await negotiate_auto(s)
             await exercise(s, "StreamableHTTP")
     print("SMOKE TEST PASSED")
     return 0

@@ -34,6 +34,13 @@
 
 ### 变更
 
+- **两个 MCP 服务升级到 2026-07-28 协议**（周报 `mcp/weekly`、AIOps `mcp/aiops`，详见
+  `docs/mcp-2026-07-28-audit.md`）：`/mcp` 改为 `stateless_http=True` 无状态端点，每个请求独立
+  处理，不建协议会话、不接受 `initialize` 握手；旧 HTTP+SSE 传输（`/sse`）已正式弃用，本次
+  直接下线，客户端请一律走 `/mcp`。主服务侧 `weekly_client` 的显式 `initialize()` 改为 SDK
+  的时代协商（先探 `server/discover`，现代服务器走无状态流程，遇旧服务器自动回落握手）；
+  **周报降级与懒重连行为不变**。SDK 本就已是 `mcp==2.2.0`（支持 2026-07-28），无需升级版本。
+  注意：WeKnora 若仍用旧 SSE 地址注册，升级后需改到 `/mcp`。
 - **周报 MCP 改为降级连接**：主服务启动时连不上周报服务不再整体启动失败，照常启动，
   周报接口返回「weekly MCP 未连接」；周报服务后启动时，下一次周报调用自动重连
   （`weekly_client` 懒重连），**无需重启主服务**。`/api/health` 的 `weekly_mcp`
