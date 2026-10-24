@@ -1,14 +1,15 @@
-"""冒烟测试:同时验证 SSE(/sse,WeKnora 用)与 Streamable HTTP(/mcp)两种传输
+"""冒烟测试:验证 Streamable HTTP(/mcp,无状态)下
 
 用法:python tests/smoke_test.py http://127.0.0.1:18080
 本机代理会拦截 localhost,运行时须 NO_PROXY="127.0.0.1,localhost"。
 """
+
+from mcp.client._probe import negotiate_auto
 import asyncio
 import json
 import sys
 
 from mcp import ClientSession
-from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamable_http_client
 
 EXPECTED_TOOLS = {"add_fragment", "list_fragments", "delete_fragment", "render_weekly_report",
@@ -60,13 +61,9 @@ async def exercise(session, label: str, cleanup_ids: list[int]) -> None:
 
 
 async def main(base: str) -> int:
-    async with sse_client(f"{base}/sse") as (r1, w1):
-        async with ClientSession(r1, w1) as s:
-            await s.initialize()
-            await exercise(s, "SSE", [])
     async with streamable_http_client(f"{base}/mcp") as (r2, w2):
         async with ClientSession(r2, w2) as s:
-            await s.initialize()
+            await negotiate_auto(s)
             await exercise(s, "StreamableHTTP", [])
     print("SMOKE TEST PASSED")
     return 0

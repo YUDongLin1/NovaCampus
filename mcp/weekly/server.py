@@ -555,7 +555,9 @@ def delete_minutes(minutes_id: int) -> str:
 
 if __name__ == "__main__":
 
-    # 双传输并存:SSE(/sse,WeKnora MCP 客户端使用)+ Streamable HTTP(/mcp,通用客户端)
+    # 2026-07-28 协议:只提供 Streamable HTTP(/mcp)无状态端点。
+    # 旧 HTTP+SSE 传输(/sse)已正式弃用,本服务不再挂载;WeKnora 等客户端请改用 /mcp。
+    # stateless_http=True:每个请求独立处理,不建协议会话、不接受 initialize 握手。
     from contextlib import asynccontextmanager
 
     import uvicorn
@@ -567,16 +569,14 @@ if __name__ == "__main__":
     host = os.environ.get("WEEKLY_HOST", "127.0.0.1")
     port = int(os.environ.get("WEEKLY_PORT", "8000"))
 
-    sse_asgi = mcp.sse_app(sse_path="/sse", message_path="/messages/", host=host)
-    http_asgi = mcp.streamable_http_app(streamable_http_path="/mcp", host=host)
+    http_asgi = mcp.streamable_http_app(streamable_http_path="/mcp", host=host, stateless_http=True)
 
     @asynccontextmanager
     async def lifespan(_app):
-        # streamable_http_app 的 lifespan 负责 StreamableHTTPSessionManager 启动,
-        # 必须带着跑,否则 /mcp 请求会报 task group 未初始化
+        # streamable_http_app 的 lifespan 负责任务组启动,必须带着跑,
+        # 否则 /mcp 请求会报 task group 未初始化
         async with http_asgi.router.lifespan_context(http_asgi):
-            async with sse_asgi.router.lifespan_context(sse_asgi):
-                yield
+            yield
 
-    app = Starlette(routes=[*http_asgi.routes, *sse_asgi.routes], lifespan=lifespan)
+    app = Starlette(routes=[*http_asgi.routes], lifespan=lifespan)
     uvicorn.run(app, host=host, port=port)

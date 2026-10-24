@@ -74,7 +74,7 @@ service 名白名单校验防 promql 注入。**红线(run_playbook)**:steps 只
 - **C2** ✅ `fault_inject.py` 轮询行打印 `cpu=NNN.N%`、结束打印 `cpu_peak=`(纯标准库解析
   `{base}/metrics` 无 label 的 `process_cpu_percent`;解析失败降级 NA 且不改退出码);两种注入日志
   (`step2_pool_exhaust_cpu.log`/`step2_cpu_spike_cpu.log`)均见 CPU 数值。
-- **C3** ✅ 7 工具在 `/sse` 与 `/mcp` 双传输下可见可调用,`tests/smoke_test.py` 输出 `SMOKE TEST PASSED`。
+- **C3** ✅ 7 工具在 Streamable HTTP `/mcp`(无状态)下可见可调用,`tests/smoke_test.py` 输出 `SMOKE TEST PASSED`。
 - **C4** ✅ `tests/test_query_metrics_guard.py` 13 项:空/多语句/超长 promql 拒绝、admin/写类路径拒绝、
   service 名注入拒绝、401 点区间截断声明、语法错误 ok=false、时间 +0800/数值 4 位、mini-yaml 回退解析。
 - **C5** ✅ `tests/aiops_demo.py` 端到端跑通并落盘 `evidence/demo_pool_exhaust.txt`(DEMO PASSED)。
@@ -112,7 +112,7 @@ service 名白名单校验防 promql 注入。**红线(run_playbook)**:steps 只
 3. **query_metrics 的 window_s 语义**:`window_s: float | None = None`——None(缺省)=即时查询;传数值
    (如 300)=回看该秒数的区间查询。规格写"默认 300"指区间用法下的典型值;Python 无法区分"未传"与
    "传默认值",故用 None 表达"未传=即时"。
-4. **P3c 接入点**:URL `http://127.0.0.1:18081/mcp`(Streamable HTTP)或 `/sse`;建议 env
+4. **P3c 接入点**:URL `http://127.0.0.1:18081/mcp`(Streamable HTTP 无状态端点);建议 env
    `AIOPS_MCP_URL=http://127.0.0.1:18081/mcp`(对齐 `WEEKLY_MCP_URL` 写法);admin 角色可见(可见性
    控制在 P3c 的 main.py 侧实现,aiops 本身无鉴权——只读+本机端口)。
 5. **query_logs 依赖宿主 docker CLI**:aiops 为宿主机 venv 形态;若未来容器化,须挂

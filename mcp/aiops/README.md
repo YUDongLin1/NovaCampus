@@ -19,9 +19,9 @@ NovaAgent(P3c)诊断链的"手":收告警 → 查指标 → 捞日志 → 查变
 
 ```bash
 cd mcp/aiops
-uv venv .venv && uv pip install "mcp==2.2.0"   # mcp 自带 uvicorn/starlette/sse-starlette
+uv venv .venv && uv pip install "mcp==2.2.0"   # mcp 自带 uvicorn/starlette
 NO_PROXY="127.0.0.1,localhost" PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe server.py
-# → http://127.0.0.1:18081  双传输 /sse 与 /mcp
+# → http://127.0.0.1:18081  仅 Streamable HTTP /mcp(无状态)
 ```
 
 前置:sims 监控栈在跑(`docker compose -f docker-compose.sims.yml up -d`)、Prometheus :9090

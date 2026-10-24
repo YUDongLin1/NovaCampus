@@ -36,7 +36,8 @@ NO_PROXY="127.0.0.1,localhost" .venv/Scripts/python.exe tests/smoke_test.py http
 
 1. 确认 `weknora/.env` 已有 `SSRF_WHITELIST=weekly-mcp`(内网 MCP 主机名需过 SSRF 校验),且 app 容器已重建生效
 2. WeKnora 前端 → 工具箱 → MCP 服务 → 添加:
-   - **传输类型选 SSE**,URL:`http://weekly-mcp:8000/sse`(v0.8.2 MCP 客户端走 SSE;服务端同时挂了 Streamable HTTP `/mcp` 供 Cursor 等其他客户端使用)
+   - **传输类型选 Streamable HTTP**,URL:`http://weekly-mcp:8000/mcp`(2026-07-28 协议无状态端点;
+     旧 SSE 传输 `/sse` 已下线,不要再选 SSE)
    - 按向导完成工具发现与启用(建议 5 个工具全开)
 3. 试用 prompt:"帮我记一条今天的碎片:和大二的小王谈了补考压力,已约心理中心" → "把本周的碎片整理成周报" → 确认后让它归档
 
